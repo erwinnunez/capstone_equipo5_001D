@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 
 class CesfamCreate(BaseModel):
-    id_cesfam: int
     id_comuna: int
     nombre_cesfam: str
     telefono: str | None = None
