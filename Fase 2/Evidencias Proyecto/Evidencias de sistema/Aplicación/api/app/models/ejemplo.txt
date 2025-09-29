@@ -1,0 +1,17 @@
+# app/models/<tabla>.py
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
+from app.models.base import Base
+
+class <PascalCaseNombreTabla>(Base):
+    __tablename__ = "<nombre_tabla>"   # exactamente como en tu BD
+
+    # === define columnas según tu ERD ===
+    # ejemplo genérico:
+    id = Column(Integer, primary_key=True, index=True)
+    # ... agrega el resto de columnas
+    # si hay FK:
+    # paciente_id = Column(Integer, ForeignKey("paciente.rut_paciente"), nullable=False)
+
+    # === define relaciones si aplica ===
+    # paciente = relationship("Paciente", back_populates="mediciones")

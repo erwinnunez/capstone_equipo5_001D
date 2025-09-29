@@ -1,0 +1,19 @@
+# app/schemas/<tabla>.py
+from datetime import datetime
+from pydantic import BaseModel
+
+class <Tabla>Create(BaseModel):
+    # campos requeridos para crear
+    pass
+
+class <Tabla>Update(BaseModel):
+    # campos opcionales para actualizar
+    pass
+
+class <Tabla>Out(BaseModel):
+    # campos que expones en la API
+    # incluye el PK
+    id: int | None = None
+
+    class Config:
+        from_attributes = True  # pydantic v2

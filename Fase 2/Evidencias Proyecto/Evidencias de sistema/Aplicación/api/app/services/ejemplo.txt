@@ -1,0 +1,30 @@
+# app/services/<tabla>.py
+from sqlalchemy.orm import Session
+from app.models.<tabla> import <PascalCaseNombreTabla>
+from app.schemas.<tabla> import <Tabla>Create, <Tabla>Update
+
+def list_(db: Session, skip: int = 0, limit: int = 20):
+    q = db.query(<PascalCaseNombreTabla>).offset(skip).limit(limit)
+    return q.all(), db.query(<PascalCaseNombreTabla>).count()
+
+def get(db: Session, id_: int):
+    return db.get(<PascalCaseNombreTabla>, id_)
+
+def create(db: Session, data: <Tabla>Create):
+    obj = <PascalCaseNombreTabla>(**data.model_dump(exclude_none=True))
+    db.add(obj); db.commit(); db.refresh(obj)
+    return obj
+
+def update(db: Session, id_: int, data: <Tabla>Update):
+    obj = get(db, id_)
+    if not obj: return None
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(obj, k, v)
+    db.commit(); db.refresh(obj)
+    return obj
+
+def delete(db: Session, id_: int):
+    obj = get(db, id_)
+    if not obj: return False
+    db.delete(obj); db.commit()
+    return True
