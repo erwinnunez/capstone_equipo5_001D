@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 
 class ComunaCreate(BaseModel):
+    id_comuna: int
     id_region: int
     nombre_comuna: str
 

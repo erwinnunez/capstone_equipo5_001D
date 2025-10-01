@@ -1,16 +1,16 @@
 from pydantic import BaseModel
-from typing import Optional
 
-class ParametroClinicoBase(BaseModel):
+class ParametroClinicoCreate(BaseModel):
+    nombre_parametro: str
     id_unidad: int
-    codigo: str
-    descripcion: str
-    rango_ref_min: Optional[int] = None
-    rango_ref_max: Optional[int] = None
-    activo: bool = True
 
-class ParametroClinicoCreate(ParametroClinicoBase):
-    pass
+class ParametroClinicoUpdate(BaseModel):
+    nombre_parametro: str | None = None
+    id_unidad: int | None = None
 
-class ParametroClinicoRead(ParametroClinicoBase):
+class ParametroClinicoOut(BaseModel):
     id_parametro: int
+    nombre_parametro: str
+    id_unidad: int
+    class Config:
+        from_attributes = True

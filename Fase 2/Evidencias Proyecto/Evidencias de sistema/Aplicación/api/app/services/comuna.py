@@ -7,7 +7,7 @@ def list_(db: Session, skip: int, limit: int, id_region: int | None = None):
     if id_region is not None:
         q = q.filter(Comuna.id_region == id_region)
     total = q.count()
-    items = q.offset(skip).limit(limit).all()
+    items = q.order_by(Comuna.id_comuna).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, id_comuna: int):

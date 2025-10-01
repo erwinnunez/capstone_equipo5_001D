@@ -1,36 +1,40 @@
 from sqlalchemy.orm import Session
 from app.models.paciente_cuidador import PacienteCuidador
-from app.schemas.paciente_cuidador import PacienteCuidadorCreate
+from app.schemas.paciente_cuidador import PacienteCuidadorCreate, PacienteCuidadorUpdate
 
-def list_(
-    db: Session, skip: int, limit: int,
-    rut_paciente: int | None = None,
-    rut_cuidador: int | None = None,
-    activo: bool | None = None
-):
-    query = db.query(PacienteCuidador)
+def list_(db: Session, skip: int, limit: int,
+          rut_paciente: int | None = None,
+          rut_cuidador: int | None = None,
+          activo: bool | None = None):
+    q = db.query(PacienteCuidador)
     if rut_paciente is not None:
-        query = query.filter(PacienteCuidador.rut_paciente == rut_paciente)
+        q = q.filter(PacienteCuidador.rut_paciente == rut_paciente)
     if rut_cuidador is not None:
-        query = query.filter(PacienteCuidador.rut_cuidador == rut_cuidador)
+        q = q.filter(PacienteCuidador.rut_cuidador == rut_cuidador)
     if activo is not None:
-        query = query.filter(PacienteCuidador.activo == activo)
-
-    total = query.count()
-    items = query.order_by(PacienteCuidador.id.desc()).offset(skip).limit(limit).all()
+        q = q.filter(PacienteCuidador.activo == activo)
+    total = q.count()
+    items = q.order_by(PacienteCuidador.id_pcuid.desc()).offset(skip).limit(limit).all()
     return items, total
 
-def get(db: Session, id_: int):
-    return db.get(PacienteCuidador, id_)
+def get(db: Session, id_pcuid: int):
+    return db.get(PacienteCuidador, id_pcuid)
 
 def create(db: Session, data: PacienteCuidadorCreate):
     obj = PacienteCuidador(**data.model_dump())
     db.add(obj); db.commit(); db.refresh(obj)
     return obj
 
-def delete(db: Session, id_: int):
-    obj = get(db, id_)
-    if not obj:
-        return False
+def update(db: Session, id_pcuid: int, data: PacienteCuidadorUpdate):
+    obj = get(db, id_pcuid)
+    if not obj: return None
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(obj, k, v)
+    db.commit(); db.refresh(obj)
+    return obj
+
+def delete(db: Session, id_pcuid: int):
+    obj = get(db, id_pcuid)
+    if not obj: return False
     db.delete(obj); db.commit()
     return True

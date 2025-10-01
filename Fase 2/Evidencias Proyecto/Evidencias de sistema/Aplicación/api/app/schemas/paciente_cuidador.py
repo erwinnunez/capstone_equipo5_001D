@@ -1,18 +1,27 @@
 from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
 
-class PacienteCuidadorBase(BaseModel):
+class PacienteCuidadorCreate(BaseModel):
     rut_paciente: int
     rut_cuidador: int
-    permiso_registro: bool = False
-    permiso_lectura: bool = True
-    fecha_inicio: Optional[datetime] = None
-    fecha_fin: Optional[datetime] = None
+    relacion: str | None = None
+    fecha_inicio: datetime | None = None
+    fecha_fin: datetime | None = None
     activo: bool = True
 
-class PacienteCuidadorCreate(PacienteCuidadorBase):
-    pass
+class PacienteCuidadorUpdate(BaseModel):
+    relacion: str | None = None
+    fecha_inicio: datetime | None = None
+    fecha_fin: datetime | None = None
+    activo: bool | None = None
 
-class PacienteCuidadorRead(PacienteCuidadorBase):
-    id: int
+class PacienteCuidadorOut(BaseModel):
+    id_pcuid: int
+    rut_paciente: int
+    rut_cuidador: int
+    relacion: str | None = None
+    fecha_inicio: datetime | None = None
+    fecha_fin: datetime | None = None
+    activo: bool
+    class Config:
+        from_attributes = True

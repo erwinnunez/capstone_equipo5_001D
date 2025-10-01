@@ -1,12 +1,8 @@
 from sqlalchemy.orm import Session
 from app.models.cuidador import Cuidador
-from app.schemas.cuidador import CuidadorCreate
+from app.schemas.cuidador import CuidadorCreate, CuidadorUpdate
 
-def list_(
-    db: Session, skip: int, limit: int,
-    estado: bool | None = None,
-    q: str | None = None
-):
+def list_(db: Session, skip: int, limit: int, estado: bool | None = None, q: str | None = None):
     query = db.query(Cuidador)
     if estado is not None:
         query = query.filter(Cuidador.estado == estado)
@@ -29,3 +25,17 @@ def create(db: Session, data: CuidadorCreate):
     obj = Cuidador(**data.model_dump())
     db.add(obj); db.commit(); db.refresh(obj)
     return obj
+
+def update(db: Session, rut_cuidador: int, data: CuidadorUpdate):
+    obj = get(db, rut_cuidador)
+    if not obj: return None
+    for k, v in data.model_dump(exclude_none=True).items():
+        setattr(obj, k, v)
+    db.commit(); db.refresh(obj)
+    return obj
+
+def delete(db: Session, rut_cuidador: int):
+    obj = get(db, rut_cuidador)
+    if not obj: return False
+    db.delete(obj); db.commit()
+    return True

@@ -5,7 +5,7 @@ from app.schemas.region import RegionCreate, RegionUpdate
 def list_(db: Session, skip: int, limit: int):
     q = db.query(Region)
     total = q.count()
-    items = q.offset(skip).limit(limit).all()
+    items = q.order_by(Region.id_region).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, id_region: int):

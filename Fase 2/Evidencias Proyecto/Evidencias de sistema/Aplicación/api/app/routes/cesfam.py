@@ -8,12 +8,7 @@ from app.services import cesfam as svc
 router = APIRouter(prefix="/cesfam", tags=["cesfam"])
 
 @router.get("", response_model=Page[CesfamOut])
-def list_cesfam(
-    page: int = 1,
-    page_size: int = 20,
-    id_comuna: int | None = Query(default=None),
-    db: Session = Depends(get_db)
-):
+def list_cesfam(page: int = 1, page_size: int = 20, id_comuna: int | None = Query(None), db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, id_comuna=id_comuna)
     return Page(items=items, total=total, page=page, page_size=page_size)
 

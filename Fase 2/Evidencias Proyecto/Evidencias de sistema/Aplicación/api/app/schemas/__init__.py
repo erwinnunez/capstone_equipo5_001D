@@ -1,0 +1,13 @@
+from .paciente_cesfam import PacienteCesfamCreate, PacienteCesfamUpdate, PacienteCesfamOut
+from .paciente_historial import PacienteHistorialCreate, PacienteHistorialOut
+from .cuidador_historial import CuidadorHistorialCreate, CuidadorHistorialOut
+from .equipo_medico import EquipoMedicoCreate, EquipoMedicoUpdate, EquipoMedicoOut
+from .medico_historial import MedicoHistorialCreate, MedicoHistorialOut
+from .nota_clinica import NotaClinicaCreate, NotaClinicaUpdate, NotaClinicaOut
+from .gamificacion_perfil import GamificacionPerfilCreate, GamificacionPerfilUpdate, GamificacionPerfilOut
+from .evento_gamificacion import EventoGamificacionCreate, EventoGamificacionOut
+from .insignia import InsigniaCreate, InsigniaUpdate, InsigniaOut
+from .usuario_insignia import UsuarioInsigniaCreate, UsuarioInsigniaOut
+from .solicitud_reporte import SolicitudReporteCreate, SolicitudReporteUpdate, SolicitudReporteOut
+from .descarga_reporte import DescargaReporteCreate, DescargaReporteOut
+from.rango_paciente import RangoPacienteCreate,RangoPacienteOut,RangoPacienteUpdate

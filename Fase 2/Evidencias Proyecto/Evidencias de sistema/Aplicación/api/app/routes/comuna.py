@@ -8,12 +8,7 @@ from app.services import comuna as svc
 router = APIRouter(prefix="/comuna", tags=["comuna"])
 
 @router.get("", response_model=Page[ComunaOut])
-def list_comuna(
-    page: int = 1,
-    page_size: int = 20,
-    id_region: int | None = Query(default=None),
-    db: Session = Depends(get_db)
-):
+def list_comuna(page: int = 1, page_size: int = 20, id_region: int | None = Query(None), db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, id_region=id_region)
     return Page(items=items, total=total, page=page, page_size=page_size)
 

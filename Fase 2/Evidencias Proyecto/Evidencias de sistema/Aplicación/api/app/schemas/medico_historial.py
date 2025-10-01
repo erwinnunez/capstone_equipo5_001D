@@ -1,17 +1,18 @@
 from pydantic import BaseModel
 from datetime import datetime
 
-class CuidadorHistorialCreate(BaseModel):
-    rut_cuidador: int
+class MedicoHistorialCreate(BaseModel):
+    rut_medico: int
     fecha_cambio: datetime | None = None
     cambio: str | None = None
     resultado: bool | None = None
 
-class CuidadorHistorialOut(BaseModel):
+class MedicoHistorialOut(BaseModel):
     historial_id: int
-    rut_cuidador: int
+    rut_medico: int
     fecha_cambio: datetime
     cambio: str | None = None
     resultado: bool | None = None
+
     class Config:
         from_attributes = True

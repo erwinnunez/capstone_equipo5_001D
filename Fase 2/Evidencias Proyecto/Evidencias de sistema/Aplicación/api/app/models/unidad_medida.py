@@ -4,8 +4,9 @@ from app.db import Base
 
 class UnidadMedida(Base):
     __tablename__ = "unidad_medida"
+
     id_unidad = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    codigo = Column(String(20), unique=True, nullable=False, index=True)
-    descripcion = Column(String(100), nullable=False)
+    nombre_unidad = Column(String, nullable=False, unique=True)
+    simbolo = Column(String, nullable=True)
 
     parametros = relationship("ParametroClinico", back_populates="unidad", cascade="all,delete")

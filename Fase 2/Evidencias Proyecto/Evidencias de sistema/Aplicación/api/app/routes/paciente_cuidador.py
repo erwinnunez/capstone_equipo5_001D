@@ -1,17 +1,35 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from app.db import get_db
-from app.models.paciente_cuidador import PacienteCuidador
-from app.schemas.paciente_cuidador import PacienteCuidadorCreate, PacienteCuidadorRead
+from app.schemas.common import Page
+from app.schemas.paciente_cuidador import PacienteCuidadorCreate, PacienteCuidadorUpdate, PacienteCuidadorOut
+from app.services import paciente_cuidador as svc
 
-router = APIRouter(prefix="/paciente-cuidador", tags=["Paciente–Cuidador"])
+router = APIRouter(prefix="/paciente-cuidador", tags=["paciente_cuidador"])
 
-@router.post("", response_model=PacienteCuidadorRead, status_code=201)
-def vincular(data: PacienteCuidadorCreate, db: Session = Depends(get_db)):
-    obj = PacienteCuidador(**data.model_dump())
-    db.add(obj); db.commit(); db.refresh(obj)
+@router.get("", response_model=Page[PacienteCuidadorOut])
+def list_pcuid(page: int = 1, page_size: int = 20, rut_paciente: int | None = Query(None), rut_cuidador: int | None = Query(None), activo: bool | None = Query(None), db: Session = Depends(get_db)):
+    items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_paciente=rut_paciente, rut_cuidador=rut_cuidador, activo=activo)
+    return Page(items=items, total=total, page=page, page_size=page_size)
+
+@router.get("/{id_pcuid}", response_model=PacienteCuidadorOut)
+def get_pcuid(id_pcuid: int, db: Session = Depends(get_db)):
+    obj = svc.get(db, id_pcuid)
+    if not obj: raise HTTPException(404, "Not found")
     return obj
 
-@router.get("", response_model=list[PacienteCuidadorRead])
-def listar(db: Session = Depends(get_db)):
-    return db.query(PacienteCuidador).all()
+@router.post("", response_model=PacienteCuidadorOut, status_code=status.HTTP_201_CREATED)
+def create_pcuid(payload: PacienteCuidadorCreate, db: Session = Depends(get_db)):
+    return svc.create(db, payload)
+
+@router.patch("/{id_pcuid}", response_model=PacienteCuidadorOut)
+def update_pcuid(id_pcuid: int, payload: PacienteCuidadorUpdate, db: Session = Depends(get_db)):
+    obj = svc.update(db, id_pcuid, payload)
+    if not obj: raise HTTPException(404, "Not found")
+    return obj
+
+@router.delete("/{id_pcuid}")
+def delete_pcuid(id_pcuid: int, db: Session = Depends(get_db)):
+    ok = svc.delete(db, id_pcuid)
+    if not ok: raise HTTPException(404, "Not found")
+    return {"message": "Deleted"}
