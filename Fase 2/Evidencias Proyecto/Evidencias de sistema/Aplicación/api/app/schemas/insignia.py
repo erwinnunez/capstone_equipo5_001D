@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 
 class InsigniaCreate(BaseModel):
-    codigo: str
     nombre_insignia: str
     descripcion: str | None = None
 

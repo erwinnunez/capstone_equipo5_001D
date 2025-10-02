@@ -4,8 +4,6 @@ from datetime import datetime
 class SolicitudReporteCreate(BaseModel):
     rut_medico: int
     rut_paciente: int
-    estado: str = "pendiente"
-    creado_en: datetime | None = None
     observacion: str | None = None
 
 class SolicitudReporteUpdate(BaseModel):

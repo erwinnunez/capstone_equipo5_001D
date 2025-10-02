@@ -6,7 +6,6 @@ class NotaClinicaCreate(BaseModel):
     rut_paciente: int
     rut_medico: int
     id_cesfam: int
-    fecha_registro: Optional[datetime] = None
     observacion: Optional[str] = None
     evidencia_bin: Optional[str] = None
     evidencia_url: Optional[str] = None

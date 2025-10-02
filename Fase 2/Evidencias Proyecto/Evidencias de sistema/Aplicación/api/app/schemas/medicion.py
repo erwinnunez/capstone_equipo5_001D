@@ -8,8 +8,6 @@ class MedicionCreate(BaseModel):
     id_parametro: int
     valor_num: Optional[float] = None
     valor_txt: Optional[str] = None
-    fecha_lectura: Optional[datetime] = None
-    enviada_bn: bool = False
     severidad_max: Optional[int] = None
     resumen_alerta: Optional[str] = None
     detalles: List[MedicionDetalleCreate] = []

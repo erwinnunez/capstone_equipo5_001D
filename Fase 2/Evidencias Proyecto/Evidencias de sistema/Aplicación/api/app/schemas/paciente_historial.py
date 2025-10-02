@@ -3,7 +3,6 @@ from datetime import datetime
 
 class PacienteHistorialCreate(BaseModel):
     rut_paciente: int
-    fecha_cambio: datetime | None = None
     cambio: str | None = None
     resultado: bool | None = None
 

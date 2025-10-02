@@ -5,9 +5,7 @@ class PacienteCuidadorCreate(BaseModel):
     rut_paciente: int
     rut_cuidador: int
     relacion: str | None = None
-    fecha_inicio: datetime | None = None
     fecha_fin: datetime | None = None
-    activo: bool = True
 
 class PacienteCuidadorUpdate(BaseModel):
     relacion: str | None = None

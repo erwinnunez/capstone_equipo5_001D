@@ -5,7 +5,6 @@ class GamificacionPerfilCreate(BaseModel):
     rut_paciente: int
     puntos: int = 0
     racha_dias: int = 0
-    ultima_actividad: datetime | None = None
 
 class GamificacionPerfilUpdate(BaseModel):
     puntos: int | None = None

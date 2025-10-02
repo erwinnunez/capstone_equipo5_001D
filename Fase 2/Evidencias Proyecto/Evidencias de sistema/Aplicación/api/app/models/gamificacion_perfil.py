@@ -7,7 +7,7 @@ class GamificacionPerfil(Base):
     __tablename__ = "gamificacion_perfil"
 
     rut_paciente = Column(Integer, ForeignKey("paciente.rut_paciente", ondelete="CASCADE"),
-                          primary_key=True, index=True)
+                        primary_key=True, index=True)
     puntos = Column(Integer, nullable=False, default=0)
     racha_dias = Column(Integer, nullable=False, default=0)
     ultima_actividad = Column(DateTime, nullable=True, default=datetime.utcnow)

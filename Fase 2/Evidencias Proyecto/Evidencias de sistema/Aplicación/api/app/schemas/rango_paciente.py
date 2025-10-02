@@ -8,10 +8,7 @@ class RangoPacienteCreate(BaseModel):
     max_normal: int | None = None
     min_critico: int | None = None
     max_critico: int | None = None
-    vigencia_desde: datetime | None = None
     vigencia_hasta: datetime | None = None
-    version: int = 1
-    definido_por: bool = False
 
 class RangoPacienteUpdate(BaseModel):
     min_normal: int | None = None

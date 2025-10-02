@@ -1,5 +1,8 @@
 from pydantic import BaseModel
 from datetime import date
+from typing import List
+
+from .medicina import MedicinaOut
 
 class PacienteCreate(BaseModel):
     rut_paciente: int
@@ -32,5 +35,6 @@ class PacienteOut(BaseModel):
     telefono: str | None = None
     email: str | None = None
     estado: bool
+    medicinas: List[MedicinaOut] = [] 
     class Config:
         from_attributes = True

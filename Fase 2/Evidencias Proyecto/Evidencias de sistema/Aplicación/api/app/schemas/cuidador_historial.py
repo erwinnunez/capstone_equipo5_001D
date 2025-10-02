@@ -3,7 +3,6 @@ from datetime import datetime
 
 class CuidadorHistorialCreate(BaseModel):
     rut_cuidador: int
-    fecha_cambio: datetime | None = None
     cambio: str | None = None
     resultado: bool | None = None
 
