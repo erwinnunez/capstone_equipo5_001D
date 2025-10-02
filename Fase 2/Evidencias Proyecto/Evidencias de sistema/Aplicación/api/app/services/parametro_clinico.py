@@ -2,15 +2,14 @@ from sqlalchemy.orm import Session
 from app.models.parametro_clinico import ParametroClinico
 from app.schemas.parametro_clinico import ParametroClinicoCreate, ParametroClinicoUpdate
 
-def list_(db: Session, skip: int, limit: int, id_unidad: int | None = None, q: str | None = None):
-    qy = db.query(ParametroClinico)
+def list_(db: Session, skip: int, limit: int, id_unidad: int | None = None, codigo: str | None = None):
+    q = db.query(ParametroClinico)
     if id_unidad is not None:
-        qy = qy.filter(ParametroClinico.id_unidad == id_unidad)
-    if q:
-        like = f"%{q}%"
-        qy = qy.filter(ParametroClinico.nombre_parametro.ilike(like))
-    total = qy.count()
-    items = qy.order_by(ParametroClinico.id_parametro).offset(skip).limit(limit).all()
+        q = q.filter(ParametroClinico.id_unidad == id_unidad)
+    if codigo:
+        q = q.filter(ParametroClinico.codigo == codigo)
+    total = q.count()
+    items = q.order_by(ParametroClinico.id_parametro).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, id_parametro: int):

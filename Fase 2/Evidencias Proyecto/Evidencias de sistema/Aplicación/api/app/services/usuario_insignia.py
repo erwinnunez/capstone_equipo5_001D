@@ -2,23 +2,18 @@ from sqlalchemy.orm import Session
 from app.models.usuario_insignia import UsuarioInsignia
 from app.schemas.usuario_insignia import UsuarioInsigniaCreate
 
-def list_(db: Session, skip: int, limit: int,
-          rut_paciente: int | None = None,
-          id_insignia: int | None = None):
+def list_(db: Session, skip: int, limit: int, rut_paciente: int | None = None, id_insignia: int | None = None):
     q = db.query(UsuarioInsignia)
     if rut_paciente is not None:
         q = q.filter(UsuarioInsignia.rut_paciente == rut_paciente)
     if id_insignia is not None:
         q = q.filter(UsuarioInsignia.id_insignia == id_insignia)
     total = q.count()
-    items = q.order_by(UsuarioInsignia.otorgada_en.desc()).offset(skip).limit(limit).all()
+    items = q.order_by(UsuarioInsignia.rut_paciente, UsuarioInsignia.id_insignia).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, rut_paciente: int, id_insignia: int):
-    return db.query(UsuarioInsignia).filter(
-        UsuarioInsignia.rut_paciente == rut_paciente,
-        UsuarioInsignia.id_insignia == id_insignia
-    ).first()
+    return db.query(UsuarioInsignia).get((rut_paciente, id_insignia))
 
 def create(db: Session, data: UsuarioInsigniaCreate):
     obj = UsuarioInsignia(**data.model_dump())

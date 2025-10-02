@@ -1,23 +1,25 @@
 from pydantic import BaseModel
-from typing import Optional
 
 class MedicinaCreate(BaseModel):
+    id_unidad: int
     nombre: str
-    dosis: int
-    instrucciones: str = None
+    instrucciones: str
+    toma_maxima: str
+    efectos: str
 
-class MedicinaCreateUpdate(BaseModel): 
-    nombre: Optional[str] = None
-    dosis: Optional[str] = None
-    instrucciones: Optional[str] = None
+class MedicinaUpdate(BaseModel):
+    id_unidad: int | None = None
+    nombre: str | None = None
+    instrucciones: str | None = None
+    toma_maxima: str | None = None
+    efectos: str | None = None
 
 class MedicinaOut(BaseModel):
-    id_medicina: int 
+    id_medicina: int
+    id_unidad: int
     nombre: str
-    dosis: str
     instrucciones: str
+    toma_maxima: str
+    efectos: str
     class Config:
         from_attributes = True
-
-class Medicinaporpaciente(BaseModel):
-    rut_paciente: int

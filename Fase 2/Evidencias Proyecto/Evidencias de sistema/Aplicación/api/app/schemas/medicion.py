@@ -1,37 +1,37 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import List, Optional
-from .medicion_detalle import MedicionDetalleCreate, MedicionDetalleOut
 
 class MedicionCreate(BaseModel):
     rut_paciente: int
-    id_parametro: int
-    valor_num: Optional[float] = None
-    valor_txt: Optional[str] = None
-    severidad_max: Optional[int] = None
-    resumen_alerta: Optional[str] = None
-    detalles: List[MedicionDetalleCreate] = []
+    fecha_registro: datetime
+    origen: str
+    registrado_por: str
+    observacion: str
+    evaluada_en: datetime
+    tiene_alerta: bool
+    severidad_max: str
+    resumen_alerta: str
 
 class MedicionUpdate(BaseModel):
-    rut_paciente: Optional[int] = None
-    id_parametro: Optional[int] = None
-    valor_num: Optional[float] = None
-    valor_txt: Optional[str] = None
-    fecha_lectura: Optional[datetime] = None
-    enviada_bn: Optional[bool] = None
-    severidad_max: Optional[int] = None
-    resumen_alerta: Optional[str] = None
+    fecha_registro: datetime | None = None
+    origen: str | None = None
+    registrado_por: str | None = None
+    observacion: str | None = None
+    evaluada_en: datetime | None = None
+    tiene_alerta: bool | None = None
+    severidad_max: str | None = None
+    resumen_alerta: str | None = None
 
 class MedicionOut(BaseModel):
-    id_registro: int
+    id_medicion: int
     rut_paciente: int
-    id_parametro: int
-    valor_num: Optional[float] = None
-    valor_txt: Optional[str] = None
-    fecha_lectura: datetime
-    enviada_bn: bool
-    severidad_max: Optional[int] = None
-    resumen_alerta: Optional[str] = None
-    detalles: List[MedicionDetalleOut] = []
+    fecha_registro: datetime
+    origen: str
+    registrado_por: str
+    observacion: str
+    evaluada_en: datetime
+    tiene_alerta: bool
+    severidad_max: str
+    resumen_alerta: str
     class Config:
         from_attributes = True

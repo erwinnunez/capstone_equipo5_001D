@@ -5,11 +5,14 @@ from app.schemas.common import Page
 from app.schemas.parametro_clinico import ParametroClinicoCreate, ParametroClinicoUpdate, ParametroClinicoOut
 from app.services import parametro_clinico as svc
 
-router = APIRouter(prefix="/parametro-clinico", tags=["parametro_clinico"])
+router = APIRouter(prefix="/parametro-clinico", tags=["parametros"])
 
 @router.get("", response_model=Page[ParametroClinicoOut])
-def list_param(page: int = 1, page_size: int = 20, id_unidad: int | None = Query(None), q: str | None = Query(None), db: Session = Depends(get_db)):
-    items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, id_unidad=id_unidad, q=q)
+def list_param(page: int = 1, page_size: int = 20,
+               id_unidad: int | None = Query(None),
+               codigo: str | None = Query(None),
+               db: Session = Depends(get_db)):
+    items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, id_unidad=id_unidad, codigo=codigo)
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 @router.get("/{id_parametro}", response_model=ParametroClinicoOut)

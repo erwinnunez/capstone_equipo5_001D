@@ -2,16 +2,14 @@ from sqlalchemy.orm import Session
 from app.models.medicion_detalle import MedicionDetalle
 from app.schemas.medicion_detalle import MedicionDetalleCreate, MedicionDetalleUpdate
 
-def list_(db: Session, skip: int, limit: int,
-          id_registro: int | None = None,
-          id_parametro: int | None = None):
+def list_(db: Session, skip: int, limit: int, id_medicion: int | None = None, id_parametro: int | None = None):
     q = db.query(MedicionDetalle)
-    if id_registro is not None:
-        q = q.filter(MedicionDetalle.id_registro == id_registro)
+    if id_medicion is not None:
+        q = q.filter(MedicionDetalle.id_medicion == id_medicion)
     if id_parametro is not None:
         q = q.filter(MedicionDetalle.id_parametro == id_parametro)
     total = q.count()
-    items = q.order_by(MedicionDetalle.id_detalle.desc()).offset(skip).limit(limit).all()
+    items = q.order_by(MedicionDetalle.id_detalle).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, id_detalle: int):

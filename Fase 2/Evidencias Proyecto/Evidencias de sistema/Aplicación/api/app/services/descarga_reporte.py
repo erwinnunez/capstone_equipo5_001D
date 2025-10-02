@@ -1,14 +1,19 @@
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.models.descarga_reporte import DescargaReporte
 from app.schemas.descarga_reporte import DescargaReporteCreate
 
-def list_(db: Session, skip: int, limit: int,
-          rut_medico: int | None = None, id_reporte: int | None = None):
+def list_(db: Session, skip: int, limit: int, rut_medico: int | None = None, id_reporte: int | None = None,
+          desde: datetime | None = None, hasta: datetime | None = None):
     q = db.query(DescargaReporte)
     if rut_medico is not None:
         q = q.filter(DescargaReporte.rut_medico == rut_medico)
     if id_reporte is not None:
         q = q.filter(DescargaReporte.id_reporte == id_reporte)
+    if desde:
+        q = q.filter(DescargaReporte.descargado_en >= desde)
+    if hasta:
+        q = q.filter(DescargaReporte.descargado_en < hasta)
     total = q.count()
     items = q.order_by(DescargaReporte.descargado_en.desc()).offset(skip).limit(limit).all()
     return items, total

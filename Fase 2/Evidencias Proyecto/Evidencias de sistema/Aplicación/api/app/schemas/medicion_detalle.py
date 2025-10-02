@@ -1,28 +1,39 @@
 from pydantic import BaseModel
-from typing import Optional
 
 class MedicionDetalleCreate(BaseModel):
-    id_registro: int
+    id_medicion: int
     id_parametro: int
-    valor_num: Optional[float] = None
-    valor_txt: Optional[str] = None
-    umbral_min: Optional[int] = None
-    umbral_max: Optional[int] = None
+    id_unidad: int
+    valor_num: int
+    valor_texto: str
+    fuera_rango: bool
+    severidad: str
+    umbral_min: int
+    umbral_max: int
+    tipo_alerta: str
 
 class MedicionDetalleUpdate(BaseModel):
-    id_parametro: Optional[int] = None
-    valor_num: Optional[float] = None
-    valor_txt: Optional[str] = None
-    umbral_min: Optional[int] = None
-    umbral_max: Optional[int] = None
+    id_parametro: int | None = None
+    id_unidad: int | None = None
+    valor_num: int | None = None
+    valor_texto: str | None = None
+    fuera_rango: bool | None = None
+    severidad: str | None = None
+    umbral_min: int | None = None
+    umbral_max: int | None = None
+    tipo_alerta: str | None = None
 
 class MedicionDetalleOut(BaseModel):
     id_detalle: int
-    id_registro: int
+    id_medicion: int
     id_parametro: int
-    valor_num: Optional[float] = None
-    valor_txt: Optional[str] = None
-    umbral_min: Optional[int] = None
-    umbral_max: Optional[int] = None
+    id_unidad: int
+    valor_num: int
+    valor_texto: str
+    fuera_rango: bool
+    severidad: str
+    umbral_min: int
+    umbral_max: int
+    tipo_alerta: str
     class Config:
         from_attributes = True

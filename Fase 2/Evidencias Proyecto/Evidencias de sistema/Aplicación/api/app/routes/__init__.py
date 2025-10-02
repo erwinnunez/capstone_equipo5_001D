@@ -3,7 +3,6 @@ from .comuna import router as comuna_router
 from .cesfam import router as cesfam_router
 
 from .paciente import router as paciente_router
-from .paciente_cesfam import router as paciente_cesfam_router
 from .paciente_cuidador import router as paciente_cuidador_router
 from .paciente_historial import router as paciente_historial_router
 
@@ -36,7 +35,6 @@ ALL_ROUTERS = [
     comuna_router,
     cesfam_router,
     paciente_router,
-    paciente_cesfam_router,
     paciente_cuidador_router,
     paciente_historial_router,
     cuidador_router,

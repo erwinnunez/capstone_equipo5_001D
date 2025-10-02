@@ -2,20 +2,28 @@ from sqlalchemy.orm import Session
 from app.models.cuidador import Cuidador
 from app.schemas.cuidador import CuidadorCreate, CuidadorUpdate
 
-def list_(db: Session, skip: int, limit: int, estado: bool | None = None, q: str | None = None):
-    query = db.query(Cuidador)
+def list_(db: Session, skip: int, limit: int,
+          estado: bool | None = True,
+          primer_nombre: str | None = None,
+          segundo_nombre: str | None = None,
+          primer_apellido: str | None = None,
+          segundo_apellido: str | None = None):
+    q = db.query(Cuidador)
     if estado is not None:
-        query = query.filter(Cuidador.estado == estado)
-    if q:
-        like = f"%{q}%"
-        query = query.filter(
-            (Cuidador.nombre_cuidador.ilike(like)) |
-            (Cuidador.apellido_cuidador.ilike(like)) |
-            (Cuidador.email.ilike(like)) |
-            (Cuidador.telefono.ilike(like))
-        )
-    total = query.count()
-    items = query.order_by(Cuidador.rut_cuidador).offset(skip).limit(limit).all()
+        q = q.filter(Cuidador.estado == estado)
+
+    def ilike(col, txt): return col.ilike(f"%{txt}%")
+    if primer_nombre:
+        q = q.filter(ilike(Cuidador.primer_nombre_cuidador, primer_nombre))
+    if segundo_nombre:
+        q = q.filter(ilike(Cuidador.segundo_nombre_cuidador, segundo_nombre))
+    if primer_apellido:
+        q = q.filter(ilike(Cuidador.primer_apellido_cuidador, primer_apellido))
+    if segundo_apellido:
+        q = q.filter(ilike(Cuidador.segundo_apellido_cuidador, segundo_apellido))
+
+    total = q.count()
+    items = q.order_by(Cuidador.rut_cuidador).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, rut_cuidador: int):
@@ -34,8 +42,12 @@ def update(db: Session, rut_cuidador: int, data: CuidadorUpdate):
     db.commit(); db.refresh(obj)
     return obj
 
-def delete(db: Session, rut_cuidador: int):
+def set_estado(db: Session, rut_cuidador: int, habilitar: bool) -> bool:
     obj = get(db, rut_cuidador)
     if not obj: return False
-    db.delete(obj); db.commit()
+    obj.estado = habilitar
+    db.commit(); db.refresh(obj)
     return True
+
+def delete(db: Session, rut_cuidador: int) -> bool:
+    return set_estado(db, rut_cuidador, False)

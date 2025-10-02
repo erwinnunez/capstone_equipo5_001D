@@ -1,20 +1,27 @@
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.models.nota_clinica import NotaClinica
 from app.schemas.nota_clinica import NotaClinicaCreate, NotaClinicaUpdate
 
 def list_(db: Session, skip: int, limit: int,
           rut_paciente: int | None = None,
           rut_medico: int | None = None,
-          id_cesfam: int | None = None):
+          tipo_nota: str | None = None,
+          desde: datetime | None = None,
+          hasta: datetime | None = None):
     q = db.query(NotaClinica)
     if rut_paciente is not None:
         q = q.filter(NotaClinica.rut_paciente == rut_paciente)
     if rut_medico is not None:
         q = q.filter(NotaClinica.rut_medico == rut_medico)
-    if id_cesfam is not None:
-        q = q.filter(NotaClinica.id_cesfam == id_cesfam)
+    if tipo_nota:
+        q = q.filter(NotaClinica.tipo_nota == tipo_nota)
+    if desde:
+        q = q.filter(NotaClinica.creada_en >= desde)
+    if hasta:
+        q = q.filter(NotaClinica.creada_en < hasta)
     total = q.count()
-    items = q.order_by(NotaClinica.fecha_registro.desc()).offset(skip).limit(limit).all()
+    items = q.order_by(NotaClinica.creada_en.desc()).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, id_nota: int):

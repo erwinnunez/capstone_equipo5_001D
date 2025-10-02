@@ -1,25 +1,17 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from app.models.insignia import Insignia
 from app.schemas.insignia import InsigniaCreate, InsigniaUpdate
 
-def list_(db: Session, skip: int, limit: int, q: str | None = None):
-    query = db.query(Insignia)
-    if q:
-        like = f"%{q}%"
-        query = query.filter(
-            (Insignia.codigo.ilike(like)) |
-            (Insignia.nombre_insignia.ilike(like))
-        )
-    total = query.count()
-    items = query.order_by(Insignia.id_insignia).offset(skip).limit(limit).all()
+def list_(db: Session, skip: int, limit: int, codigo: int | None = None):
+    q = db.query(Insignia)
+    if codigo is not None:
+        q = q.filter(Insignia.codigo == codigo)
+    total = q.count()
+    items = q.order_by(Insignia.id_insignia).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, id_insignia: int):
     return db.get(Insignia, id_insignia)
-
-def get_by_codigo(db: Session, codigo: str):
-    return db.query(Insignia).filter(func.lower(Insignia.codigo) == codigo.lower()).first()
 
 def create(db: Session, data: InsigniaCreate):
     obj = Insignia(**data.model_dump())

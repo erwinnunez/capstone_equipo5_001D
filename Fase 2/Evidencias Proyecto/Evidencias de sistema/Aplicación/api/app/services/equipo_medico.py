@@ -3,21 +3,30 @@ from app.models.equipo_medico import EquipoMedico
 from app.schemas.equipo_medico import EquipoMedicoCreate, EquipoMedicoUpdate
 
 def list_(db: Session, skip: int, limit: int,
-          id_cesfam: int | None = None, estado: bool | None = None, q: str | None = None):
-    query = db.query(EquipoMedico)
+          id_cesfam: int | None = None,
+          estado: bool | None = True,
+          primer_nombre: str | None = None,
+          segundo_nombre: str | None = None,
+          primer_apellido: str | None = None,
+          segundo_apellido: str | None = None):
+    q = db.query(EquipoMedico)
     if id_cesfam is not None:
-        query = query.filter(EquipoMedico.id_cesfam == id_cesfam)
+        q = q.filter(EquipoMedico.id_cesfam == id_cesfam)
     if estado is not None:
-        query = query.filter(EquipoMedico.estado == estado)
-    if q:
-        like = f"%{q}%"
-        query = query.filter(
-            (EquipoMedico.nombre_medico.ilike(like)) |
-            (EquipoMedico.apellido_medico.ilike(like)) |
-            (EquipoMedico.email.ilike(like))
-        )
-    total = query.count()
-    items = query.order_by(EquipoMedico.rut_medico).offset(skip).limit(limit).all()
+        q = q.filter(EquipoMedico.estado == estado)
+
+    def ilike(col, txt): return col.ilike(f"%{txt}%")
+    if primer_nombre:
+        q = q.filter(ilike(EquipoMedico.primer_nombre_medico, primer_nombre))
+    if segundo_nombre:
+        q = q.filter(ilike(EquipoMedico.segundo_nombre_medico, segundo_nombre))
+    if primer_apellido:
+        q = q.filter(ilike(EquipoMedico.primer_apellido_medico, primer_apellido))
+    if segundo_apellido:
+        q = q.filter(ilike(EquipoMedico.segundo_apellido_medico, segundo_apellido))
+
+    total = q.count()
+    items = q.order_by(EquipoMedico.rut_medico).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, rut_medico: int):
@@ -36,8 +45,12 @@ def update(db: Session, rut_medico: int, data: EquipoMedicoUpdate):
     db.commit(); db.refresh(obj)
     return obj
 
-def delete(db: Session, rut_medico: int):
+def set_estado(db: Session, rut_medico: int, habilitar: bool) -> bool:
     obj = get(db, rut_medico)
     if not obj: return False
-    db.delete(obj); db.commit()
+    obj.estado = habilitar
+    db.commit(); db.refresh(obj)
     return True
+
+def delete(db: Session, rut_medico: int) -> bool:
+    return set_estado(db, rut_medico, False)
