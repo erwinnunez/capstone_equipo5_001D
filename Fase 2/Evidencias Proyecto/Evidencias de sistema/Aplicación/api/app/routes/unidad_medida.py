@@ -5,7 +5,7 @@ from app.schemas.common import Page
 from app.schemas.unidad_medida import UnidadMedidaCreate, UnidadMedidaUpdate, UnidadMedidaOut
 from app.services import unidad_medida as svc
 
-router = APIRouter(prefix="/unidad-medida", tags=["unidad_medida"])
+router = APIRouter(prefix="/unidad-medida", tags=["parametros"])
 
 @router.get("", response_model=Page[UnidadMedidaOut])
 def list_um(page: int = 1, page_size: int = 20, db: Session = Depends(get_db)):

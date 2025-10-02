@@ -7,7 +7,7 @@ def list_(db: Session, skip: int, limit: int, rut_cuidador: int | None = None):
     if rut_cuidador is not None:
         q = q.filter(CuidadorHistorial.rut_cuidador == rut_cuidador)
     total = q.count()
-    items = q.order_by(CuidadorHistorial.fecha_cambio.desc()).offset(skip).limit(limit).all()
+    items = q.order_by(CuidadorHistorial.historial_id.desc()).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, historial_id: int):

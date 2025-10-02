@@ -5,11 +5,13 @@ from app.db import Base
 class ParametroClinico(Base):
     __tablename__ = "parametro_clinico"
 
-    id_parametro = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    nombre_parametro = Column(String, nullable=False, unique=True)
-    id_unidad = Column(Integer, ForeignKey("unidad_medida.id_unidad", ondelete="RESTRICT"), nullable=False)
+    id_parametro = Column(Integer, primary_key=True, index=True)
+    id_unidad = Column(Integer, ForeignKey("unidad_medida.id_unidad", ondelete="RESTRICT"), nullable=False, index=True)
+    codigo = Column(String, nullable=False)
+    descipcion = Column(String, nullable=False)
+    rango_ref_min = Column(Integer, nullable=False)
+    rango_ref_max = Column(Integer, nullable=False)
 
     unidad = relationship("UnidadMedida", back_populates="parametros", lazy="joined")
-    mediciones = relationship("Medicion", back_populates="parametro")
-    detalles = relationship("MedicionDetalle", back_populates="parametro")
-    rangos = relationship("RangoPaciente", back_populates="parametro")
+    rangos = relationship("RangoPaciente", back_populates="parametro", cascade="all,delete")
+    medicion_detalles = relationship("MedicionDetalle", back_populates="parametro")

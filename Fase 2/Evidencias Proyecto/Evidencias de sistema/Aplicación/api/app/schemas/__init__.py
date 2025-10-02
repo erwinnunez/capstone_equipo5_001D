@@ -1,4 +1,3 @@
-from .paciente_cesfam import PacienteCesfamCreate, PacienteCesfamUpdate, PacienteCesfamOut
 from .paciente_historial import PacienteHistorialCreate, PacienteHistorialOut
 from .cuidador_historial import CuidadorHistorialCreate, CuidadorHistorialOut
 from .equipo_medico import EquipoMedicoCreate, EquipoMedicoUpdate, EquipoMedicoOut

@@ -1,16 +1,16 @@
 from pydantic import BaseModel
 
 class UnidadMedidaCreate(BaseModel):
-    nombre_unidad: str
-    simbolo: str | None = None
+    codigo: str
+    descipcion: str
 
 class UnidadMedidaUpdate(BaseModel):
-    nombre_unidad: str | None = None
-    simbolo: str | None = None
+    codigo: str | None = None
+    descipcion: str | None = None
 
 class UnidadMedidaOut(BaseModel):
     id_unidad: int
-    nombre_unidad: str
-    simbolo: str | None = None
+    codigo: str
+    descipcion: str
     class Config:
         from_attributes = True

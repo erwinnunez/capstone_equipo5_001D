@@ -8,8 +8,12 @@ from app.services import usuario_insignia as svc
 router = APIRouter(prefix="/usuario-insignia", tags=["insignia"])
 
 @router.get("", response_model=Page[UsuarioInsigniaOut])
-def list_ui(page: int = 1, page_size: int = 20, rut_paciente: int | None = Query(None), id_insignia: int | None = Query(None), db: Session = Depends(get_db)):
-    items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_paciente=rut_paciente, id_insignia=id_insignia)
+def list_ui(page: int = 1, page_size: int = 20,
+            rut_paciente: int | None = Query(None),
+            id_insignia: int | None = Query(None),
+            db: Session = Depends(get_db)):
+    items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size,
+                             rut_paciente=rut_paciente, id_insignia=id_insignia)
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 @router.get("/{rut_paciente}/{id_insignia}", response_model=UsuarioInsigniaOut)

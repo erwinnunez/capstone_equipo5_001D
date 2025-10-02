@@ -1,4 +1,3 @@
-from datetime import datetime
 from sqlalchemy.orm import Session
 from app.models.gamificacion_perfil import GamificacionPerfil
 from app.schemas.gamificacion_perfil import GamificacionPerfilCreate, GamificacionPerfilUpdate
@@ -16,8 +15,6 @@ def get(db: Session, rut_paciente: int):
 
 def create(db: Session, data: GamificacionPerfilCreate):
     obj = GamificacionPerfil(**data.model_dump())
-    if obj.ultima_actividad is None:
-        obj.ultima_actividad = datetime.utcnow()
     db.add(obj); db.commit(); db.refresh(obj)
     return obj
 

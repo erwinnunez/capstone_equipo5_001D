@@ -1,35 +1,24 @@
-# Mantén este archivo actualizado para garantizar que SQLAlchemy/Alembic
-# carguen todo el grafo de modelos y sus relaciones.
-
-from .region import Region  # noqa: F401
-from .comuna import Comuna  # noqa: F401
-from .cesfam import Cesfam  # noqa: F401
-
-from .paciente import Paciente  # noqa: F401
-from .paciente_cesfam import PacienteCesfam  # noqa: F401
-from .paciente_cuidador import PacienteCuidador  # noqa: F401
-from .paciente_historial import PacienteHistorial  # noqa: F401
-
-from .cuidador import Cuidador  # noqa: F401
-from .cuidador_historial import CuidadorHistorial  # noqa: F401
-
-from .equipo_medico import EquipoMedico  # noqa: F401
-from .medico_historial import MedicoHistorial  # noqa: F401
-
-from .unidad_medida import UnidadMedida  # noqa: F401
-from .parametro_clinico import ParametroClinico  # noqa: F401
-
-from .medicion import Medicion  # noqa: F401
-from .medicion_detalle import MedicionDetalle  # noqa: F401
-from .rango_paciente import RangoPaciente  # noqa: F401
-
-from .nota_clinica import NotaClinica  # noqa: F401
-
-from .gamificacion_perfil import GamificacionPerfil  # noqa: F401
-from .evento_gamificacion import EventoGamificacion  # noqa: F401
-
-from .insignia import Insignia  # noqa: F401
-from .usuario_insignia import UsuarioInsignia  # noqa: F401
-
-from .solicitud_reporte import SolicitudReporte  # noqa: F401
-from .descarga_reporte import DescargaReporte  # noqa: F401
+from .region import Region
+from .comuna import Comuna
+from .cesfam import Cesfam
+from .paciente import Paciente
+from .equipo_medico import EquipoMedico
+from .cuidador import Cuidador
+from .paciente_cuidador import PacienteCuidador
+from .cuidador_historial import CuidadorHistorial
+from .paciente_historial import PacienteHistorial
+from .medico_historial import MedicoHistorial
+from .gamificacion_perfil import GamificacionPerfil
+from .evento_gamificacion import EventoGamificacion
+from .insignia import Insignia
+from .usuario_insignia import UsuarioInsignia
+from .unidad_medida import UnidadMedida
+from .parametro_clinico import ParametroClinico
+from .rango_paciente import RangoPaciente
+from .solicitud_reporte import SolicitudReporte
+from .descarga_reporte import DescargaReporte
+from .nota_clinica import NotaClinica
+from .medicion import Medicion
+from .medicion_detalle import MedicionDetalle
+from .medicina import Medicina
+from .medicina_detalle import MedicinaDetalle

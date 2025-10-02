@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from datetime import datetime
 from sqlalchemy.orm import Session
 from app.db import get_db
 from app.schemas.common import Page
@@ -8,8 +9,15 @@ from app.services import descarga_reporte as svc
 router = APIRouter(prefix="/descarga-reporte", tags=["reportes"])
 
 @router.get("", response_model=Page[DescargaReporteOut])
-def list_dr(page: int = 1, page_size: int = 20, rut_medico: int | None = Query(None), id_reporte: int | None = Query(None), db: Session = Depends(get_db)):
-    items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_medico=rut_medico, id_reporte=id_reporte)
+def list_dr(page: int = 1, page_size: int = 20,
+            rut_medico: int | None = Query(None),
+            id_reporte: int | None = Query(None),
+            desde: datetime | None = Query(None),
+            hasta: datetime | None = Query(None),
+            db: Session = Depends(get_db)):
+    items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size,
+                             rut_medico=rut_medico, id_reporte=id_reporte,
+                             desde=desde, hasta=hasta)
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 @router.get("/{id_descarga}", response_model=DescargaReporteOut)

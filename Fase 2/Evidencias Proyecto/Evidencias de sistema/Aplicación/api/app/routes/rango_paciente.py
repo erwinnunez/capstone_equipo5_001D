@@ -5,10 +5,13 @@ from app.schemas.common import Page
 from app.schemas.rango_paciente import RangoPacienteCreate, RangoPacienteUpdate, RangoPacienteOut
 from app.services import rango_paciente as svc
 
-router = APIRouter(prefix="/rango-paciente", tags=["rango_paciente"])
+router = APIRouter(prefix="/rango-paciente", tags=["parametros"])
 
 @router.get("", response_model=Page[RangoPacienteOut])
-def list_rangos(page: int = 1, page_size: int = 20, rut_paciente: int | None = Query(None), id_parametro: int | None = Query(None), db: Session = Depends(get_db)):
+def list_rango(page: int = 1, page_size: int = 20,
+               rut_paciente: int | None = Query(None),
+               id_parametro: int | None = Query(None),
+               db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_paciente=rut_paciente, id_parametro=id_parametro)
     return Page(items=items, total=total, page=page, page_size=page_size)
 

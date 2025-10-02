@@ -7,7 +7,7 @@ def list_(db: Session, skip: int, limit: int, rut_medico: int | None = None):
     if rut_medico is not None:
         q = q.filter(MedicoHistorial.rut_medico == rut_medico)
     total = q.count()
-    items = q.order_by(MedicoHistorial.fecha_cambio.desc()).offset(skip).limit(limit).all()
+    items = q.order_by(MedicoHistorial.historial_id.desc()).offset(skip).limit(limit).all()
     return items, total
 
 def get(db: Session, historial_id: int):

@@ -3,15 +3,15 @@ from datetime import datetime
 
 class PacienteHistorialCreate(BaseModel):
     rut_paciente: int
-    fecha_cambio: datetime | None = None
-    cambio: str | None = None
-    resultado: bool | None = None
+    fecha_cambio: datetime
+    cambio: str
+    resultado: bool
 
 class PacienteHistorialOut(BaseModel):
     historial_id: int
     rut_paciente: int
     fecha_cambio: datetime
-    cambio: str | None = None
-    resultado: bool | None = None
+    cambio: str
+    resultado: bool
     class Config:
         from_attributes = True

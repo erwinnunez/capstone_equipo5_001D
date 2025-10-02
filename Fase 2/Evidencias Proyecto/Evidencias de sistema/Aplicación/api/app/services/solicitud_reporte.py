@@ -1,18 +1,25 @@
 from sqlalchemy.orm import Session
+from datetime import datetime
 from app.models.solicitud_reporte import SolicitudReporte
 from app.schemas.solicitud_reporte import SolicitudReporteCreate, SolicitudReporteUpdate
 
 def list_(db: Session, skip: int, limit: int,
           rut_medico: int | None = None,
           rut_paciente: int | None = None,
-          estado: str | None = None):
+          estado: str | None = None,
+          desde: datetime | None = None,
+          hasta: datetime | None = None):
     q = db.query(SolicitudReporte)
     if rut_medico is not None:
         q = q.filter(SolicitudReporte.rut_medico == rut_medico)
     if rut_paciente is not None:
         q = q.filter(SolicitudReporte.rut_paciente == rut_paciente)
-    if estado is not None:
+    if estado:
         q = q.filter(SolicitudReporte.estado == estado)
+    if desde:
+        q = q.filter(SolicitudReporte.creado_en >= desde)
+    if hasta:
+        q = q.filter(SolicitudReporte.creado_en < hasta)
     total = q.count()
     items = q.order_by(SolicitudReporte.creado_en.desc()).offset(skip).limit(limit).all()
     return items, total
