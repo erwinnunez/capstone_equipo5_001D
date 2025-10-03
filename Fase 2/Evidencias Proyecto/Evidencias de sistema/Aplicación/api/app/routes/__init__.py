@@ -30,6 +30,9 @@ from .usuario_insignia import router as usuario_insignia_router
 from .solicitud_reporte import router as solicitud_reporte_router
 from .descarga_reporte import router as descarga_reporte_router
 
+from .medicina import router as medicina_router
+from .medicina_detalle import router as medicina_detalle_router
+
 ALL_ROUTERS = [
     region_router,
     comuna_router,
@@ -53,4 +56,6 @@ ALL_ROUTERS = [
     usuario_insignia_router,
     solicitud_reporte_router,
     descarga_reporte_router,
+    medicina_detalle_router,
+    medicina_router
 ]

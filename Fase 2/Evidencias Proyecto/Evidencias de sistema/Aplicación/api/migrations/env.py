@@ -3,6 +3,7 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 from logging.config import fileConfig
 
+
 # 1) Logging
 config = context.config
 if config.config_file_name is not None:
@@ -10,16 +11,21 @@ if config.config_file_name is not None:
 
 # 2) Importa tus modelos y Base
 from app.config import settings
-from app.models.base import Base
+from app.db import Base
 
 # IMPORTA TODAS TUS TABLAS (un archivo por tabla)
 from app.models.region import Region
 from app.models.comuna import Comuna
 from app.models.cesfam import Cesfam
+from app.models.cuidador import Cuidador
+from app.models.paciente import Paciente
+from app.models.equipo_medico import EquipoMedico
+from app.models.parametro_clinico import ParametroClinico
+from app.models.medicion import Medicion
 # ... agrega aquí TODAS tus clases (paciente, cuidador, medicion, etc.)
 
 # 3) Inyecta la URL desde tu Settings
-config.set_main_option("sqlalchemy.url", settings.DB_URL)
+config.set_main_option("sqlalchemy.url", settings.database_url)
 
 # 4) Metadata objetivo
 target_metadata = Base.metadata

@@ -23,4 +23,4 @@ class MedicionDetalle(Base):
     unidad = relationship("UnidadMedida", back_populates="medicion_detalles", lazy="joined")
 
     # Acceso al paciente (no hay FK directa en DDL; lo exponemos vía relación inversa en Paciente con viewonly)
-    paciente = relationship("Paciente", viewonly=True, primaryjoin="Medicion.rut_paciente==SolicitudReporte.rut_paciente", uselist=False)
+    #paciente = relationship("Paciente", viewonly=True, primaryjoin="Medicion.rut_paciente==SolicitudReporte.rut_paciente", uselist=False)

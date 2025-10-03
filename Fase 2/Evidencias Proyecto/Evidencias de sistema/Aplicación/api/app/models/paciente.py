@@ -2,6 +2,7 @@ from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db import Base
 
+
 class Paciente(Base):
     __tablename__ = "paciente"
 
@@ -48,5 +49,5 @@ class Paciente(Base):
     notas = relationship("NotaClinica", back_populates="paciente", cascade="all,delete")
 
     # detalles
-    medicion_detalles = relationship("MedicionDetalle", back_populates="paciente", viewonly=True)
+    medicion = relationship("Medicion", back_populates="paciente", cascade="all,delete")
     medicina_detalles = relationship("MedicinaDetalle", back_populates="paciente", cascade="all,delete")
