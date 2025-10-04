@@ -48,5 +48,5 @@ class Paciente(Base):
     notas = relationship("NotaClinica", back_populates="paciente", cascade="all,delete")
 
     # detalles
-    medicion_detalles = relationship("MedicionDetalle", back_populates="paciente", viewonly=True)
     medicina_detalles = relationship("MedicinaDetalle", back_populates="paciente", cascade="all,delete")
+    medicion = relationship("Medicion", back_populates="paciente", cascade="all,delete")

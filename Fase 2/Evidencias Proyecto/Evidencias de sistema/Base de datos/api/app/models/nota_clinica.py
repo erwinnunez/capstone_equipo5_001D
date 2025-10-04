@@ -12,7 +12,8 @@ class NotaClinica(Base):
     nota = Column(String, nullable=False)
     tipo_nota = Column(String, nullable=False)
     creada_en = Column(DateTime(timezone=True), nullable=False)
-
+    id_cesfam = Column(Integer, ForeignKey("cesfam.id_cesfam"))
+    
     paciente = relationship("Paciente", back_populates="notas", lazy="joined")
     medico = relationship("EquipoMedico", back_populates="notas", lazy="joined")
     cesfam = relationship("Cesfam", back_populates="notas", viewonly=True)

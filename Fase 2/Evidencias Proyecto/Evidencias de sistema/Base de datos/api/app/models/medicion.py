@@ -16,6 +16,13 @@ class Medicion(Base):
         index=True,
     )
 
+    id_reporte = Column(
+        Integer,
+        ForeignKey("solicitud_reporte.id_reporte", ondelete="RESTRICT"),
+        nullable=True, # La medición puede existir sin una solicitud, por eso usamos nullable=True
+        index=True
+    )
+
     fecha_registro = Column(DateTime(timezone=True), nullable=False)
     origen = Column(String, nullable=False)            # p.ej. 'APP', 'WEB', 'BLE'
     registrado_por = Column(String, nullable=False)    # quién registró
@@ -27,6 +34,7 @@ class Medicion(Base):
     resumen_alerta = Column(String, nullable=False)
 
     # Relaciones ORM
+    solicitud = relationship("SolicitudReporte", back_populates="mediciones", lazy="joined")
     paciente = relationship("Paciente", lazy="joined")
     detalles = relationship(
         "MedicionDetalle",

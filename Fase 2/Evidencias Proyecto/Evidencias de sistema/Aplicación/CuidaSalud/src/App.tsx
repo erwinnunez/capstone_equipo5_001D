@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { LoginPage } from './components/LoginPage';
-import { AdminDashboard } from './components/AdminDashboard';
-import { DoctorDashboard } from './components/DoctorDashboard';
+// import { AdminDashboard } from './components/AdminDashboard';
 import { CaregiverDashboard } from './components/CaregiverDashboard';
 import { PatientDashboard } from './components/PatientDashboard';
+// ¡IMPORTANTE! Usa la ruta de tu nuevo DoctorDashboard:
+import { DoctorDashboard } from './components/doctor/DoctorDashboard';
 
 type UserRole = 'admin' | 'doctor' | 'caregiver' | 'patient';
 
@@ -28,11 +29,13 @@ export default function App() {
   if (!user) {
     return <LoginPage onLogin={handleLogin} />;
   }
+  
 
   switch (user.role) {
-    case 'admin':
-      return <AdminDashboard user={user} onLogout={handleLogout} />;
+    // case 'admin':
+    //   return <AdminDashboard user={user} onLogout={handleLogout} />;
     case 'doctor':
+      // Ahora usa el dashboard modularizado
       return <DoctorDashboard user={user} onLogout={handleLogout} />;
     case 'caregiver':
       return <CaregiverDashboard user={user} onLogout={handleLogout} />;
