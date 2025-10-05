@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { LoginPage } from './components/LoginPage';
-// import { AdminDashboard } from './components/AdminDashboard';
-import { CaregiverDashboard } from './components/CaregiverDashboard';
-import { PatientDashboard } from './components/PatientDashboard';
+import AdminDashboard from './components/administrador/AdminDashboard';
+import CaregiverDashboard from './components/cuidador/CaregiverDashboard';
+import PatientDashboard from './components/paciente/PatientDashboard';
 // ¡IMPORTANTE! Usa la ruta de tu nuevo DoctorDashboard:
 import { DoctorDashboard } from './components/doctor/DoctorDashboard';
 
@@ -32,8 +32,8 @@ export default function App() {
   
 
   switch (user.role) {
-    // case 'admin':
-    //   return <AdminDashboard user={user} onLogout={handleLogout} />;
+    case 'admin':
+      return <AdminDashboard user={user} onLogout={handleLogout} />;
     case 'doctor':
       // Ahora usa el dashboard modularizado
       return <DoctorDashboard user={user} onLogout={handleLogout} />;
