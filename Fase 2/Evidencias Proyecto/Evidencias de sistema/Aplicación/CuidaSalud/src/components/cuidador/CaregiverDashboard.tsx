@@ -39,10 +39,7 @@ export default function CaregiverDashboard({ user, onLogout }: CaregiverDashboar
     >
       <PatientsProvider>
         <div className="space-y-6">
-          <div>
-            <h2 className="text-3xl font-semibold text-gray-900">Caregiver Dashboard</h2>
-            <p className="text-gray-600">Monitor and support your assigned patients</p>
-          </div>
+          
 
           <CuidadorStats assignedCount={assignedPatients.length} criticalCount={criticalCount} />
 

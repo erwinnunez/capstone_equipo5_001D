@@ -9,13 +9,13 @@ export default function AdminAudit() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          Audit Trail
-          <Button variant="outline" size="sm">
+          Registro de auditoría
+          <Button variant="outline" size="sm" aria-label="Exportar registros">
             <Download className="h-4 w-4 mr-2" />
-            Export Logs
+            Exportar registros
           </Button>
         </CardTitle>
-        <CardDescription>System activity and security events log</CardDescription>
+        <CardDescription>Registro de actividad del sistema y eventos de seguridad</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">

@@ -8,12 +8,26 @@ type Variant = "default" | "secondary" | "destructive" | "outline";
 const getNotificationColor = (t: string): Variant =>
   t === "critical" ? "destructive" : t === "warning" ? "secondary" : "outline";
 
+// Etiqueta visible en español (sin tocar los valores internos)
+const typeLabel = (t: string) => {
+  switch (t) {
+    case "critical":
+      return "Crítica";
+    case "warning":
+      return "Advertencia";
+    case "info":
+      return "Información";
+    default:
+      return t;
+  }
+};
+
 export default function CuidadorNotificaciones() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Notification Center</CardTitle>
-        <CardDescription>Stay updated on patient alerts and important events</CardDescription>
+        <CardTitle>Centro de notificaciones</CardTitle>
+        <CardDescription>Mantente al día con alertas y eventos importantes de tus pacientes</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
@@ -26,7 +40,7 @@ export default function CuidadorNotificaciones() {
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <Badge variant={getNotificationColor(n.type)}>{n.type}</Badge>
+                  <Badge variant={getNotificationColor(n.type)}>{typeLabel(n.type)}</Badge>
                   <span className="text-xs text-gray-500">{n.time}</span>
                 </div>
                 <p className="text-sm mt-1">{n.message}</p>

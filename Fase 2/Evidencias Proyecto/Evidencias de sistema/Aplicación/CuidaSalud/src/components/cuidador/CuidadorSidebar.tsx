@@ -21,32 +21,32 @@ export default function CuidadorSidebar({
     <nav className="space-y-2">
       <Button variant={current === "patients" ? "default" : "ghost"} className="w-full justify-start" onClick={() => onSelect("patients")}>
         <Users className="h-4 w-4 mr-2" />
-        My Patients
+        Mis pacientes
       </Button>
 
       <Button variant={current === "dataEntry" ? "default" : "ghost"} className="w-full justify-start" onClick={() => onSelect("dataEntry")}>
         <Plus className="h-4 w-4 mr-2" />
-        Add Data
+        Agregar datos
       </Button>
 
       <Button variant={current === "notifications" ? "default" : "ghost"} className="w-full justify-start" onClick={() => onSelect("notifications")}>
         <Bell className="h-4 w-4 mr-2" />
-        Notifications
+        Notificaciones
       </Button>
 
       <Button variant={current === "management" ? "default" : "ghost"} className="w-full justify-start" onClick={() => onSelect("management")}>
         <UserCog className="h-4 w-4 mr-2" />
-        Patient Management
+        Gestión de pacientes
       </Button>
 
       <Button variant={current === "checklist" ? "default" : "ghost"} className="w-full justify-start" onClick={() => onSelect("checklist")}>
         <Calendar className="h-4 w-4 mr-2" />
-        Daily Checklist
+        Checklist diario
       </Button>
 
       <Button variant={current === "preferences" ? "default" : "ghost"} className="w-full justify-start" onClick={() => onSelect("preferences")}>
         <Settings className="h-4 w-4 mr-2" />
-        Preferences
+        Preferencias
       </Button>
     </nav>
   );

@@ -9,12 +9,26 @@ type Variant = "default" | "secondary" | "destructive" | "outline";
 const getStatusColor = (status: string): Variant =>
   status === "stable" ? "outline" : status === "attention_needed" ? "secondary" : "destructive";
 
+// Etiqueta visible del estado (sin tocar los valores internos)
+const statusLabel = (s: string) => {
+  switch (s) {
+    case "stable":
+      return "Estable";
+    case "attention_needed":
+      return "Requiere atención";
+    case "critical":
+      return "Crítico";
+    default:
+      return s.replace("_", " ");
+  }
+};
+
 export default function CuidadorPacientes({ onSelectPatient }: { onSelectPatient: (id: number) => void; }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Assigned Patients</CardTitle>
-        <CardDescription>Patients under your care and monitoring</CardDescription>
+        <CardTitle>Pacientes asignados</CardTitle>
+        <CardDescription>Pacientes bajo tu cuidado y monitoreo</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -26,23 +40,23 @@ export default function CuidadorPacientes({ onSelectPatient }: { onSelectPatient
                 </div>
                 <div>
                   <h4 className="font-medium">{patient.name}</h4>
-                  <p className="text-sm text-gray-600">Age {patient.age} • {patient.condition}</p>
-                  <p className="text-xs text-gray-500">Last update: {patient.lastUpdate}</p>
+                  <p className="text-sm text-gray-600">Edad {patient.age} • {patient.condition}</p>
+                  <p className="text-xs text-gray-500">Última actualización: {patient.lastUpdate}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
                 {patient.alerts > 0 && (
                   <Badge variant="destructive">
-                    {patient.alerts} alert{patient.alerts !== 1 ? "s" : ""}
+                    {patient.alerts} {patient.alerts === 1 ? "alerta" : "alertas"}
                   </Badge>
                 )}
-                <Badge variant={getStatusColor(patient.status)}>{patient.status.replace("_", " ")}</Badge>
+                <Badge variant={getStatusColor(patient.status)}>{statusLabel(patient.status)}</Badge>
                 <div className="text-right text-sm">
-                  <p className="text-gray-600">Next appointment</p>
+                  <p className="text-gray-600">Próxima cita</p>
                   <p className="font-medium">{patient.nextAppointment}</p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => onSelectPatient(patient.id)}>
-                  View Details
+                  Ver detalles
                 </Button>
               </div>
             </div>

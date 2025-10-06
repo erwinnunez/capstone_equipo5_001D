@@ -33,10 +33,7 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
     >
       <div className="space-y-6">
         {/* Header */}
-        <div>
-          <h2 className="text-3xl font-semibold text-gray-900">System Administration</h2>
-          <p className="text-gray-600">Manage users, monitor system activity, and maintain security</p>
-        </div>
+        
 
         {/* Content by section */}
         {section === "overview"  && <AdminOverview />}

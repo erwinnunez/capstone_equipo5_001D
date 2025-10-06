@@ -25,7 +25,7 @@ export default function AdminUsers() {
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [newUser, setNewUser] = useState({ name: "", email: "", role: "", password: "" });
 
-  // Helpers (una sola definición)
+  // Helpers (colores)
   const getStatusColor = (status: string): RoleVariant => (status === "active" ? "outline" : "secondary");
   const getRoleColor = (role: string): RoleVariant => {
     switch (role) {
@@ -39,6 +39,35 @@ export default function AdminUsers() {
         return "outline";
       default:
         return "outline";
+    }
+  };
+
+  // Helpers (etiquetas visibles en español)
+  const roleLabel = (role: string) => {
+    switch (role) {
+      case "admin":
+        return "Administrador";
+      case "doctor":
+        return "Médico";
+      case "caregiver":
+        return "Cuidador";
+      case "patient":
+        return "Paciente";
+      default:
+        return role;
+    }
+  };
+
+  const statusLabel = (status: string) => {
+    switch (status) {
+      case "active":
+        return "Activo";
+      case "inactive":
+        return "Inactivo";
+      case "blocked":
+        return "Bloqueado";
+      default:
+        return status;
     }
   };
 
@@ -59,81 +88,81 @@ export default function AdminUsers() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center justify-between">
-          System Users
+          Usuarios del sistema
           <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
             <DialogTrigger asChild>
               <Button>
                 <UserPlus className="h-4 w-4 mr-2" />
-                Add User
+                Agregar usuario
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create New User</DialogTitle>
+                <DialogTitle>Crear nuevo usuario</DialogTitle>
                 <DialogDescription>
-                  Add a new user to the system with appropriate role permissions
+                  Agrega un nuevo usuario al sistema con los permisos de rol correspondientes
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Full Name</label>
+                  <label className="text-sm font-medium">Nombre completo</label>
                   <Input
                     value={newUser.name}
                     onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                    placeholder="Enter full name"
+                    placeholder="Ingresa el nombre completo"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Email</label>
+                  <label className="text-sm font-medium">Correo electrónico</label>
                   <Input
                     type="email"
                     value={newUser.email}
                     onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                    placeholder="Enter email address"
+                    placeholder="Ingresa el correo electrónico"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Role</label>
+                  <label className="text-sm font-medium">Rol</label>
                   <Select
                     value={newUser.role}
-                    onValueChange={(value: string) => setNewUser({ ...newUser, role: value })} // <- TIPADO AQUÍ
+                    onValueChange={(value: string) => setNewUser({ ...newUser, role: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
+                      <SelectValue placeholder="Selecciona un rol" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="doctor">Doctor</SelectItem>
-                      <SelectItem value="caregiver">Caregiver</SelectItem>
-                      <SelectItem value="patient">Patient</SelectItem>
-                      <SelectItem value="admin">Administrator</SelectItem>
+                      <SelectItem value="doctor">Médico</SelectItem>
+                      <SelectItem value="caregiver">Cuidador</SelectItem>
+                      <SelectItem value="patient">Paciente</SelectItem>
+                      <SelectItem value="admin">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Initial Password</label>
+                  <label className="text-sm font-medium">Contraseña inicial</label>
                   <Input
                     type="password"
                     value={newUser.password}
                     onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                    placeholder="Enter initial password"
+                    placeholder="Ingresa la contraseña inicial"
                   />
                 </div>
               </div>
 
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateUserOpen(false)}>
-                  Cancel
+                  Cancelar
                 </Button>
-                <Button onClick={handleCreateUser}>Create User</Button>
+                <Button onClick={handleCreateUser}>Crear usuario</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </CardTitle>
-        <CardDescription>Manage user accounts, roles, and permissions</CardDescription>
+        <CardDescription>Administra cuentas, roles y permisos</CardDescription>
       </CardHeader>
 
       <CardContent>
@@ -141,7 +170,7 @@ export default function AdminUsers() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search users..."
+              placeholder="Buscar usuarios..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9"
@@ -151,14 +180,14 @@ export default function AdminUsers() {
           <Select value={filterRole} onValueChange={(value: string) => setFilterRole(value)}>
             <SelectTrigger className="w-[180px]">
               <Filter className="h-4 w-4 mr-2" />
-              <SelectValue />
+              <SelectValue placeholder="Filtrar por rol" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value="admin">Administrators</SelectItem>
-              <SelectItem value="doctor">Doctors</SelectItem>
-              <SelectItem value="caregiver">Caregivers</SelectItem>
-              <SelectItem value="patient">Patients</SelectItem>
+              <SelectItem value="all">Todos los roles</SelectItem>
+              <SelectItem value="admin">Administradores</SelectItem>
+              <SelectItem value="doctor">Médicos</SelectItem>
+              <SelectItem value="caregiver">Cuidadores</SelectItem>
+              <SelectItem value="patient">Pacientes</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -176,18 +205,18 @@ export default function AdminUsers() {
                 <div>
                   <h4 className="font-medium">{user.name}</h4>
                   <p className="text-sm text-gray-600">{user.email}</p>
-                  <p className="text-xs text-gray-500">Last login: {user.lastLogin}</p>
+                  <p className="text-xs text-gray-500">Último acceso: {user.lastLogin}</p>
                 </div>
               </div>
 
               <div className="flex items-center space-x-3">
-                <Badge variant={getRoleColor(user.role)}>{user.role}</Badge>
-                <Badge variant={getStatusColor(user.status)}>{user.status}</Badge>
+                <Badge variant={getRoleColor(user.role)}>{roleLabel(user.role)}</Badge>
+                <Badge variant={getStatusColor(user.status)}>{statusLabel(user.status)}</Badge>
                 <div className="flex space-x-1">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" aria-label="Editar usuario">
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" aria-label="Eliminar usuario">
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

@@ -14,63 +14,67 @@ export default function CuidadorPreferencias() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Notification Preferences</CardTitle>
-        <CardDescription>Configure which alerts and notifications you want to receive</CardDescription>
+        <CardTitle>Preferencias de notificación</CardTitle>
+        <CardDescription>Configura qué alertas y notificaciones deseas recibir</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-medium">Critical Alerts</h4>
-            <p className="text-sm text-gray-600">Immediate notifications for critical patient conditions</p>
+            <h4 className="font-medium">Alertas críticas</h4>
+            <p className="text-sm text-gray-600">Notificaciones inmediatas por condiciones críticas del paciente</p>
           </div>
           <Switch
             checked={notificationSettings.criticalAlerts}
             onCheckedChange={(checked: boolean) =>
               setNotificationSettings({ ...notificationSettings, criticalAlerts: checked })
             }
+            aria-label="Activar alertas críticas"
           />
         </div>
 
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-medium">Medication Reminders</h4>
-            <p className="text-sm text-gray-600">Alerts when patients miss medications</p>
+            <h4 className="font-medium">Recordatorios de medicación</h4>
+            <p className="text-sm text-gray-600">Alertas cuando los pacientes omiten medicación</p>
           </div>
           <Switch
             checked={notificationSettings.medicationReminders}
             onCheckedChange={(checked: boolean) =>
               setNotificationSettings({ ...notificationSettings, medicationReminders: checked })
             }
+            aria-label="Activar recordatorios de medicación"
           />
         </div>
 
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-medium">Appointment Reminders</h4>
-            <p className="text-sm text-gray-600">Upcoming appointment notifications</p>
+            <h4 className="font-medium">Recordatorios de citas</h4>
+            <p className="text-sm text-gray-600">Notificaciones de próximas citas</p>
           </div>
           <Switch
             checked={notificationSettings.appointmentReminders}
             onCheckedChange={(checked: boolean) =>
               setNotificationSettings({ ...notificationSettings, appointmentReminders: checked })
             }
+            aria-label="Activar recordatorios de citas"
           />
         </div>
 
         <div className="flex items-center justify-between">
           <div>
-            <h4 className="font-medium">Daily Reports</h4>
-            <p className="text-sm text-gray-600">Daily summary of patient activities</p>
+            <h4 className="font-medium">Reportes diarios</h4>
+            <p className="text-sm text-gray-600">Resumen diario de actividades del paciente</p>
           </div>
           <Switch
             checked={notificationSettings.dailyReports}
             onCheckedChange={(checked: boolean) =>
               setNotificationSettings({ ...notificationSettings, dailyReports: checked })
             }
+            aria-label="Activar reportes diarios"
           />
         </div>
 
-        <Button className="w-full mt-4">Save Preferences</Button>
+        <Button className="w-full mt-4">Guardar preferencias</Button>
       </CardContent>
     </Card>
   );

@@ -24,13 +24,13 @@ export default function CuidadorDataEntry() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Record Patient Data</CardTitle>
-          <CardDescription>Enter health measurements on behalf of your patients</CardDescription>
+          <CardTitle>Registrar datos del paciente</CardTitle>
+          <CardDescription>Ingresa mediciones de salud en nombre de tus pacientes</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Select Patient</label>
+              <label className="text-sm font-medium">Seleccionar paciente</label>
               <Select
                 value={newMeasurement.patientId}
                 onValueChange={(value: string) =>
@@ -38,7 +38,7 @@ export default function CuidadorDataEntry() {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose patient" />
+                  <SelectValue placeholder="Elige un paciente" />
                 </SelectTrigger>
                 <SelectContent>
                   {assignedPatients.map((p: AssignedPatient) => (
@@ -51,7 +51,7 @@ export default function CuidadorDataEntry() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Measurement Type</label>
+              <label className="text-sm font-medium">Tipo de medición</label>
               <Select
                 value={newMeasurement.type}
                 onValueChange={(value: string) =>
@@ -59,32 +59,32 @@ export default function CuidadorDataEntry() {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose type" />
+                  <SelectValue placeholder="Elige un tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="blood_sugar">Blood Sugar</SelectItem>
-                  <SelectItem value="blood_pressure">Blood Pressure</SelectItem>
-                  <SelectItem value="oxygen">Oxygen Level</SelectItem>
-                  <SelectItem value="temperature">Temperature</SelectItem>
-                  <SelectItem value="weight">Weight</SelectItem>
+                  <SelectItem value="blood_sugar">Glucosa</SelectItem>
+                  <SelectItem value="blood_pressure">Presión arterial</SelectItem>
+                  <SelectItem value="oxygen">Nivel de oxígeno</SelectItem>
+                  <SelectItem value="temperature">Temperatura</SelectItem>
+                  <SelectItem value="weight">Peso</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Value</label>
+            <label className="text-sm font-medium">Valor</label>
             <Input
-              placeholder="Enter measurement value"
+              placeholder="Ingresa el valor de la medición"
               value={newMeasurement.value}
               onChange={(e) => setNewMeasurement({ ...newMeasurement, value: e.target.value })}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium">Notes (Optional)</label>
+            <label className="text-sm font-medium">Notas (opcional)</label>
             <Input
-              placeholder="Additional notes or observations"
+              placeholder="Notas u observaciones adicionales"
               value={newMeasurement.notes}
               onChange={(e) => setNewMeasurement({ ...newMeasurement, notes: e.target.value })}
             />
@@ -96,19 +96,19 @@ export default function CuidadorDataEntry() {
             disabled={!newMeasurement.patientId || !newMeasurement.type || !newMeasurement.value}
           >
             <Plus className="h-4 w-4 mr-2" />
-            Record Measurement
+            Registrar medición
           </Button>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Recent Data Entries</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Registros recientes</CardTitle></CardHeader>
         <CardContent>
           <div className="space-y-3">
             {[
-              { patient: "Eleanor Smith", type: "Blood Sugar",   value: "140 mg/dL", time: "1 hour ago" },
-              { patient: "Robert Johnson", type: "Blood Pressure", value: "160/95",  time: "2 hours ago" },
-              { patient: "Mary Wilson",    type: "Temperature",    value: "98.6°F",  time: "3 hours ago" },
+              { patient: "Eleanor Smith", type: "Glucosa",           value: "140 mg/dL", time: "hace 1 hora" },
+              { patient: "Robert Johnson", type: "Presión arterial", value: "160/95",    time: "hace 2 horas" },
+              { patient: "Mary Wilson",    type: "Temperatura",      value: "98.6°F",    time: "hace 3 horas" },
             ].map((entry, i: number) => (
               <div key={i} className="flex items-center justify-between p-3 border rounded-lg">
                 <div>

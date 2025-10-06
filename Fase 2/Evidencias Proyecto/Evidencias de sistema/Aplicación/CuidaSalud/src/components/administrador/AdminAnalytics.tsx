@@ -7,7 +7,7 @@ export default function AdminAnalytics() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <Card>
-        <CardHeader><CardTitle>User Distribution</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Distribución de usuarios</CardTitle></CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -16,14 +16,14 @@ export default function AdminAnalytics() {
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip />
+              <Tooltip formatter={(value: any) => [value, "Usuarios"]} />
             </PieChart>
           </ResponsiveContainer>
         </CardContent>
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>System Activity (7 days)</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Actividad del sistema (7 días)</CardTitle></CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={activityData}>
@@ -31,8 +31,8 @@ export default function AdminAnalytics() {
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip />
-              <Bar dataKey="logins" fill="#3b82f6" name="Logins" />
-              <Bar dataKey="measurements" fill="#10b981" name="Measurements" />
+              <Bar dataKey="logins" fill="#3b82f6" name="Inicios de sesión" />
+              <Bar dataKey="measurements" fill="#10b981" name="Mediciones" />
             </BarChart>
           </ResponsiveContainer>
         </CardContent>
