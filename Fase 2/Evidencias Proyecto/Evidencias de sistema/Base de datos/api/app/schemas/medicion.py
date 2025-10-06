@@ -6,7 +6,7 @@ class MedicionCreate(BaseModel):
     fecha_registro: datetime
     origen: str = Field(..., min_length=3, max_length=100)
     registrado_por: str = Field(..., min_length=3, max_length=100)
-    observacion: str = Field(..., min_length=3, max_length=255)
+    observacion: str = Field(max_length=255)
     evaluada_en: datetime
     tiene_alerta: bool
     severidad_max: str = Field(..., min_length=1, max_length=60)
