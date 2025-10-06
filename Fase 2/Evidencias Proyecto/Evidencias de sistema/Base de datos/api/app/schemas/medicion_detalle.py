@@ -1,27 +1,73 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 class MedicionDetalleCreate(BaseModel):
-    id_medicion: int
-    id_parametro: int
-    id_unidad: int
-    valor_num: int
-    valor_texto: str
+    id_medicion: int = Field(..., ge=1, description="ID de la medición asociada")
+    id_parametro: int = Field(..., ge=1, description="ID del parámetro medido")
+    id_unidad: int = Field(..., ge=1, description="ID de la unidad de medida")
+    valor_num: int = Field(..., description="Valor numérico registrado")
+    valor_texto: str = Field(..., min_length=1, max_length=255, description="Valor en texto asociado")
     fuera_rango: bool
-    severidad: str
-    umbral_min: int
-    umbral_max: int
-    tipo_alerta: str
+    severidad: str = Field(..., min_length=1, max_length=255, description="Nivel de severidad")
+    umbral_min: int = Field(..., description="Valor mínimo permitido")
+    umbral_max: int = Field(..., description="Valor máximo permitido")
+    tipo_alerta: str = Field(..., min_length=1, max_length=255, description="Tipo de alerta")
+
+    @field_validator("umbral_max")
+    @classmethod
+    def validar_rangos(cls, v, values):
+        umbral_min = values.get("umbral_min")
+        if umbral_min is not None and v < umbral_min:
+            raise ValueError("umbral_max no puede ser menor que umbral_min")
+        return v
+
+    @field_validator("fuera_rango", mode="before")
+    @classmethod
+    def calcular_fuera_rango(cls, v, values):
+        valor = values.get("valor_num")
+        umbral_min = values.get("umbral_min")
+        umbral_max = values.get("umbral_max")
+        if valor is not None and umbral_min is not None and umbral_max is not None:
+            return not (umbral_min <= valor <= umbral_max)
+        return v
+
+    @field_validator("valor_texto")
+    @classmethod
+    def limpiar_texto(cls, v):
+        return v.strip().capitalize()
 
 class MedicionDetalleUpdate(BaseModel):
-    id_parametro: int | None = None
-    id_unidad: int | None = None
-    valor_num: int | None = None
+    id_parametro: int | None = Field(None, ge=1)
+    id_unidad: int | None = Field(None, ge=1)
+    valor_num: int | None = Field(None, min_length=1, max_length=255)
     valor_texto: str | None = None
     fuera_rango: bool | None = None
-    severidad: str | None = None
+    severidad: str | None = Field(..., min_length=1, max_length=255)
     umbral_min: int | None = None
     umbral_max: int | None = None
-    tipo_alerta: str | None = None
+    tipo_alerta: str | None = Field(..., min_length=1, max_length=255)
+
+    @field_validator("umbral_max")
+    @classmethod
+    def validar_rangos_update(cls, v, values):
+        umbral_min = values.get("umbral_min")
+        if umbral_min is not None and v is not None and v < umbral_min:
+            raise ValueError("umbral_max no puede ser menor que umbral_min")
+        return v
+
+    @field_validator("fuera_rango", mode="before")
+    @classmethod
+    def recalcular_fuera_rango(cls, v, values):
+        valor = values.get("valor_num")
+        umbral_min = values.get("umbral_min")
+        umbral_max = values.get("umbral_max")
+        if valor is not None and umbral_min is not None and umbral_max is not None:
+            return not (umbral_min <= valor <= umbral_max)
+        return v
+
+    @field_validator("valor_texto")
+    @classmethod
+    def limpiar_texto_update(cls, v):
+        return v.strip().capitalize() if v else v
 
 class MedicionDetalleOut(BaseModel):
     id_detalle: int

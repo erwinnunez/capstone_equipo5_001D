@@ -27,6 +27,22 @@ services:
     depends_on:
       - postgres
 
+  api:
+    build: .
+    container_name: cuida-api # Nombre que NO es el del servicio
+    restart: always
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      # Espera a que la DB esté lista antes de iniciar la API
+      postgres:
+        condition: service_healthy
+
 
 volumes:
   pgdata:
