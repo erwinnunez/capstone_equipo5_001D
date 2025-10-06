@@ -1,3 +1,4 @@
+// src/components/LoginPage.tsx
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
@@ -6,48 +7,98 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Activity, Shield, Stethoscope, Heart, User } from 'lucide-react';
 
-interface User {
+// 👇 importa tu servicio existente de pacientes
+import { getPacienteByRut } from '../services/paciente';
+
+type Role = 'admin' | 'doctor' | 'caregiver' | 'patient';
+
+interface UserObj {
   id: string;
   name: string;
-  role: 'admin' | 'doctor' | 'caregiver' | 'patient';
+  role: Role;
   email: string;
+  rutPaciente?: number; // <- clave para PatientMeasurements
 }
 
 interface LoginPageProps {
-  onLogin: (user: User) => void;
+  onLogin: (user: UserObj) => void;
 }
 
 export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>('');
+  const [selectedRole, setSelectedRole] = useState<Role | ''>('');
+  const [rutPaciente, setRutPaciente] = useState<string>(''); // visible solo para pacientes
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
   const roles = [
     { value: 'admin', label: 'Administrator', icon: Shield, description: 'System management and audit' },
     { value: 'doctor', label: 'Doctor', icon: Stethoscope, description: 'Patient monitoring and reports' },
-    { value: 'caregiver', label: 'Caregiver', icon: Heart, description: 'Patient data entry and care' },
-    { value: 'patient', label: 'Patient', icon: User, description: 'Self-monitoring and progress' }
-  ];
+    { value: 'caregiver', label: 'Cuidador', icon: Heart, description: 'Patient data entry and care' },
+    { value: 'patient', label: 'Paciente', icon: User, description: 'Self-monitoring and progress' }
+  ] as const;
 
-  const handleLogin = () => {
-    if (!selectedRole || !email) return;
-    
-    const userData: User = {
-      id: `${selectedRole}-${Date.now()}`,
-      name: email.split('@')[0] || 'User',
-      role: selectedRole as User['role'],
-      email: email
-    };
-    
-    onLogin(userData);
+  const handleLogin = async () => {
+    setErrorMsg('');
+    if (!selectedRole || !email) {
+      setErrorMsg('Completa email y rol.');
+      return;
+    }
+
+    // Para roles demo (no paciente) dejamos el flujo simulado
+    if (selectedRole !== 'patient') {
+      const userData: UserObj = {
+        id: `${selectedRole}-${Date.now()}`,
+        name: email.split('@')[0] || 'User',
+        role: selectedRole,
+        email
+      };
+      onLogin(userData);
+      return;
+    }
+
+    // 👇 Rol paciente: exigimos rut y validamos contra la API
+    if (!rutPaciente.trim()) {
+      setErrorMsg('Ingresa el RUT del paciente.');
+      return;
+    }
+
+    const rutNum = Number(rutPaciente.replace(/\D/g, '')); // limpia por si acaso
+    if (!rutNum) {
+      setErrorMsg('RUT inválido.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      // Llamada a tu API: /paciente/{rut}
+      const paciente = await getPacienteByRut<{ rut_paciente: number; email: string }>(rutNum);
+
+      // Si llega aquí, el RUT existe; arma el usuario con rutPaciente
+      const userData: UserObj = {
+        id: `patient-${paciente.rut_paciente}`,
+        name: email.split('@')[0] || 'Paciente',
+        role: 'patient',
+        email,
+        rutPaciente: paciente.rut_paciente
+      };
+      onLogin(userData);
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'No se pudo validar el RUT del paciente.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const quickLogin = (role: string) => {
-    const userData: User = {
+  const quickLogin = (role: Role) => {
+    // Para la demo rápida del paciente, ponemos un RUT “dummy” (ideal: uno que exista en tu BD)
+    const userData: UserObj = {
       id: `${role}-demo`,
       name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
-      role: role as User['role'],
-      email: `demo@${role}.com`
+      role,
+      email: `demo@${role}.com`,
+      rutPaciente: role === 'patient' ? 12345678 : undefined
     };
     onLogin(userData);
   };
@@ -67,9 +118,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Sign In</CardTitle>
-              <CardDescription>
-                Access your healthcare monitoring dashboard
-              </CardDescription>
+              <CardDescription>Access your healthcare monitoring dashboard</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -82,6 +131,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <Input
@@ -92,9 +142,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
+                <Select
+                  value={selectedRole}
+                  onValueChange={(v) => setSelectedRole(v as Role)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Select your role" />
                   </SelectTrigger>
@@ -110,12 +164,27 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   </SelectContent>
                 </Select>
               </div>
-              <Button 
-                onClick={handleLogin} 
-                className="w-full"
-                disabled={!email || !selectedRole}
-              >
-                Sign In
+
+              {/* Campo extra solo para Paciente */}
+              {selectedRole === 'patient' && (
+                <div className="space-y-2">
+                  <Label htmlFor="rutPaciente">RUT Paciente (solo números)</Label>
+                  <Input
+                    id="rutPaciente"
+                    inputMode="numeric"
+                    placeholder="11222333"
+                    value={rutPaciente}
+                    onChange={(e) => setRutPaciente(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {errorMsg && (
+                <p className="text-sm text-red-600">{errorMsg}</p>
+              )}
+
+              <Button onClick={handleLogin} className="w-full" disabled={!email || !selectedRole || loading}>
+                {loading ? 'Validando…' : 'Sign In'}
               </Button>
             </CardContent>
           </Card>
@@ -123,9 +192,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           <Card className="shadow-lg">
             <CardHeader>
               <CardTitle>Quick Demo Access</CardTitle>
-              <CardDescription>
-                Explore different user roles and features
-              </CardDescription>
+              <CardDescription>Explore different user roles and features</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {roles.map((role) => (
@@ -139,6 +206,11 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   <div className="text-left">
                     <div className="font-medium">{role.label}</div>
                     <div className="text-sm text-gray-500">{role.description}</div>
+                    {role.value === 'patient' && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        (Demo usa RUT 12345678)
+                      </div>
+                    )}
                   </div>
                 </Button>
               ))}
