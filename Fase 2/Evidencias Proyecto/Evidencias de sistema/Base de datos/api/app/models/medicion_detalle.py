@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float
 from sqlalchemy.orm import relationship
 from app.db import Base
 
@@ -10,12 +10,12 @@ class MedicionDetalle(Base):
     id_parametro = Column(Integer, ForeignKey("parametro_clinico.id_parametro", ondelete="RESTRICT"), nullable=False, index=True)
     id_unidad = Column(Integer, ForeignKey("unidad_medida.id_unidad", ondelete="RESTRICT"), nullable=False, index=True)
 
-    valor_num = Column(Integer, nullable=False)     # DDL no da tipo → INT asumido
+    valor_num = Column(Float, nullable=False)     # DDL no da tipo → INT asumido
     valor_texto = Column(String, nullable=False)
     fuera_rango = Column(Boolean, nullable=False)
     severidad = Column(String, nullable=False)
-    umbral_min = Column(Integer, nullable=False)
-    umbral_max = Column(Integer, nullable=False)
+    umbral_min = Column(Float, nullable=False)
+    umbral_max = Column(Float, nullable=False)
     tipo_alerta = Column(String, nullable=False)
 
     medicion = relationship("Medicion", back_populates="detalles", lazy="joined")
