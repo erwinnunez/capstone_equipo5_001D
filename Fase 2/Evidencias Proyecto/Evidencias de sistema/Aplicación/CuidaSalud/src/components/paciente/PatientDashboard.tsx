@@ -1,4 +1,3 @@
-// src/components/ui/PatientDashboard.tsx
 import { useState } from 'react';
 import { DashboardLayout } from '../DashboardLayout';
 import { PatientSidebar } from '../paciente/PatientSidebar';
@@ -14,6 +13,7 @@ interface User {
   name: string;
   role: string;
   email: string;
+  rutPaciente?: number; // <<— importante para pasar al formulario
 }
 
 interface PatientDashboardProps {
@@ -37,13 +37,11 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
         {section === 'home' && (
           <PatientHome user={user} totalPoints={totalPoints} currentStreak={currentStreak} />
         )}
-        {section === 'measurements' && <PatientMeasurements />}
+        {section === 'measurements' && <PatientMeasurements rutPaciente={user.rutPaciente} />}
         {section === 'progress' && (
           <PatientProgress currentStreak={currentStreak} totalPoints={totalPoints} />
         )}
-        {section === 'medication' && (
-          <MedicationTracker onBack={() => setSection('home')} />
-        )}
+        {section === 'medication' && <MedicationTracker onBack={() => setSection('home')} />}
         {section === 'achievements' && <PatientAchievements />}
       </div>
     </DashboardLayout>
