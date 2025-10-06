@@ -7,8 +7,8 @@ export default function PatientAchievements() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your Achievements</CardTitle>
-        <CardDescription>Unlock badges by maintaining healthy habits</CardDescription>
+        <CardTitle>Tus logros</CardTitle>
+        <CardDescription>Desbloquea insignias manteniendo hábitos saludables</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -29,7 +29,7 @@ export default function PatientAchievements() {
                     {achievement.description}
                   </p>
                 </div>
-                {achievement.earned && <Badge className="bg-green-100 text-green-800">Earned</Badge>}
+                {achievement.earned && <Badge className="bg-green-100 text-green-800">Ganado</Badge>}
               </div>
             </div>
           ))}

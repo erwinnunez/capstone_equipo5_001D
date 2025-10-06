@@ -148,13 +148,13 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
         {/* Add New Measurement */}
         <Card>
           <CardHeader>
-            <CardTitle>Record Today's Measurements</CardTitle>
-            <CardDescription>Enter your health measurements for today</CardDescription>
+            <CardTitle>Registre las mediciones de hoy</CardTitle>
+            <CardDescription>Ingresa tus medidas de salud de hoy</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Blood Sugar (mg/dL)</label>
+                <label className="text-sm font-medium">Glucemia (mg/dL)</label>
                 <Input
                   type="number"
                   placeholder="120"
@@ -163,7 +163,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Blood Pressure (sys/dia)</label>
+                <label className="text-sm font-medium">Presión arterial (sys/dia)</label>
                 <Input
                   placeholder="120/80"
                   value={newMeasurement.bloodPressure}
@@ -171,7 +171,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Oxygen Level (%)</label>
+                <label className="text-sm font-medium">Nivel de oxígeno (%)</label>
                 <Input
                   type="number"
                   placeholder="98"
@@ -180,7 +180,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Temperature (°C)</label>
+                <label className="text-sm font-medium">Temperatura (°C)</label>
                 <Input
                   type="number"
                   placeholder="36.8"
@@ -192,9 +192,9 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Notes</label>
+              <label className="text-sm font-medium">Notas</label>
               <Input
-                placeholder="Optional notes..."
+                placeholder="Notas opcionales..."
                 value={newMeasurement.notes}
                 onChange={(e) => setNewMeasurement({ ...newMeasurement, notes: e.target.value })}
               />
@@ -208,7 +208,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
 
             <Button onClick={handleAddMeasurement} className="w-full" disabled={submitting || !rutPaciente}>
               <Plus className="h-4 w-4 mr-2" />
-              {submitting ? 'Saving…' : 'Record Measurements'}
+              {submitting ? 'Saving…' : 'Guardar medición'}
             </Button>
           </CardContent>
         </Card>
@@ -216,13 +216,13 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
         {/* Weekly Goal Progress */}
         <Card>
           <CardHeader>
-            <CardTitle>Weekly Goals</CardTitle>
-            <CardDescription>Track your progress towards weekly health goals</CardDescription>
+            <CardTitle>Metas semanales</CardTitle>
+            <CardDescription>Realice un seguimiento de su progreso hacia sus objetivos de salud semanales</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Measurements This Week</span>
+                <span className="text-sm font-medium">Medidas de esta semana</span>
                 <span className="text-sm text-muted-foreground">
                   {weeklyProgress}/{weeklyGoal}
                 </span>
@@ -231,9 +231,9 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
             </div>
 
             <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-medium text-green-800 mb-2">Great Progress!</h4>
+              <h4 className="font-medium text-green-800 mb-2">¡Gran progreso!</h4>
               <p className="text-sm text-green-700">
-                You've logged {weeklyProgress} out of {weeklyGoal} measurements this week. Keep going to maintain your streak!
+                Has iniciado sesión {weeklyProgress} de {weeklyGoal} Medidas esta semana. ¡Sigue así para mantener la racha!
               </p>
             </div>
           </CardContent>
@@ -243,8 +243,8 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       {/* Recent Measurements Chart */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Trends</CardTitle>
-          <CardDescription>Your measurement history over the past 5 days</CardDescription>
+          <CardTitle>Tendencias recientes</CardTitle>
+          <CardDescription>Su historial de mediciones durante los últimos 5 días</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>

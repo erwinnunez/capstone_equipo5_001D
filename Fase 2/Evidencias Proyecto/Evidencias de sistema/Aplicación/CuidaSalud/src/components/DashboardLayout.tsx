@@ -58,7 +58,7 @@ export function DashboardLayout({
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <Activity className="h-8 w-8 text-blue-600 mr-3" />
-            <h1 className="text-2xl font-semibold text-gray-900">HealthMonitor</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">CuidaSalud</h1>
           </div>
 
           <div className="flex items-center space-x-4">
@@ -93,7 +93,7 @@ export function DashboardLayout({
 
             <Button variant="outline" size="sm" onClick={onLogout}>
               <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
+              Cerrar sesión
             </Button>
           </div>
         </div>

@@ -13,22 +13,22 @@ export default function PatientProgress({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Progress Overview</CardTitle>
-        <CardDescription>Track your health journey over time</CardDescription>
+        <CardTitle>Resumen del progreso</CardTitle>
+        <CardDescription>Realice un seguimiento de su progreso en materia de salud a lo largo del tiempo</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="text-center p-4 bg-blue-50 rounded-lg">
             <div className="text-2xl font-bold text-blue-600">{currentStreak}</div>
-            <p className="text-sm text-blue-600">Day Streak</p>
+            <p className="text-sm text-blue-600">Racha de días</p>
           </div>
           <div className="text-center p-4 bg-green-50 rounded-lg">
             <div className="text-2xl font-bold text-green-600">{totalPoints}</div>
-            <p className="text-sm text-green-600">Total Points</p>
+            <p className="text-sm text-green-600">Puntos totales</p>
           </div>
           <div className="text-center p-4 bg-purple-50 rounded-lg">
             <div className="text-2xl font-bold text-purple-600">85%</div>
-            <p className="text-sm text-purple-600">Goals Met</p>
+            <p className="text-sm text-purple-600">Metas con</p>
           </div>
         </div>
 

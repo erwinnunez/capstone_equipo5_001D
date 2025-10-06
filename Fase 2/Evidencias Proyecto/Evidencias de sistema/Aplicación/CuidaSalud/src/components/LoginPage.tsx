@@ -33,10 +33,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   const roles = [
-    { value: 'admin', label: 'Administrator', icon: Shield, description: 'System management and audit' },
-    { value: 'doctor', label: 'Doctor', icon: Stethoscope, description: 'Patient monitoring and reports' },
-    { value: 'caregiver', label: 'Cuidador', icon: Heart, description: 'Patient data entry and care' },
-    { value: 'patient', label: 'Paciente', icon: User, description: 'Self-monitoring and progress' }
+    { value: 'admin', label: 'Administrador', icon: Shield, description: 'Gestión y auditoría de sistemas' },
+    { value: 'doctor', label: 'Doctor', icon: Stethoscope, description: 'Monitoreo y reportes de pacientes' },
+    { value: 'caregiver', label: 'Cuidador', icon: Heart, description: 'Entrada y atención de datos de pacientes' },
+    { value: 'patient', label: 'Paciente', icon: User, description: 'Autocontrol y progreso' }
   ] as const;
 
   const handleLogin = async () => {
@@ -109,16 +109,16 @@ export function LoginPage({ onLogin }: LoginPageProps) {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
             <Activity className="h-12 w-12 text-blue-600 mr-3" />
-            <h1 className="text-4xl font-semibold text-gray-900">HealthMonitor</h1>
+            <h1 className="text-4xl font-semibold text-gray-900">CuidaSalud</h1>
           </div>
-          <p className="text-lg text-gray-600">Professional Patient Monitoring System</p>
+          <p className="text-lg text-gray-600">Sistema de monitoreo de pacientes</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-8">
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle>Sign In</CardTitle>
-              <CardDescription>Access your healthcare monitoring dashboard</CardDescription>
+              <CardTitle>Iniciar sesión</CardTitle>
+              <CardDescription>Acceda a su panel de control de seguimiento</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -126,31 +126,31 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="Enter your email"
+                  placeholder="Ingresar su email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">Contraseña</Label>
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Enter your password"
+                  placeholder="Ingresar su contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="role">Role</Label>
+                <Label htmlFor="role">Rol</Label>
                 <Select
                   value={selectedRole}
                   onValueChange={(v) => setSelectedRole(v as Role)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select your role" />
+                    <SelectValue placeholder="Seleccionar su rol" />
                   </SelectTrigger>
                   <SelectContent>
                     {roles.map((role) => (
@@ -165,7 +165,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </Select>
               </div>
 
-              {/* Campo extra solo para Paciente */}
+              {/* Campo extra solo para Paciente
               {selectedRole === 'patient' && (
                 <div className="space-y-2">
                   <Label htmlFor="rutPaciente">RUT Paciente (solo números)</Label>
@@ -177,22 +177,22 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     onChange={(e) => setRutPaciente(e.target.value)}
                   />
                 </div>
-              )}
+              )} */}
 
               {errorMsg && (
                 <p className="text-sm text-red-600">{errorMsg}</p>
               )}
 
               <Button onClick={handleLogin} className="w-full" disabled={!email || !selectedRole || loading}>
-                {loading ? 'Validando…' : 'Sign In'}
+                {loading ? 'Validando…' : 'Iniciar sesión'}
               </Button>
             </CardContent>
           </Card>
 
           <Card className="shadow-lg">
             <CardHeader>
-              <CardTitle>Quick Demo Access</CardTitle>
-              <CardDescription>Explore different user roles and features</CardDescription>
+              <CardTitle>Usuarios demo</CardTitle>
+              <CardDescription>Explorar los diferentes usuarios</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {roles.map((role) => (
