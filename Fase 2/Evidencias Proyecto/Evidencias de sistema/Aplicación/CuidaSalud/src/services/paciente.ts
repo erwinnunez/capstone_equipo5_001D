@@ -109,3 +109,66 @@ export async function createMedicionWithDetails(input: {
   }
   return { medicion: med, detalles: detallesOut };
 }
+
+// ---------- Page genérico para respuestas paginadas ----------
+export type Page<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+// ---------- Helpers locales ----------
+function buildQuery(params: Record<string, any>) {
+  const q = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v === undefined || v === null || v === "") return;
+    q.set(k, String(v));
+  });
+  return q.toString();
+}
+
+// ---------- Listados (mediciones y detalles) ----------
+export async function listMediciones(params: {
+  rut_paciente?: number;
+  desde?: string;        // ISO
+  hasta?: string;        // ISO
+  tiene_alerta?: boolean;
+  page?: number;
+  page_size?: number;
+}): Promise<Page<MedicionOut>> {
+  const qs = buildQuery({
+    rut_paciente: params.rut_paciente,
+    desde: params.desde,
+    hasta: params.hasta,
+    tiene_alerta: params.tiene_alerta,
+    page: params.page ?? 1,
+    page_size: params.page_size ?? 20,
+  });
+
+  const resp = await fetch(`${RUTA_MEDICION}?${qs}`, {
+    method: "GET",
+    headers: { "content-type": "application/json" },
+  });
+  return handleResponse<Page<MedicionOut>>(resp);
+}
+
+export async function listMedicionDetalles(params: {
+  id_medicion?: number;
+  id_parametro?: number;
+  page?: number;
+  page_size?: number;
+}): Promise<Page<MedicionDetalleOut>> {
+  const qs = buildQuery({
+    id_medicion: params.id_medicion,
+    id_parametro: params.id_parametro,
+    page: params.page ?? 1,
+    page_size: params.page_size ?? 20,
+  });
+
+  const resp = await fetch(`${RUTA_MEDICION_DETALLE}?${qs}`, {
+    method: "GET",
+    headers: { "content-type": "application/json" },
+  });
+  return handleResponse<Page<MedicionDetalleOut>>(resp);
+}

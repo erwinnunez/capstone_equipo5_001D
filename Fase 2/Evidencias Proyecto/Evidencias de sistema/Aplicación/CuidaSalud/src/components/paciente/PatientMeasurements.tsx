@@ -1,264 +1,284 @@
-import { useState } from 'react';
+// src/components/paciente/PatientProgress.tsx
+import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Progress } from '../ui/progress';
-import { Plus } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { recentMeasurements } from '../../data/patientMock';
 
-import { createMedicionWithDetails } from '../../services/paciente';
-import type { MedicionCreatePayload, Severidad } from '../../services/paciente';
+import {
+  listMediciones,
+  listMedicionDetalles,
+  type MedicionOut,
+  type MedicionDetalleOut,
+} from '../../services/paciente.ts';
 
 interface Props {
-  rutPaciente?: number;
+  currentStreak: number;
+  totalPoints: number;
+  rutPaciente?: number; // <- viene del login (igual que en tu ejemplo)
 }
 
-export default function PatientMeasurements({ rutPaciente }: Props) {
-  const [newMeasurement, setNewMeasurement] = useState({
-    bloodSugar: '',
-    bloodPressure: '',
-    oxygen: '',
-    temperature: '',
-    notes: '',
-  });
+export default function PatientProgress({ currentStreak, totalPoints, rutPaciente }: Props) {
+  // ----- estado listado mediciones -----
+  const [meds, setMeds] = useState<MedicionOut[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const canLoadMore = meds.length < total;
 
-  const [submitting, setSubmitting] = useState(false);
-
-  const weeklyGoal = 7;
-  const weeklyProgress = 5;
-
-  const handleAddMeasurement = async () => {
+  useEffect(() => {
     if (!rutPaciente) return;
+    setLoading(true);
+    setError(null);
+    listMediciones({ rut_paciente: rutPaciente, page: 1, page_size: pageSize })
+      .then((res) => {
+        setMeds(res.items ?? []);
+        setTotal(res.total ?? 0);
+        setPage(res.page ?? 1);
+      })
+      .catch(() => setError('Error cargando mediciones'))
+      .finally(() => setLoading(false));
+  }, [rutPaciente, pageSize]);
 
-    const [sysStr, diaStrRaw] = (newMeasurement.bloodPressure || '').split('/');
-    const sys = Number(sysStr);
-    const dia = Number(diaStrRaw);
+  const loadMore = () => {
+    if (!rutPaciente) return;
+    const next = page + 1;
+    setLoading(true);
+    listMediciones({ rut_paciente: rutPaciente, page: next, page_size: pageSize })
+      .then((res) => {
+        setMeds((prev) => [...prev, ...(res.items ?? [])]);
+        setTotal(res.total ?? total);
+        setPage(res.page ?? next);
+      })
+      .catch(() => setError('Error cargando más mediciones'))
+      .finally(() => setLoading(false));
+  };
 
-    let bpSeverity: Severidad = 'normal';
-    if (!Number.isNaN(sys) && !Number.isNaN(dia)) {
-      if (sys >= 140 || dia >= 90) bpSeverity = 'critical';
-      else if (sys >= 130 || dia >= 85) bpSeverity = 'warning';
-    }
-
-    const nowIso = new Date().toISOString();
-    const baseMedicion: MedicionCreatePayload = {
-      rut_paciente: rutPaciente,
-      fecha_registro: nowIso,
-      origen: 'WEB',
-      registrado_por: 'SELF',
-      observacion: newMeasurement.notes || '',
-      evaluada_en: nowIso,
-      tiene_alerta: bpSeverity !== 'normal',
-      severidad_max: bpSeverity,
-      resumen_alerta:
-        bpSeverity === 'critical'
-          ? 'Presión arterial elevada'
-          : bpSeverity === 'warning'
-          ? 'Presión arterial levemente elevada'
-          : 'Sin alerta',
-    };
-
-    const detalles: Array<{
-      id_parametro: number;
-      id_unidad: number;
-      valor_num: number;
-      valor_texto: string;
-      fuera_rango: boolean;
-      severidad: Severidad | string;
-      umbral_min: number;
-      umbral_max: number;
-      tipo_alerta: string;
-    }> = [];
-
-    if (newMeasurement.bloodSugar) {
-      const bg = Number(newMeasurement.bloodSugar);
-      detalles.push({
-        id_parametro: 1,
-        id_unidad: 1,
-        valor_num: bg,
-        valor_texto: `${bg} mg/dL`,
-        fuera_rango: bg < 70 || bg > 140,
-        severidad: bg >= 180 ? 'critical' : bg > 140 || bg < 70 ? 'warning' : 'normal',
-        umbral_min: 70,
-        umbral_max: 140,
-        tipo_alerta: bg >= 180 ? 'BG_HIGH' : bg < 70 ? 'BG_LOW' : 'NONE',
-      });
-    }
-
-    if (!Number.isNaN(sys) && !Number.isNaN(dia)) {
-      detalles.push({
-        id_parametro: 2,
-        id_unidad: 2,
-        valor_num: sys,
-        valor_texto: `${sys}/${dia} mmHg`,
-        fuera_rango: bpSeverity !== 'normal',
-        severidad: bpSeverity,
-        umbral_min: 80,
-        umbral_max: 129,
-        tipo_alerta: bpSeverity === 'critical' ? 'BP_HIGH' : bpSeverity === 'warning' ? 'BP_ELEVATED' : 'NONE',
-      });
-    }
-
-    if (newMeasurement.oxygen) {
-      const ox = Number(newMeasurement.oxygen);
-      detalles.push({
-        id_parametro: 3,
-        id_unidad: 3,
-        valor_num: ox,
-        valor_texto: `${ox}%`,
-        fuera_rango: ox < 95,
-        severidad: ox < 92 ? 'critical' : ox < 95 ? 'warning' : 'normal',
-        umbral_min: 95,
-        umbral_max: 100,
-        tipo_alerta: ox < 92 ? 'O2_LOW' : ox < 95 ? 'O2_WARN' : 'NONE',
-      });
-    }
-
-    if (newMeasurement.temperature) {
-      const t = Number(newMeasurement.temperature);
-      detalles.push({
-        id_parametro: 4,
-        id_unidad: 4,
-        valor_num: Math.round(t * 10),
-        valor_texto: `${t} °C`,
-        fuera_rango: t >= 37.8,
-        severidad: t >= 38.5 ? 'critical' : t >= 37.8 ? 'warning' : 'normal',
-        umbral_min: 36,
-        umbral_max: 37.7,
-        tipo_alerta: t >= 38.5 ? 'FEVER_HIGH' : t >= 37.8 ? 'FEVER' : 'NONE',
-      });
-    }
-
+  // helpers UI
+  const sevColor = (sev: string): 'outline' | 'secondary' | 'destructive' => {
+    const s = (sev || '').toLowerCase();
+    if (s === 'high' || s === 'critical') return 'destructive';
+    if (s === 'medium' || s === 'warning') return 'secondary';
+    return 'outline';
+  };
+  const boolText = (b: boolean) => (b ? 'Sí' : 'No');
+  const formatDateTime = (d: string | Date) => {
     try {
-      setSubmitting(true);
-      await createMedicionWithDetails({ medicion: baseMedicion, detalles });
-      setNewMeasurement({ bloodSugar: '', bloodPressure: '', oxygen: '', temperature: '', notes: '' });
-      alert('Medición registrada correctamente.');
-    } catch (e: any) {
-      alert(e?.message ?? 'No se pudo registrar la medición.');
-    } finally {
-      setSubmitting(false);
+      const dt = typeof d === 'string' ? new Date(d) : d;
+      return new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' }).format(dt);
+    } catch {
+      return String(d ?? '');
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Add New Measurement */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Registre las mediciones de hoy</CardTitle>
-            <CardDescription>Ingresa tus medidas de salud de hoy</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Glucemia (mg/dL)</label>
-                <Input
-                  type="number"
-                  placeholder="120"
-                  value={newMeasurement.bloodSugar}
-                  onChange={(e) => setNewMeasurement({ ...newMeasurement, bloodSugar: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Presión arterial (sys/dia)</label>
-                <Input
-                  placeholder="120/80"
-                  value={newMeasurement.bloodPressure}
-                  onChange={(e) => setNewMeasurement({ ...newMeasurement, bloodPressure: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nivel de oxígeno (%)</label>
-                <Input
-                  type="number"
-                  placeholder="98"
-                  value={newMeasurement.oxygen}
-                  onChange={(e) => setNewMeasurement({ ...newMeasurement, oxygen: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Temperatura (°C)</label>
-                <Input
-                  type="number"
-                  placeholder="36.8"
-                  step="0.1"
-                  value={newMeasurement.temperature}
-                  onChange={(e) => setNewMeasurement({ ...newMeasurement, temperature: e.target.value })}
-                />
-              </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Resumen del progreso</CardTitle>
+        <CardDescription>
+          Realice un seguimiento de su progreso en materia de salud a lo largo del tiempo
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {/* KPI cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <div className="text-2xl font-bold text-blue-600">{currentStreak}</div>
+            <p className="text-sm text-blue-600">Racha de días</p>
+          </div>
+          <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-2xl font-bold text-green-600">{totalPoints}</div>
+            <p className="text-sm text-green-600">Puntos totales</p>
+          </div>
+          <div className="text-center p-4 bg-purple-50 rounded-lg">
+            <div className="text-2xl font-bold text-purple-600">85%</div>
+            <p className="text-sm text-purple-600">Metas con</p>
+          </div>
+        </div>
+
+        {/* ======= Datatable de mediciones ======= */}
+        {rutPaciente ? (
+          <div className="mb-6 border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-semibold">Fecha</th>
+                    <th className="px-3 py-2 font-semibold">Origen</th>
+                    <th className="px-3 py-2 font-semibold">Registrado por</th>
+                    <th className="px-3 py-2 font-semibold">Alerta</th>
+                    <th className="px-3 py-2 font-semibold">Severidad</th>
+                    <th className="px-3 py-2 font-semibold w-0">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading && meds.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-3 text-center text-gray-600">
+                        Cargando mediciones…
+                      </td>
+                    </tr>
+                  )}
+                  {error && meds.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-3 text-center text-destructive">
+                        {error}
+                      </td>
+                    </tr>
+                  )}
+                  {!loading && !error && meds.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-3 text-center text-gray-600">
+                        Sin mediciones registradas.
+                      </td>
+                    </tr>
+                  )}
+
+                  {meds.map((m) => (
+                    <tr key={m.id_medicion} className="border-t">
+                      <td className="px-3 py-2">{formatDateTime(m.fecha_registro)}</td>
+                      <td className="px-3 py-2">{m.origen}</td>
+                      <td className="px-3 py-2">{m.registrado_por}</td>
+                      <td className="px-3 py-2">
+                        <Badge variant={m.tiene_alerta ? 'destructive' : 'outline'}>
+                          {boolText(m.tiene_alerta)}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        <Badge variant={sevColor(m.severidad_max)}>{m.severidad_max}</Badge>
+                      </td>
+                      <td className="px-3 py-2">
+                        <MedicionDetalleButton idMedicion={m.id_medicion} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Notas</label>
-              <Input
-                placeholder="Notas opcionales..."
-                value={newMeasurement.notes}
-                onChange={(e) => setNewMeasurement({ ...newMeasurement, notes: e.target.value })}
-              />
-            </div>
-
-            {!rutPaciente && (
-              <p className="text-sm text-amber-600">
-                No se encontró el rut del paciente (rutPaciente). Asegúrate de pasarlo desde el Login.
-              </p>
-            )}
-
-            <Button onClick={handleAddMeasurement} className="w-full" disabled={submitting || !rutPaciente}>
-              <Plus className="h-4 w-4 mr-2" />
-              {submitting ? 'Saving…' : 'Guardar medición'}
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Weekly Goal Progress */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Metas semanales</CardTitle>
-            <CardDescription>Realice un seguimiento de su progreso hacia sus objetivos de salud semanales</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Medidas de esta semana</span>
-                <span className="text-sm text-muted-foreground">
-                  {weeklyProgress}/{weeklyGoal}
-                </span>
+            {/* Footer tabla */}
+            <div className="flex items-center justify-between p-3 border-t">
+              <div className="text-xs text-gray-600">
+                {meds.length} de {total}
               </div>
-              <Progress value={(weeklyProgress / weeklyGoal) * 100} className="h-2" />
+              <div>
+                <Button variant="outline" size="sm" onClick={loadMore} disabled={!canLoadMore || loading}>
+                  {loading ? 'Cargando…' : canLoadMore ? 'Cargar más' : 'No hay más'}
+                </Button>
+              </div>
             </div>
+          </div>
+        ) : (
+          <p className="mb-6 text-sm text-amber-600">
+            No se encontró el rut del paciente (<code>rutPaciente</code>). Asegúrate de pasarlo desde el Login.
+          </p>
+        )}
+        {/* ======= FIN datatable ======= */}
 
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-medium text-green-800 mb-2">¡Gran progreso!</h4>
-              <p className="text-sm text-green-700">
-                Has iniciado sesión {weeklyProgress} de {weeklyGoal} Medidas esta semana. ¡Sigue así para mantener la racha!
-              </p>
+        {/* Gráfico */}
+        <ResponsiveContainer width="100%" height={400}>
+          <LineChart data={recentMeasurements}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="date" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="bloodSugar" stroke="#3b82f6" strokeWidth={2} name="Blood Sugar" />
+            <Line type="monotone" dataKey="bloodPressure" stroke="#ef4444" strokeWidth={2} name="Blood Pressure" />
+            <Line type="monotone" dataKey="oxygen" stroke="#10b981" strokeWidth={2} name="Oxygen %" />
+          </LineChart>
+        </ResponsiveContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ===== Botón + diálogo para ver detalles de una medición ===== */
+function MedicionDetalleButton({ idMedicion }: { idMedicion: number }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<MedicionDetalleOut[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setLoading(true);
+    setErr(null);
+    listMedicionDetalles({ id_medicion: idMedicion, page: 1, page_size: 100 })
+      .then((res) => setRows(res.items ?? []))
+      .catch(() => setErr('Error cargando detalle de la medición'))
+      .finally(() => setLoading(false));
+  }, [open, idMedicion]);
+
+  const renderValor = (d: MedicionDetalleOut) => {
+    const anyD = d as any;
+    const value = anyD.valor ?? d.valor_texto ?? d.valor_num ?? '-';
+    const unidad = anyD.unidad ?? '';
+    return `${value} ${unidad}`.trim();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">Ver detalle</Button>
+      </DialogTrigger>
+      <DialogContent className="max-h-[80vh] w-[90vw] max-w-3xl overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Detalle de medición #{idMedicion}</DialogTitle>
+        </DialogHeader>
+
+        {loading && <p>Cargando parámetros…</p>}
+        {err && <p className="text-destructive">{err}</p>}
+
+        {!loading && !err && (
+          <div className="border rounded-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50">
+                  <tr className="text-left">
+                    <th className="px-3 py-2 font-semibold">Parámetro</th>
+                    <th className="px-3 py-2 font-semibold">Valor</th>
+                    <th className="px-3 py-2 font-semibold">Severidad</th>
+                    <th className="px-3 py-2 font-semibold">Fuera de rango</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-3 text-center text-gray-600">
+                        No hay parámetros asociados.
+                      </td>
+                    </tr>
+                  )}
+                  {rows.map((d) => (
+                    <tr key={d.id_detalle} className="border-t">
+                      <td className="px-3 py-2">#{d.id_parametro}</td>
+                      <td className="px-3 py-2">{renderValor(d)}</td>
+                      <td className="px-3 py-2">
+                        <Badge
+                          variant={
+                            (d.severidad ?? 'normal') === 'critical'
+                              ? 'destructive'
+                              : d.severidad === 'warning'
+                              ? 'secondary'
+                              : 'outline'
+                          }
+                        >
+                          {d.severidad ?? 'normal'}
+                        </Badge>
+                      </td>
+                      <td className="px-3 py-2">{d.fuera_rango ? 'Sí' : 'No'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Measurements Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tendencias recientes</CardTitle>
-          <CardDescription>Su historial de mediciones durante los últimos 5 días</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={recentMeasurements}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="bloodSugar" stroke="#3b82f6" strokeWidth={2} name="Blood Sugar" />
-              <Line type="monotone" dataKey="oxygen" stroke="#10b981" strokeWidth={2} name="Oxygen %" />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-    </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
