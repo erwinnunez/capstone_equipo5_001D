@@ -7,17 +7,16 @@ import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Activity, Shield, Stethoscope, Heart, User } from 'lucide-react';
 
-// 👇 importa tu servicio existente de pacientes
-import { getPacienteByRut } from '../services/paciente';
-
-type Role = 'admin' | 'doctor' | 'caregiver' | 'patient';
+import { login as doLogin } from '../services/auth';
+import type { FrontUser } from '../services/auth';
+type Role = FrontUser['role'];
 
 interface UserObj {
   id: string;
   name: string;
   role: Role;
   email: string;
-  rutPaciente?: number; // <- clave para PatientMeasurements
+  rutPaciente?: number;
 }
 
 interface LoginPageProps {
@@ -28,71 +27,41 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role | ''>('');
-  const [rutPaciente, setRutPaciente] = useState<string>(''); // visible solo para pacientes
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
   const roles = [
-    { value: 'admin', label: 'Administrador', icon: Shield, description: 'Gestión y auditoría de sistemas' },
-    { value: 'doctor', label: 'Doctor', icon: Stethoscope, description: 'Monitoreo y reportes de pacientes' },
-    { value: 'caregiver', label: 'Cuidador', icon: Heart, description: 'Entrada y atención de datos de pacientes' },
-    { value: 'patient', label: 'Paciente', icon: User, description: 'Autocontrol y progreso' }
+    { value: 'admin',    label: 'Administrador', icon: Shield,      description: 'Gestión y auditoría de sistemas' },
+    { value: 'doctor',   label: 'Doctor',        icon: Stethoscope, description: 'Monitoreo y reportes de pacientes' },
+    { value: 'caregiver',label: 'Cuidador',      icon: Heart,       description: 'Entrada y atención de datos de pacientes' },
+    { value: 'patient',  label: 'Paciente',      icon: User,        description: 'Autocontrol y progreso' }
   ] as const;
 
   const handleLogin = async () => {
     setErrorMsg('');
-    if (!selectedRole || !email) {
-      setErrorMsg('Completa email y rol.');
+    if (!selectedRole || !email || !password) {
+      setErrorMsg('Completa email, contraseña y rol.');
       return;
     }
-
-    // Para roles demo (no paciente) dejamos el flujo simulado
-    if (selectedRole !== 'patient') {
-      const userData: UserObj = {
-        id: `${selectedRole}-${Date.now()}`,
-        name: email.split('@')[0] || 'User',
-        role: selectedRole,
-        email
-      };
-      onLogin(userData);
-      return;
-    }
-
-    // 👇 Rol paciente: exigimos rut y validamos contra la API
-    if (!rutPaciente.trim()) {
-      setErrorMsg('Ingresa el RUT del paciente.');
-      return;
-    }
-
-    const rutNum = Number(rutPaciente.replace(/\D/g, '')); // limpia por si acaso
-    if (!rutNum) {
-      setErrorMsg('RUT inválido.');
-      return;
-    }
-
     try {
       setLoading(true);
-      // Llamada a tu API: /paciente/{rut}
-      const paciente = await getPacienteByRut<{ rut_paciente: number; email: string }>(rutNum);
-
-      // Si llega aquí, el RUT existe; arma el usuario con rutPaciente
-      const userData: UserObj = {
-        id: `patient-${paciente.rut_paciente}`,
-        name: email.split('@')[0] || 'Paciente',
-        role: 'patient',
-        email,
-        rutPaciente: paciente.rut_paciente
+      const fu: FrontUser = await doLogin(email, password, selectedRole as Role);
+      const mapped: UserObj = {
+        id: fu.id,
+        name: fu.name,
+        role: fu.role,
+        email: fu.email,
+        rutPaciente: (fu as any).rut_paciente ?? (fu as any).rutPaciente,
       };
-      onLogin(userData);
+      onLogin(mapped);
     } catch (err: any) {
-      setErrorMsg(err?.message || 'No se pudo validar el RUT del paciente.');
+      setErrorMsg(err?.message || 'No se pudo iniciar sesión.');
     } finally {
       setLoading(false);
     }
   };
 
   const quickLogin = (role: Role) => {
-    // Para la demo rápida del paciente, ponemos un RUT “dummy” (ideal: uno que exista en tu BD)
     const userData: UserObj = {
       id: `${role}-demo`,
       name: `Demo ${role.charAt(0).toUpperCase() + role.slice(1)}`,
@@ -147,7 +116,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 <Label htmlFor="role">Rol</Label>
                 <Select
                   value={selectedRole}
-                  onValueChange={(v) => setSelectedRole(v as Role)}
+                  onValueChange={(v: string) => setSelectedRole(v as Role)}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar su rol" />
@@ -165,25 +134,13 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </Select>
               </div>
 
-              {/* Campo extra solo para Paciente
-              {selectedRole === 'patient' && (
-                <div className="space-y-2">
-                  <Label htmlFor="rutPaciente">RUT Paciente (solo números)</Label>
-                  <Input
-                    id="rutPaciente"
-                    inputMode="numeric"
-                    placeholder="11222333"
-                    value={rutPaciente}
-                    onChange={(e) => setRutPaciente(e.target.value)}
-                  />
-                </div>
-              )} */}
+              {errorMsg && <p className="text-sm text-red-600">{errorMsg}</p>}
 
-              {errorMsg && (
-                <p className="text-sm text-red-600">{errorMsg}</p>
-              )}
-
-              <Button onClick={handleLogin} className="w-full" disabled={!email || !selectedRole || loading}>
+              <Button
+                onClick={handleLogin}
+                className="w-full"
+                disabled={!email || !password || !selectedRole || loading}
+              >
                 {loading ? 'Validando…' : 'Iniciar sesión'}
               </Button>
             </CardContent>
@@ -200,7 +157,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   key={role.value}
                   variant="outline"
                   className="w-full justify-start h-auto p-4"
-                  onClick={() => quickLogin(role.value)}
+                  onClick={() => quickLogin(role.value as Role)}
                 >
                   <role.icon className="h-5 w-5 mr-3" />
                   <div className="text-left">

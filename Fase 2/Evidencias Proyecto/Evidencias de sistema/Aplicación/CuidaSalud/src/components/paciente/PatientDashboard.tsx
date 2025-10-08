@@ -3,7 +3,7 @@ import { DashboardLayout } from '../DashboardLayout';
 import { PatientSidebar } from '../paciente/PatientSidebar';
 import type { SectionKey } from '../paciente/PatientSidebar';
 import PatientHome from '../paciente/PatientHome';
-import PatientMeasurements from '../paciente/PatientMeasurements';
+import PatientMeasurements  from '../paciente/PatientMeasurements';
 import PatientProgress from '../paciente/PatientProgress';
 import PatientAchievements from '../paciente/PatientAchievements';
 import MedicationTracker from '../paciente/MedicationTracker';
@@ -39,9 +39,9 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
         )}
         {section === 'measurements' && <PatientMeasurements rutPaciente={user.rutPaciente} />}
         {section === 'progress' && (
-          <PatientProgress currentStreak={currentStreak} totalPoints={totalPoints} />
+          <PatientProgress currentStreak={currentStreak} totalPoints={totalPoints} rutPaciente={user.rutPaciente}/>
         )}
-        {section === 'medication' && <MedicationTracker onBack={() => setSection('home')} />}
+        {section === 'medication' && <MedicationTracker rutPaciente={user.rutPaciente} onBack={() => setSection('home') } />}
         {section === 'achievements' && <PatientAchievements />}
       </div>
     </DashboardLayout>

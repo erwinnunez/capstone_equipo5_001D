@@ -1,5 +1,4 @@
-// src/components/paciente/PatientProgress.tsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -10,25 +9,22 @@ import { recentMeasurements } from '../../data/patientMock';
 import {
   listMediciones,
   listMedicionDetalles,
-  type Page,
   type MedicionOut,
   type MedicionDetalleOut,
 } from '../../services/paciente.ts';
 
-export default function PatientProgress({
-  currentStreak,
-  totalPoints,
-  rutPaciente,
-}: {
+import {
+  listParametrosClinicos,
+  type ParametroClinicoOut,
+} from '../../services/parametroClinico';
+
+interface Props {
   currentStreak: number;
   totalPoints: number;
-  rutPaciente?: number;
-}) {
-  // Fallback: si no viene prop, intenta obtener de localStorage (rut_paciente)
-  const effectiveRut =
-    rutPaciente ??
-    (typeof window !== 'undefined' ? Number(localStorage.getItem('rut_paciente')) : undefined);
+  rutPaciente?: number; // <- viene del login (igual que en tu ejemplo)
+}
 
+export default function PatientProgress({ currentStreak, totalPoints, rutPaciente }: Props) {
   // ----- estado listado mediciones -----
   const [meds, setMeds] = useState<MedicionOut[]>([]);
   const [page, setPage] = useState(1);
@@ -39,10 +35,10 @@ export default function PatientProgress({
   const canLoadMore = meds.length < total;
 
   useEffect(() => {
-    if (!effectiveRut) return;
+    if (!rutPaciente) return;
     setLoading(true);
     setError(null);
-    listMediciones({ rut_paciente: effectiveRut, page: 1, page_size: pageSize })
+    listMediciones({ rut_paciente: rutPaciente, page: 1, page_size: pageSize })
       .then((res) => {
         setMeds(res.items ?? []);
         setTotal(res.total ?? 0);
@@ -50,13 +46,13 @@ export default function PatientProgress({
       })
       .catch(() => setError('Error cargando mediciones'))
       .finally(() => setLoading(false));
-  }, [effectiveRut, pageSize]);
+  }, [rutPaciente, pageSize]);
 
   const loadMore = () => {
-    if (!effectiveRut) return;
+    if (!rutPaciente) return;
     const next = page + 1;
     setLoading(true);
-    listMediciones({ rut_paciente: effectiveRut, page: next, page_size: pageSize })
+    listMediciones({ rut_paciente: rutPaciente, page: next, page_size: pageSize })
       .then((res) => {
         setMeds((prev) => [...prev, ...(res.items ?? [])]);
         setTotal(res.total ?? total);
@@ -109,7 +105,7 @@ export default function PatientProgress({
         </div>
 
         {/* ======= Datatable de mediciones ======= */}
-        {effectiveRut ? (
+        {rutPaciente ? (
           <div className="mb-6 border rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -181,10 +177,9 @@ export default function PatientProgress({
             </div>
           </div>
         ) : (
-          <div className="mb-6 p-3 border rounded-lg bg-yellow-50 text-yellow-800 text-sm">
-            No se encontró el RUT del paciente. Pásalo como prop <code>rutPaciente</code> o guarda
-            <code> rut_paciente </code> en <code>localStorage</code>.
-          </div>
+          <p className="mb-6 text-sm text-amber-600">
+            No se encontró el rut del paciente (<code>rutPaciente</code>). Asegúrate de pasarlo desde el Login.
+          </p>
         )}
         {/* ======= FIN datatable ======= */}
 
@@ -205,19 +200,31 @@ export default function PatientProgress({
   );
 }
 
-// Botón + diálogo para ver detalles de una medición
+/* ===== Botón + diálogo para ver detalles de una medición ===== */
 function MedicionDetalleButton({ idMedicion }: { idMedicion: number }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<MedicionDetalleOut[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  // índice por id_parametro -> ParametroClinicoOut
+  const [paramIndex, setParamIndex] = useState<Record<number, ParametroClinicoOut>>({});
+
   useEffect(() => {
     if (!open) return;
     setLoading(true);
     setErr(null);
-    listMedicionDetalles({ id_medicion: idMedicion, page: 1, page_size: 100 })
-      .then((res) => setRows(res.items ?? []))
+
+    Promise.all([
+      listMedicionDetalles({ id_medicion: idMedicion, page: 1, page_size: 100 }),
+      listParametrosClinicos({ page_size: 200 }),
+    ])
+      .then(([detRes, pcRes]) => {
+        setRows(detRes.items ?? []);
+        const idx: Record<number, ParametroClinicoOut> = {};
+        for (const p of pcRes.items ?? []) idx[p.id_parametro] = p;
+        setParamIndex(idx);
+      })
       .catch(() => setErr('Error cargando detalle de la medición'))
       .finally(() => setLoading(false));
   }, [open, idMedicion]);
@@ -225,8 +232,22 @@ function MedicionDetalleButton({ idMedicion }: { idMedicion: number }) {
   const renderValor = (d: MedicionDetalleOut) => {
     const anyD = d as any;
     const value = anyD.valor ?? d.valor_texto ?? d.valor_num ?? '-';
-    const unidad = anyD.unidad ?? '';
+    const unidad = anyD.unidad ?? ''; // si ya viene incluido en valor_texto, quedará vacío
     return `${value} ${unidad}`.trim();
+  };
+
+  // Nombre amigable por código (fallback a descripción o "#id")
+  const friendlyName = (p?: ParametroClinicoOut, id_parametro?: number) => {
+    if (!p) return `#${id_parametro ?? ''}`;
+    const code = (p.codigo || '').toUpperCase();
+    const map: Record<string, string> = {
+      GLUCOSA: 'Glucosa',
+      PRESION: 'Presión sistólica',
+      PRESION_DIAST: 'Presión diastólica',
+      OXIGENO: 'Oxígeno en sangre',
+      TEMP: 'Temperatura corporal',
+    };
+    return map[code] ?? p.descipcion ?? p.codigo ?? `#${p.id_parametro}`;
   };
 
   return (
@@ -262,24 +283,31 @@ function MedicionDetalleButton({ idMedicion }: { idMedicion: number }) {
                       </td>
                     </tr>
                   )}
-                  {rows.map((d) => (
-                    <tr key={d.id_detalle} className="border-t">
-                      <td className="px-3 py-2">#{d.id_parametro}</td>
-                      <td className="px-3 py-2">{renderValor(d)}</td>
-                      <td className="px-3 py-2">
-                        <Badge
-                          variant={
-                            (d.severidad ?? 'normal') === 'critical'
-                              ? 'destructive'
-                              : (d.severidad === 'warning' ? 'secondary' : 'outline')
-                          }
-                        >
-                          {d.severidad ?? 'normal'}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2">{d.fuera_rango ? 'Sí' : 'No'}</td>
-                    </tr>
-                  ))}
+                  {rows.map((d) => {
+                    const pc = paramIndex[d.id_parametro];
+                    return (
+                      <tr key={d.id_detalle} className="border-t">
+                        <td className="px-3 py-2">
+                          {friendlyName(pc, d.id_parametro)}
+                        </td>
+                        <td className="px-3 py-2">{renderValor(d)}</td>
+                        <td className="px-3 py-2">
+                          <Badge
+                            variant={
+                              (d.severidad ?? 'normal') === 'critical'
+                                ? 'destructive'
+                                : d.severidad === 'warning'
+                                ? 'secondary'
+                                : 'outline'
+                            }
+                          >
+                            {d.severidad ?? 'normal'}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2">{d.fuera_rango ? 'Sí' : 'No'}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
