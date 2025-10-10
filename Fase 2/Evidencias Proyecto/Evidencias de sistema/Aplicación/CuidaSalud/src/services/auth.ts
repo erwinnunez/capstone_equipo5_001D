@@ -1,75 +1,5 @@
 // src/services/auth.ts
-const API_BASE = "http://127.0.0.1:8000";
-
-const RUTA = {
-  paciente: `${API_BASE}/paciente`,
-  medico: `${API_BASE}/equipo-medico`,
-  cuidador: `${API_BASE}/cuidador`,
-  auth_login: `${API_BASE}/auth/login`, // opcional si algún día lo expones
-};
-
-async function handleResponse<T>(response: Response): Promise<T> {
-  if (!response.ok) {
-    try {
-      const error = await response.json();
-      throw new Error(error?.detail || error || "error en la solicitud");
-    } catch {
-      throw new Error("error en la solicitud");
-    }
-  }
-  return response.json();
-}
-
-function buildQuery(params: Record<string, unknown>) {
-  const qs = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => {
-    if (v === undefined || v === null || v === "") return;
-    qs.set(k, String(v));
-  });
-  const s = qs.toString();
-  return s ? `?${s}` : "";
-}
-
-/* ===== Tipos mínimos ===== */
-export interface PacienteOut {
-  rut_paciente: number;
-  primer_nombre_paciente: string;
-  segundo_nombre_paciente?: string | null;
-  primer_apellido_paciente: string;
-  segundo_apellido_paciente?: string | null;
-  email: string;
-  contrasena: string;
-  estado: boolean;
-}
-
-export interface EquipoMedicoOut {
-  rut_medico: number;
-  primer_nombre_medico: string;
-  segundo_nombre_medico?: string | null;
-  primer_apellido_medico: string;
-  segundo_apellido_medico?: string | null;
-  email: string;
-  contrasenia: string;
-  estado: boolean;
-}
-
-export interface CuidadorOut {
-  rut_cuidador: number;
-  primer_nombre_cuidador: string;
-  segundo_nombre_cuidador?: string | null;
-  primer_apellido_cuidador: string;
-  segundo_apellido_cuidador?: string | null;
-  email: string;
-  contrasena: string;
-  estado: boolean;
-}
-
-export interface PageResponse<T> {
-  items: T[];
-  total: number;
-  page: number;
-  page_size: number;
-}
+const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 
 export type Role = "admin" | "doctor" | "caregiver" | "patient";
 
@@ -79,126 +9,108 @@ export interface FrontUser {
   role: Role;
   email: string;
   rut_paciente?: number;
-  token?: string;
-}
-
-export interface LoginPayload {
-  email: string;
-  password: string;
-  role: Role;
 }
 
 export interface LoginResponse {
   user: FrontUser;
-  token?: string;
+  token?: string | null;
 }
 
-/* ===== Helpers nombres ===== */
-function nombrePaciente(p: PacienteOut) {
-  const sn = p.segundo_nombre_paciente ? ` ${p.segundo_nombre_paciente}` : "";
-  const sa = p.segundo_apellido_paciente ? ` ${p.segundo_apellido_paciente}` : "";
-  return `${p.primer_nombre_paciente}${sn} ${p.primer_apellido_paciente}${sa}`.trim();
-}
-function nombreMedico(m: EquipoMedicoOut) {
-  const sn = m.segundo_nombre_medico ? ` ${m.segundo_nombre_medico}` : "";
-  const sa = m.segundo_apellido_medico ? ` ${m.segundo_apellido_medico}` : "";
-  return `${m.primer_nombre_medico}${sn} ${m.primer_apellido_medico}${sa}`.trim();
-}
-function nombreCuidador(c: CuidadorOut) {
-  const sn = c.segundo_nombre_cuidador ? ` ${c.segundo_nombre_cuidador}` : "";
-  const sa = c.segundo_apellido_cuidador ? ` ${c.segundo_apellido_cuidador}` : "";
-  return `${c.primer_nombre_cuidador}${sn} ${c.primer_apellido_cuidador}${sa}`.trim();
-}
-
-/* ===== List genéricos con QS bien formada ===== */
-async function listPacientes(params: { page: number; page_size: number; estado?: boolean }) {
-  const qs = buildQuery(params);
-  const resp = await fetch(`${RUTA.paciente}${qs}`, { headers: { "content-type": "application/json" } });
-  return handleResponse<PageResponse<PacienteOut>>(resp);
-}
-async function listMedicos(params: { page: number; page_size: number; estado?: boolean }) {
-  const qs = buildQuery(params);
-  const resp = await fetch(`${RUTA.medico}${qs}`, { headers: { "content-type": "application/json" } });
-  return handleResponse<PageResponse<EquipoMedicoOut>>(resp);
-}
-async function listCuidadores(params: { page: number; page_size: number; estado?: boolean }) {
-  const qs = buildQuery(params);
-  const resp = await fetch(`${RUTA.cuidador}${qs}`, { headers: { "content-type": "application/json" } });
-  return handleResponse<PageResponse<CuidadorOut>>(resp);
-}
-
-/* ===== Paginado hasta encontrar coincidencia ===== */
-async function fetchPagedUntilMatch<T>(
-  fetchPage: (page: number) => Promise<PageResponse<T>>,
-  predicate: (row: T) => boolean,
-  pageSize = 200,
-  maxPages = 20
-): Promise<T | undefined> {
-  let page = 1;
-  while (page <= maxPages) {
-    const res = await fetchPage(page);
-    const hit = (res.items || []).find(predicate);
-    if (hit) return hit;
-    const seen = res.page * res.page_size;
-    if (seen >= res.total) break;
-    page++;
+export class ApiError extends Error {
+  status: number;
+  details?: any;
+  constructor(message: string, status: number, details?: any) {
+    super(message);
+    this.status = status;
+    this.details = details;
   }
-  return undefined;
 }
 
-/* ===== Logins por rol (fallback por tabla) ===== */
-export async function loginPatient(email: string, password: string): Promise<FrontUser> {
-  // Fallback vía /paciente (estado=True por defecto en tu API; igual lo paso explícito)
-  const match = await fetchPagedUntilMatch<PacienteOut>(
-    (page) => listPacientes({ page, page_size: 200, estado: true }),
-    (p) => p.estado && p.email?.toLowerCase() === email.toLowerCase() && p.contrasena === password
-  );
-  if (!match) throw new Error("Credenciales inválidas o paciente inactivo");
+function normalizeEmail(email: string) {
+  return (email ?? "").trim().toLowerCase();
+}
 
+async function readJson(res: Response) {
+  const text = await res.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch {}
+  return { json, text };
+}
+
+function toError(res: Response, json: any, fallback?: string) {
+  const d = json?.detail ?? json?.message ?? json?.error;
+  const msg = typeof d === "string" ? d : (fallback ?? `HTTP ${res.status} ${res.statusText}`);
+  return new ApiError(msg, res.status, json);
+}
+
+function abortableFetch(url: string, init?: RequestInit, ms = 15000) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  return fetch(url, { ...init, signal: ctrl.signal })
+    .finally(() => clearTimeout(id));
+}
+
+/** Login -> POST /auth/login  { email, password, role }  => { user, token? } */
+export async function login(email: string, password: string, role: Role): Promise<LoginResponse> {
+  const payload = { email: normalizeEmail(email), password, role };
+  try {
+    const res = await abortableFetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    const { json, text } = await readJson(res);
+    if (!res.ok) {
+      // mapea 401 a un mensaje claro
+      if (res.status === 401 && (json?.detail || json?.message)) {
+        throw toError(res, json, "Credenciales inválidas");
+      }
+      throw toError(res, json, text || "No se pudo iniciar sesión");
+    }
+    // Tu backend ya retorna { user, token? }
+    return (json ?? {}) as LoginResponse;
+  } catch (e: any) {
+    if (e?.name === "AbortError") {
+      throw new ApiError("Tiempo de espera agotado comunicando con el servidor.", 0);
+    }
+    if (e instanceof ApiError) throw e;
+    throw new ApiError(e?.message ?? "Fallo de red", 0);
+  }
+}
+
+/** (Opcional) Traer perfil real si mañana habilitas JWT y /users/me o /auth/me */
+export async function getMe(token: string): Promise<FrontUser> {
+  const res = await abortableFetch(`${API_BASE}/users/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const { json, text } = await readJson(res);
+  if (!res.ok) throw toError(res, json, text || "No se pudo cargar el perfil");
+  // adapta si tu endpoint usa otras claves
+  const j = json || {};
   return {
-    id: String(match.rut_paciente),
-    name: nombrePaciente(match),
-    role: "patient",
-    email: match.email,
-    rut_paciente: match.rut_paciente,
+    id: String(j.id ?? j.sub ?? "me"),
+    name: String(j.name ?? j.full_name ?? j.email ?? "Usuario"),
+    role: (j.role ?? "patient") as Role,
+    email: String(j.email ?? "unknown@example.com"),
+    rut_paciente: j.rut_paciente,
   };
 }
 
-export async function loginDoctor(email: string, password: string): Promise<FrontUser> {
-  const match = await fetchPagedUntilMatch<EquipoMedicoOut>(
-    (page) => listMedicos({ page, page_size: 200, estado: true }),
-    (m) => m.estado && m.email?.toLowerCase() === email.toLowerCase() && m.contrasenia === password
-  );
-  if (!match) throw new Error("Credenciales inválidas o médico inactivo");
-
-  return {
-    id: String(match.rut_medico),
-    name: nombreMedico(match),
-    role: "doctor",
-    email: match.email,
-  };
-}
-
-export async function loginCaregiver(email: string, password: string): Promise<FrontUser> {
-  const match = await fetchPagedUntilMatch<CuidadorOut>(
-    (page) => listCuidadores({ page, page_size: 200, estado: true }),
-    (c) => c.estado && c.email?.toLowerCase() === email.toLowerCase() && c.contrasena === password
-  );
-  if (!match) throw new Error("Credenciales inválidas o cuidador inactivo");
-
-  return {
-    id: String(match.rut_cuidador),
-    name: nombreCuidador(match),
-    role: "caregiver",
-    email: match.email,
-  };
-}
-
-/* ===== Entrada unificada ===== */
-export async function login(email: string, password: string, role: Role): Promise<FrontUser> {
-  if (role === "patient")  return loginPatient(email, password);
-  if (role === "doctor")   return loginDoctor(email, password);
-  if (role === "caregiver")return loginCaregiver(email, password);
-  // Admin: como no hay tabla/admin, solo demo
-  return Promise.reject(new Error('Rol "admin" aún no implementado'));
+/** (Opcional) envoltorio para peticiones autenticadas */
+export async function withAuth<T = any>(
+  path: string,
+  token: string,
+  init?: RequestInit
+): Promise<T> {
+  const res = await abortableFetch(`${API_BASE}${path}`, {
+    ...init,
+    headers: {
+      ...(init?.headers || {}),
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  const { json, text } = await readJson(res);
+  if (!res.ok) throw toError(res, json, text || "Error en la solicitud");
+  return (json ?? {}) as T;
 }

@@ -1,3 +1,5 @@
+# app/routes/equipo_medico.py
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from app.db import get_db
@@ -15,11 +17,13 @@ def list_medicos(page: int = 1, page_size: int = 20,
                  segundo_nombre: str | None = Query(None),
                  primer_apellido: str | None = Query(None),
                  segundo_apellido: str | None = Query(None),
+                 is_admin: bool | None = Query(None),
                  db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size,
                              id_cesfam=id_cesfam, estado=estado,
                              primer_nombre=primer_nombre, segundo_nombre=segundo_nombre,
-                             primer_apellido=primer_apellido, segundo_apellido=segundo_apellido)
+                             primer_apellido=primer_apellido, segundo_apellido=segundo_apellido,
+                             is_admin=is_admin)
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 @router.get("/{rut_medico}", response_model=EquipoMedicoOut)

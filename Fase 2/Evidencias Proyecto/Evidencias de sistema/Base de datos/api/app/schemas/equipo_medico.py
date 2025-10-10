@@ -1,3 +1,4 @@
+# app/schemas/equipo_medico.py
 from pydantic import BaseModel, Field, EmailStr, field_validator
 
 # -------- Create / Update / Out --------
@@ -15,10 +16,9 @@ class EquipoMedicoCreate(BaseModel):
     rol: str = Field(..., min_length=3, max_length=50)
     especialidad: str = Field(..., min_length=3, max_length=50)
     estado: bool
+    is_admin: bool = False
 
-# -------- VALIDACIONES --------
-
-    # Validar formato RUT chileno
+    # -------- VALIDACIONES --------
     @field_validator("rut_medico")
     @classmethod
     def validar_rut(cls, v, field):
@@ -29,17 +29,14 @@ class EquipoMedicoCreate(BaseModel):
             raise ValueError(f"El {field.name} debe tener exactamente 9 dígitos.")
         return v
 
-    # Validar teléfono chileno
     @field_validator("telefono")
     @classmethod
     def validar_telefono(cls, v):
         numero = str(v)
-        # Validar que tenga exactamente 9 dígitos
         if not numero.isdigit() or len(numero) != 9:
             raise ValueError("El número debe tener exactamente 9 dígitos.")
         return v
 
-    # Validar nombres y apellidos
     @field_validator(
         "primer_nombre_medico", "segundo_nombre_medico",
         "primer_apellido_medico", "segundo_apellido_medico"
@@ -50,7 +47,6 @@ class EquipoMedicoCreate(BaseModel):
             raise ValueError("Solo se permiten letras y espacios")
         return v.title()
 
-    # --- VALIDAR DIRECCIÓN ---
     @field_validator("direccion")
     @classmethod
     def validar_direccion(cls, v):
@@ -59,7 +55,6 @@ class EquipoMedicoCreate(BaseModel):
             raise ValueError("La dirección solo puede contener letras, números y ., #-")
         return v.strip().title()
     
-    # --- VALIDAR CONTRASEÑA ---    
     @field_validator("contrasenia")
     @classmethod
     def validar_contrasena(cls, v):
@@ -72,7 +67,6 @@ class EquipoMedicoCreate(BaseModel):
         if not any(c.isdigit() for c in v):
             raise ValueError("La contraseña debe tener al menos un número")
         return v
-
 
 
 class EquipoMedicoUpdate(BaseModel):
@@ -88,20 +82,17 @@ class EquipoMedicoUpdate(BaseModel):
     rol: str | None = Field(..., min_length=3, max_length=50)
     especialidad: str | None = Field(..., min_length=3, max_length=50)
     estado: bool | None = None
+    is_admin: bool | None = None
 
-# -------- VALIDACIONES --------
-
-    # Validar teléfono chileno
+    # -------- VALIDACIONES --------
     @field_validator("telefono")
     @classmethod
     def validar_telefono(cls, v):
         numero = str(v)
-        # Validar que tenga exactamente 9 dígitos
         if not numero.isdigit() or len(numero) != 9:
             raise ValueError("El número debe tener exactamente 9 dígitos.")
         return v
 
-    # Validar nombres y apellidos
     @field_validator(
         "primer_nombre_medico", "segundo_nombre_medico",
         "primer_apellido_medico", "segundo_apellido_medico"
@@ -112,7 +103,6 @@ class EquipoMedicoUpdate(BaseModel):
             raise ValueError("Solo se permiten letras y espacios")
         return v.title()
 
-    # --- VALIDAR DIRECCIÓN ---
     @field_validator("direccion")
     @classmethod
     def validar_direccion(cls, v):
@@ -121,7 +111,6 @@ class EquipoMedicoUpdate(BaseModel):
             raise ValueError("La dirección solo puede contener letras, números y ., #-")
         return v.strip().title()
     
-    # --- VALIDAR CONTRASEÑA ---    
     @field_validator("contrasenia")
     @classmethod
     def validar_contrasena(cls, v):
@@ -144,14 +133,15 @@ class EquipoMedicoOut(BaseModel):
     primer_apellido_medico: str
     segundo_apellido_medico: str
     email: str
-    contrasenia: str
     telefono: int
     direccion: str
     rol: str
     especialidad: str
     estado: bool
+    is_admin: bool
     class Config:
         from_attributes = True
+
 
 # -------- List filters (paginación + búsqueda) --------
 class EquipoMedicoListFilters(BaseModel):

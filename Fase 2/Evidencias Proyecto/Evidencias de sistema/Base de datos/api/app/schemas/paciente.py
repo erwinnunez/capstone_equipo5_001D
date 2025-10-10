@@ -197,7 +197,6 @@ class PacienteOut(BaseModel):
     direccion: str
     telefono: int
     email: str
-    contrasena: str
     tipo_paciente: str
     nombre_contacto: str
     telefono_contacto: int

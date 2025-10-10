@@ -1,19 +1,23 @@
-import { useState } from 'react';
-import { DashboardLayout } from '../DashboardLayout';
-import { PatientSidebar } from '../paciente/PatientSidebar';
-import type { SectionKey } from '../paciente/PatientSidebar';
-import PatientHome from '../paciente/PatientHome';
-import PatientMeasurements  from '../paciente/PatientMeasurements';
-import PatientProgress from '../paciente/PatientProgress';
-import PatientAchievements from '../paciente/PatientAchievements';
-import MedicationTracker from '../paciente/MedicationTracker';
+// src/components/paciente/PatientDashboard.tsx
+import { useState } from "react";
+import { DashboardLayout } from "../DashboardLayout";
+import { PatientSidebar } from "./PatientSidebar";
+import type { SectionKey } from "./PatientSidebar";
+import PatientHome from "./PatientHome";
+import PatientMeasurements from "./PatientMeasurements";
+import PatientProgress from "./PatientProgress";
+import PatientAchievements from "./PatientAchievements";
+import MedicationTracker from "./MedicationTracker";
+
+type Role = "admin" | "doctor" | "caregiver" | "patient";
 
 interface User {
   id: string;
   name: string;
-  role: string;
+  role: Role;
   email: string;
-  rutPaciente?: number; // <<— importante para pasar al formulario
+  // Usamos SIEMPRE camelCase en la UI:
+  rutPaciente?: number;
 }
 
 interface PatientDashboardProps {
@@ -22,7 +26,7 @@ interface PatientDashboardProps {
 }
 
 export default function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
-  const [section, setSection] = useState<SectionKey>('home');
+  const [section, setSection] = useState<SectionKey>("home");
   const totalPoints = 1250;
   const currentStreak = 14;
 
@@ -34,15 +38,25 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
       notifications={2}
     >
       <div className="space-y-6">
-        {section === 'home' && (
+        {section === "home" && (
           <PatientHome user={user} totalPoints={totalPoints} currentStreak={currentStreak} />
         )}
-        {section === 'measurements' && <PatientMeasurements rutPaciente={user.rutPaciente} />}
-        {section === 'progress' && (
-          <PatientProgress currentStreak={currentStreak} totalPoints={totalPoints} rutPaciente={user.rutPaciente}/>
+
+        {section === "measurements" && <PatientMeasurements rutPaciente={user.rutPaciente} />}
+
+        {section === "progress" && (
+          <PatientProgress
+            currentStreak={currentStreak}
+            totalPoints={totalPoints}
+            rutPaciente={user.rutPaciente}
+          />
         )}
-        {section === 'medication' && <MedicationTracker rutPaciente={user.rutPaciente} onBack={() => setSection('home') } />}
-        {section === 'achievements' && <PatientAchievements />}
+
+        {section === "medication" && (
+          <MedicationTracker rutPaciente={user.rutPaciente} onBack={() => setSection("home")} />
+        )}
+
+        {section === "achievements" && <PatientAchievements />}
       </div>
     </DashboardLayout>
   );

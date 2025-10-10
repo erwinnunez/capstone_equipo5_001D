@@ -1,3 +1,5 @@
+// src/services/paciente.ts
+
 const API_HOST = "http://127.0.0.1:8000";
 
 const RUTA_PACIENTE = `${API_HOST}/paciente`;
@@ -16,7 +18,94 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-// ---------- Pacientes (como tu ejemplo) ----------
+/* =========================================================
+   ===============  REGISTRO DE PACIENTE  ==================
+   ========================================================= */
+
+// Tipado alineado con tu schema PacienteCreate
+export type PacienteCreatePayload = {
+  rut_paciente: number;
+  id_comuna: number;
+
+  primer_nombre_paciente: string;
+  segundo_nombre_paciente: string;
+  primer_apellido_paciente: string;
+  segundo_apellido_paciente: string;
+
+  fecha_nacimiento: string; // "YYYY-MM-DD"
+  sexo: boolean;
+  tipo_de_sangre: string;   // "O+", "A-", etc
+  enfermedades?: string | null;
+  seguro?: string | null;
+
+  direccion: string;
+  telefono: number;
+  email: string;
+  contrasena: string;
+
+  tipo_paciente: string;
+  nombre_contacto: string;
+  telefono_contacto: number;
+
+  estado: boolean;
+
+  id_cesfam: number;
+  fecha_inicio_cesfam: string; // "YYYY-MM-DD"
+  fecha_fin_cesfam?: string | null; // opcional
+  activo_cesfam: boolean;
+};
+
+// Resultado "no rompedor" para usar en el modal de registro
+type ApiResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; status: number; message: string; details?: any };
+
+// Convierte el detail 422 de FastAPI a un string legible
+export function toNiceMessage(err: any): string {
+  if (err?.detail) {
+    const det = err.detail;
+    if (Array.isArray(det)) {
+      return det
+        .map((d) => {
+          const loc = Array.isArray(d.loc) ? d.loc.join(".") : String(d.loc ?? "");
+          return loc ? `${loc}: ${d.msg}` : d.msg;
+        })
+        .join(" | ");
+    }
+    return typeof det === "string" ? det : JSON.stringify(det);
+  }
+  return "Error de validación";
+}
+
+async function handleJson<T>(res: Response): Promise<ApiResult<T>> {
+  const text = await res.text();
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch {}
+  if (!res.ok) {
+    if (res.status === 422 && json?.detail) {
+      return { ok: false, status: 422, message: toNiceMessage(json), details: json };
+    }
+    let msg = `HTTP ${res.status}`;
+    if (json?.detail) msg = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
+    return { ok: false, status: res.status, message: msg, details: json ?? text };
+  }
+  return { ok: true, data: (json ?? ({} as T)) as T };
+}
+
+// Crear Paciente (pensado para el botón "Crear cuenta")
+export async function createPaciente(payload: PacienteCreatePayload): Promise<ApiResult<any>> {
+  const res = await fetch(RUTA_PACIENTE, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return handleJson<any>(res);
+}
+
+/* =========================================================
+   ===============         PACIENTES          ==============
+   ========================================================= */
+
 export async function getPacientes<T>(): Promise<T> {
   const resp = await fetch(RUTA_PACIENTE, {
     method: "GET",
@@ -33,7 +122,10 @@ export async function getPacienteByRut<T>(rut_paciente: number): Promise<T> {
   return handleResponse(resp);
 }
 
-// ---------- Tipos para mediciones ----------
+/* =========================================================
+   ===============       MEDICIONES           ==============
+   ========================================================= */
+
 export type Severidad = "normal" | "warning" | "critical";
 
 export interface MedicionCreatePayload {
@@ -69,7 +161,6 @@ export interface MedicionDetalleOut extends MedicionDetalleCreatePayload {
   id_detalle: number;
 }
 
-// ---------- Endpoints mediciones ----------
 export async function createMedicion(
   payload: MedicionCreatePayload
 ): Promise<MedicionOut> {
@@ -110,7 +201,10 @@ export async function createMedicionWithDetails(input: {
   return { medicion: med, detalles: detallesOut };
 }
 
-// ---------- Page genérico para respuestas paginadas ----------
+/* =========================================================
+   ===============      LISTADOS (GET)       ===============
+   ========================================================= */
+
 export type Page<T> = {
   items: T[];
   total: number;
@@ -118,7 +212,6 @@ export type Page<T> = {
   page_size: number;
 };
 
-// ---------- Helpers locales ----------
 function buildQuery(params: Record<string, any>) {
   const q = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {
@@ -128,7 +221,6 @@ function buildQuery(params: Record<string, any>) {
   return q.toString();
 }
 
-// ---------- Listados (mediciones y detalles) ----------
 export async function listMediciones(params: {
   rut_paciente?: number;
   desde?: string;        // ISO

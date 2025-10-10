@@ -78,8 +78,9 @@ class CuidadorUpdate(BaseModel):
     direccion: str | None = Field(..., min_length=5, max_length=150)
     telefono: int | None = Field(..., example="999998888")
     email: str | None = None
-    contrasena: EmailStr | None = None
+    contrasena: str | None = None   # ← FIX aquí
     estado: bool | None = None
+    ...
 
 
     # --- VALIDAR NOMBRES Y APELLIDOS ---
@@ -136,7 +137,6 @@ class CuidadorOut(BaseModel):
     direccion: str
     telefono: int
     email: str
-    contrasena: str
     estado: bool
     class Config:
         from_attributes = True
