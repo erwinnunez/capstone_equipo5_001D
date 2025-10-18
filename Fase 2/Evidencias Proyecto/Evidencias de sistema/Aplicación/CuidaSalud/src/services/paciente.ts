@@ -1,6 +1,6 @@
 // src/services/paciente.ts
 
-const API_HOST = "http://127.0.0.1:8000";
+const API_HOST = import.meta.env.VITE_API_HOST ?? "http://127.0.0.1:8000";
 
 const RUTA_PACIENTE = `${API_HOST}/paciente`;
 const RUTA_MEDICION = `${API_HOST}/medicion`;
@@ -32,7 +32,7 @@ export type PacienteCreatePayload = {
   primer_apellido_paciente: string;
   segundo_apellido_paciente: string;
 
-  fecha_nacimiento: string; // "YYYY-MM-DD"
+  fecha_nacimiento: string; // ISO "YYYY-MM-DD" o con tz
   sexo: boolean;
   tipo_de_sangre: string;   // "O+", "A-", etc
   enfermedades?: string | null;
@@ -55,7 +55,32 @@ export type PacienteCreatePayload = {
   activo_cesfam: boolean;
 };
 
-// Resultado "no rompedor" para usar en el modal de registro
+// Estructura que devuelve el backend (ajústala si tienes más campos)
+export type PacienteOut = {
+  rut_paciente: number;
+  id_comuna: number;
+  primer_nombre_paciente: string;
+  segundo_nombre_paciente: string | null;
+  primer_apellido_paciente: string;
+  segundo_apellido_paciente: string | null;
+  fecha_nacimiento: string;        // ISO
+  sexo: boolean | null;            // true M / false F / null desconocido
+  tipo_de_sangre: string | null;
+  enfermedades: string | null;
+  seguro: string | null;
+  direccion: string | null;
+  telefono: number | null;
+  email: string | null;
+  tipo_paciente: string | null;
+  nombre_contacto: string | null;
+  telefono_contacto: number | null;
+  estado: boolean;
+  id_cesfam: number | null;
+  fecha_inicio_cesfam: string | null;
+  fecha_fin_cesfam: string | null;
+  activo_cesfam: boolean | null;
+};
+
 type ApiResult<T> =
   | { ok: true; data: T }
   | { ok: false; status: number; message: string; details?: any };
@@ -92,11 +117,12 @@ async function handleJson<T>(res: Response): Promise<ApiResult<T>> {
   return { ok: true, data: (json ?? ({} as T)) as T };
 }
 
-// Crear Paciente (pensado para el botón "Crear cuenta")
+// Crear Paciente
 export async function createPaciente(payload: PacienteCreatePayload): Promise<ApiResult<any>> {
   const res = await fetch(RUTA_PACIENTE, {
     method: "POST",
     headers: { "content-type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   return handleJson<any>(res);
@@ -106,25 +132,35 @@ export async function createPaciente(payload: PacienteCreatePayload): Promise<Ap
    ===============         PACIENTES          ==============
    ========================================================= */
 
-export async function getPacientes<T>(): Promise<T> {
+export async function getPacientes<T = PacienteOut[]>(): Promise<T> {
   const resp = await fetch(RUTA_PACIENTE, {
     method: "GET",
     headers: { "content-type": "application/json" },
+    credentials: "include",
   });
   return handleResponse(resp);
 }
 
-export async function getPacienteByRut<T>(rut_paciente: number): Promise<T> {
+export async function getPacienteByRut<T = PacienteOut>(rut_paciente: number): Promise<T> {
   const resp = await fetch(`${RUTA_PACIENTE}/${rut_paciente}`, {
     method: "GET",
     headers: { "content-type": "application/json" },
+    credentials: "include",
   });
   return handleResponse(resp);
 }
+
+// Alias opcional, por si prefieres importar esto
+export const getPacienteFicha = getPacienteByRut;
 
 /* =========================================================
    ===============       MEDICIONES           ==============
    ========================================================= */
+/**
+ * Si ya estás usando `src/services/medicion.ts` (recomendado),
+ * puedes ELIMINAR todo lo de mediciones de este archivo para evitar duplicados.
+ * Lo dejo aquí solo si aún no migras.
+ */
 
 export type Severidad = "normal" | "warning" | "critical";
 
@@ -167,6 +203,7 @@ export async function createMedicion(
   const resp = await fetch(RUTA_MEDICION, {
     method: "POST",
     headers: { "content-type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   return handleResponse<MedicionOut>(resp);
@@ -178,6 +215,7 @@ export async function createMedicionDetalle(
   const resp = await fetch(RUTA_MEDICION_DETALLE, {
     method: "POST",
     headers: { "content-type": "application/json" },
+    credentials: "include",
     body: JSON.stringify(payload),
   });
   return handleResponse<MedicionDetalleOut>(resp);
@@ -241,6 +279,7 @@ export async function listMediciones(params: {
   const resp = await fetch(`${RUTA_MEDICION}?${qs}`, {
     method: "GET",
     headers: { "content-type": "application/json" },
+    credentials: "include",
   });
   return handleResponse<Page<MedicionOut>>(resp);
 }
@@ -261,6 +300,25 @@ export async function listMedicionDetalles(params: {
   const resp = await fetch(`${RUTA_MEDICION_DETALLE}?${qs}`, {
     method: "GET",
     headers: { "content-type": "application/json" },
+    credentials: "include",
   });
   return handleResponse<Page<MedicionDetalleOut>>(resp);
+}
+
+// ===== Helper específico: listar SOLO mediciones con alerta = true =====
+export async function listAlertasMediciones(params?: {
+  rut_paciente?: number;
+  desde?: string; // ISO
+  hasta?: string; // ISO
+  page?: number;
+  page_size?: number;
+}) {
+  return listMediciones({
+    rut_paciente: params?.rut_paciente,
+    desde: params?.desde,
+    hasta: params?.hasta,
+    tiene_alerta: true,
+    page: params?.page ?? 1,
+    page_size: params?.page_size ?? 50,
+  });
 }
