@@ -9,6 +9,7 @@ import DoctorReports from './DoctorReports';
 import MedicalDashboard from './MedicalDashboard'
 import SOAPNoteForm from './SOAPNoteForm'
 import FollowUpChecklist from './FollowUpChecklist'
+import SeguimientoTendencias from './SeguimientoTendencias'
 
 interface User {
   id: string;
@@ -47,6 +48,10 @@ export function DoctorDashboard({ user, onLogout }: DoctorDashboardProps) {
         <CheckSquare className="h-4 w-4 mr-2" />
         Seguimiento
       </Button>
+      <Button variant={section === 'Seguimiento v2' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('Seguimiento v2')}>
+        <CheckSquare className="h-4 w-4 mr-2" />
+        Seguimiento v2
+      </Button>
       <Button variant={section === 'reports' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('reports')}>
         <NotepadTextDashed className="h-4 w-4 mr-2" />
         Reportes
@@ -64,6 +69,9 @@ export function DoctorDashboard({ user, onLogout }: DoctorDashboardProps) {
       break;
     case 'Seguimiento':
       content = <FollowUpChecklist />;
+      break;
+    case 'Seguimiento v2':
+      content = <SeguimientoTendencias />;
       break;
     case 'reports':
       content = <DoctorReports />;

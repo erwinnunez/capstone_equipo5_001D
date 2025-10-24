@@ -9,9 +9,9 @@ router = APIRouter(prefix="/rango-paciente", tags=["parametros"])
 
 @router.get("", response_model=Page[RangoPacienteOut])
 def list_rango(page: int = 1, page_size: int = 20,
-               rut_paciente: int | None = Query(None),
-               id_parametro: int | None = Query(None),
-               db: Session = Depends(get_db)):
+            rut_paciente: int | None = Query(None),
+            id_parametro: int | None = Query(None),
+            db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_paciente=rut_paciente, id_parametro=id_parametro)
     return Page(items=items, total=total, page=page, page_size=page_size)
 
@@ -36,3 +36,13 @@ def delete_rango(id_rango: int, db: Session = Depends(get_db)):
     ok = svc.delete(db, id_rango)
     if not ok: raise HTTPException(404, "Not found")
     return {"message": "Deleted"}
+
+@router.get("/paciente/{rut_paciente}", response_model=list[RangoPacienteOut])
+def get_rangos_por_paciente(rut_paciente: int, db: Session = Depends(get_db)):
+    """
+    Devuelve todos los rangos configurados para un paciente específico según su RUT.
+    """
+    rangos = svc.get_by_paciente(db, rut_paciente)
+    if not rangos:
+        raise HTTPException(status_code=404, detail=f"No se encontraron rangos para el paciente {rut_paciente}")
+    return rangos

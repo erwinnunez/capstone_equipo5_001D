@@ -30,3 +30,5 @@ class EquipoMedico(Base):
     notas = relationship("NotaClinica", back_populates="medico", cascade="all,delete")
     descargas = relationship("DescargaReporte", back_populates="medico", viewonly=True)
     solicitudes = relationship("SolicitudReporte", back_populates="medico", cascade="all,delete")
+    tareas = relationship("Tarea", back_populates="doctor")
+

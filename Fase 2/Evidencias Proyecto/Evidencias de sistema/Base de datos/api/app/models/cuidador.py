@@ -19,3 +19,4 @@ class Cuidador(Base):
 
     historiales = relationship("CuidadorHistorial", back_populates="cuidador", cascade="all,delete")
     pacientes = relationship("PacienteCuidador", back_populates="cuidador", cascade="all,delete")
+    tareas = relationship("Tarea", back_populates="cuidador")

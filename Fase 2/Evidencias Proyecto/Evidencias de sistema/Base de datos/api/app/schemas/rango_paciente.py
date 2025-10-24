@@ -20,7 +20,7 @@ class RangoPacienteCreate(BaseModel):
         numero = str(v)
         if not numero.isdigit():
             raise ValueError(f"El {field.name} solo debe contener números (sin puntos ni guion).")
-        if len(numero) != 9:
+        if len(numero) != 8: #cambiar valor a 9 despues
             raise ValueError(f"El {field.name} debe tener exactamente 9 dígitos.")
         return v
 
@@ -91,11 +91,18 @@ class RangoPacienteUpdate(BaseModel):
     # --- VALIDAR VIGENCIA ---
     @model_validator(mode="after")
     def validar_vigencia(cls, values):
-        if values.vigencia_hasta < values.vigencia_desde:
+        desde = values.vigencia_desde
+        hasta = values.vigencia_hasta
+
+        if desde and hasta and hasta < desde:
             raise ValueError("vigencia_hasta no puede ser anterior a vigencia_desde.")
-        if values < 0:
-            raise ValueError("No puede ser negativo.")
-        return values
+
+        for campo in ["min_normal", "max_normal", "min_critico", "max_critico"]:
+            valor = getattr(values, campo, None)
+            if valor is not None and valor < 0:
+                raise ValueError(f"{campo} no puede ser negativo.")
+            return values
+        
 
 class RangoPacienteOut(BaseModel):
     id_rango: int

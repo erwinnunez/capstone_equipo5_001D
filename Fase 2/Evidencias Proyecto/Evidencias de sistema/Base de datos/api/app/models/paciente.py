@@ -47,6 +47,8 @@ class Paciente(Base):
     eventos_gamificacion = relationship("EventoGamificacion", back_populates="paciente", cascade="all,delete")
     insignias = relationship("UsuarioInsignia", back_populates="paciente", cascade="all,delete")
     notas = relationship("NotaClinica", back_populates="paciente", cascade="all,delete")
+    tareas = relationship("Tarea", back_populates="paciente")
+
 
     # detalles
     medicina_detalles = relationship("MedicinaDetalle", back_populates="paciente", cascade="all,delete")

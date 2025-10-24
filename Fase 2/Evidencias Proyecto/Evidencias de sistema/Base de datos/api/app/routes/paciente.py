@@ -50,3 +50,19 @@ def delete_paciente(rut_paciente: int, db: Session = Depends(get_db)):
     ok = svc.delete(db, rut_paciente)
     if not ok: raise HTTPException(404, "Not found")
     return {"message": "Disabled"}
+
+# --- NUEVOS ENDPOINTS PERSONALIZADOS ---
+
+from app.services import paciente_resumen as svc_resumen
+from app.schemas.paciente import PacienteResumenOut, MetricaPacienteOut
+
+@router.get("/{rut_paciente}/resumen", response_model=PacienteResumenOut)
+def get_paciente_resumen(rut_paciente: int, db: Session = Depends(get_db)):
+    data = svc_resumen.get_resumen(db, rut_paciente)
+    if not data:
+        raise HTTPException(status_code=404, detail="Paciente no encontrado")
+    return data
+
+@router.get("/{rut_paciente}/metricas", response_model=list[MetricaPacienteOut])
+def get_paciente_metricas(rut_paciente: int, db: Session = Depends(get_db)):
+    return svc_resumen.get_metricas(db, rut_paciente)

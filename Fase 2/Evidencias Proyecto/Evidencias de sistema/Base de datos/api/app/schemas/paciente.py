@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from datetime import datetime, date
+from typing import Optional
 
 # -------- Create / Update / Out --------
 class PacienteCreate(BaseModel):
@@ -225,3 +226,27 @@ class PacienteListFilters(BaseModel):
 # -------- Habilitar / Deshabilitar --------
 class PacienteSetEstado(BaseModel):
     habilitar: bool
+
+
+# ---------------------------------------------------------
+#  NUEVOS SCHEMAS para endpoints resumen y métricas
+# ---------------------------------------------------------
+
+class PacienteResumenOut(BaseModel):
+    rut_paciente: int
+    nombre_completo: str
+    edad: int
+    enfermedad_principal: str
+    ultima_atencion: Optional[datetime]
+    class Config:
+        from_attributes = True
+
+
+class MetricaPacienteOut(BaseModel):
+    id_rango:int 
+    id_parametro: int
+    nombre: str
+    unidad: str
+    rango_min: float
+    rango_max: float
+    valor_actual: Optional[float]

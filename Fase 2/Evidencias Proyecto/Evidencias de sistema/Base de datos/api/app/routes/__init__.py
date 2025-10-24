@@ -34,6 +34,8 @@ from .medicina import router as medicina_router
 from .medicina_detalle import router as medicina_detalle_router
 from .auth import router as auth_router
 
+from .tarea import router as tarea_router
+
 ALL_ROUTERS = [
     region_router,
     comuna_router,
@@ -60,4 +62,5 @@ ALL_ROUTERS = [
     medicina_detalle_router,
     medicina_router,
     auth_router,
+    tarea_router
 ]

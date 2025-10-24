@@ -41,6 +41,8 @@ export interface ParametroClinicoOut {
   descipcion?: string;             // (tal como lo expone tu API)
   rango_ref_min?: number | null;
   rango_ref_max?: number | null;
+  unidad_codigo?: string;
+  unidad_nombre?: string;
 }
 
 export interface ParametroClinicoCreate {

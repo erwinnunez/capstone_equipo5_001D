@@ -264,3 +264,39 @@ export async function listMedicionDetalles(params: {
   });
   return handleResponse<Page<MedicionDetalleOut>>(resp);
 }
+
+/*  RESUMEN Y MÉTRICAS  */
+
+export interface PacienteResumen {
+  rut_paciente: number;
+  nombre_completo: string;
+  edad: number;
+  enfermedad_principal: string;
+  ultima_atencion?: string | null;
+}
+
+export interface MetricaPaciente {
+  id_rango: number; 
+  id_parametro: number;
+  nombre: string;
+  unidad: string;
+  rango_min: number;
+  rango_max: number;
+  valor_actual?: number | null;
+}
+
+export async function getPacienteResumen(rut_paciente: number): Promise<PacienteResumen> {
+  const resp = await fetch(`${RUTA_PACIENTE}/${rut_paciente}/resumen`, {
+    method: "GET",
+    headers: { "content-type": "application/json" },
+  });
+  return handleResponse<PacienteResumen>(resp);
+}
+
+export async function getPacienteMetricas(rut: number): Promise<MetricaPaciente[]> {
+  const resp = await fetch(`${API_HOST}/paciente/${rut}/metricas`, {
+    method: "GET",
+    headers: { "content-type": "application/json" },
+  });
+  return handleResponse<MetricaPaciente[]>(resp);
+}

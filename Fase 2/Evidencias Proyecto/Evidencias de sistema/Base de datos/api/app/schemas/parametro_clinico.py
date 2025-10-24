@@ -6,6 +6,8 @@ class ParametroClinicoCreate(BaseModel):
     descipcion: str = Field(..., min_length=3, max_length=255)
     rango_ref_min: int
     rango_ref_max: int
+    unidad_codigo: str | None = None
+    unidad_nombre: str | None = None
 
     # --- VALIDAR RANGOS ---
     @field_validator("rango_ref_min", "rango_ref_max")
@@ -28,7 +30,7 @@ class ParametroClinicoCreate(BaseModel):
         return values
     
     # --- LIMPIAR TEXTO ---
-    @field_validator("codigo", "descipcion")
+    @field_validator("codigo", "descipcion", "unidad_codigo", "unidad_nombre")
     @classmethod
     def limpiar_texto(cls, v):
         return v.strip().capitalize() if v else v
@@ -73,5 +75,7 @@ class ParametroClinicoOut(BaseModel):
     descipcion: str
     rango_ref_min: int
     rango_ref_max: int
+    unidad_codigo: str | None = None
+    unidad_nombre: str | None = None
     class Config:
         from_attributes = True
