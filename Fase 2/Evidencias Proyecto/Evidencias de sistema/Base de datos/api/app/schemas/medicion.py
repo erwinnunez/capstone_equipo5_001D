@@ -1,3 +1,4 @@
+# app/schemas/medicion.py
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime, timezone
 
@@ -12,27 +13,23 @@ class MedicionCreate(BaseModel):
     severidad_max: str = Field(..., min_length=1, max_length=60)
     resumen_alerta: str = Field(..., min_length=3, max_length=255)
 
-    # --- VALIDAR RUT ---
     @field_validator("rut_paciente")
     @classmethod
-    def validar_rut(cls, v):
+    def validar_rut(cls, v: int):
         numero = str(v)
         if not numero.isdigit() or len(numero) > 9:
             raise ValueError("El RUT debe tener hasta 9 dígitos (incluyendo dígito verificador).")
         return v
 
-    # --- LIMPIAR TEXTO ---
     @field_validator("origen", "registrado_por", "observacion", "resumen_alerta")
     @classmethod
-    def limpiar_texto(cls, v):
+    def limpiar_texto(cls, v: str | None):
         return v.strip().capitalize() if v else v
-    
-# Validar que la fecha de cambio no sea futura
+
     @field_validator("fecha_registro")
     @classmethod
     def validar_fecha_cambio(cls, v: datetime):
         now = datetime.now(timezone.utc)
-        # Si la fecha viene sin tzinfo, la asumimos como UTC para evitar el error
         if v.tzinfo is None:
             v = v.replace(tzinfo=timezone.utc)
         if v > now:
@@ -46,20 +43,23 @@ class MedicionUpdate(BaseModel):
     observacion: str | None  = Field(None, min_length=3, max_length=255)
     evaluada_en: datetime | None = None
     tiene_alerta: bool | None = None
-    severidad_max: str | None = Field(..., min_length=1, max_length=60)
+    severidad_max: str | None = Field(None, min_length=1, max_length=60)  # <- opcional
     resumen_alerta: str | None  = Field(None, min_length=3, max_length=255)
 
-# --- LIMPIAR TEXTO ---
     @field_validator("origen", "registrado_por", "observacion", "resumen_alerta")
     @classmethod
-    def limpiar_texto_update(cls, v):
+    def limpiar_texto_update(cls, v: str | None):
         return v.strip().capitalize() if v else v
 
-# Validar que la fecha de cambio no sea futura
     @field_validator("fecha_registro")
     @classmethod
-    def validar_fecha_cambio(cls, v):
-        if v > datetime.now():
+    def validar_fecha_cambio(cls, v: datetime | None):
+        if v is None:
+            return v
+        now = datetime.now(timezone.utc)
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        if v > now:
             raise ValueError("La fecha de cambio no puede ser futura")
         return v
 
@@ -74,5 +74,18 @@ class MedicionOut(BaseModel):
     tiene_alerta: bool
     severidad_max: str
     resumen_alerta: str
+
+    # === Nuevos campos de gestión ===
+    estado_alerta: str
+    tomada_por: int | None = None
+    tomada_en: datetime | None = None
+
     class Config:
         from_attributes = True
+
+# Payloads de acciones
+class TomarAlertaPayload(BaseModel):
+    rut_medico: int = Field(..., description="RUT del médico que toma la alerta")
+
+class CambiarEstadoPayload(BaseModel):
+    nuevo_estado: str = Field(..., pattern="^(resuelta|ignorada)$")
