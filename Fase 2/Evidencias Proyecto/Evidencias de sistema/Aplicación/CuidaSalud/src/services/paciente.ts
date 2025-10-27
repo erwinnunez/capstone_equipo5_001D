@@ -24,7 +24,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 // Tipado alineado con tu schema PacienteCreate
 export type PacienteCreatePayload = {
-  rut_paciente: number;
+  rut_paciente: string;
   id_comuna: number;
 
   primer_nombre_paciente: string;
@@ -57,7 +57,7 @@ export type PacienteCreatePayload = {
 
 // Estructura que devuelve el backend (ajústala si tienes más campos)
 export type PacienteOut = {
-  rut_paciente: number;
+  rut_paciente: string;
   id_comuna: number;
   primer_nombre_paciente: string;
   segundo_nombre_paciente: string | null;
@@ -119,13 +119,16 @@ async function handleJson<T>(res: Response): Promise<ApiResult<T>> {
 
 // Crear Paciente
 export async function createPaciente(payload: PacienteCreatePayload): Promise<ApiResult<any>> {
+  console.log(payload)
   const res = await fetch(RUTA_PACIENTE, {
     method: "POST",
     headers: { "content-type": "application/json" },
     credentials: "include",
     body: JSON.stringify(payload),
   });
+  console.log(payload)
   return handleJson<any>(res);
+  
 }
 
 /* =========================================================

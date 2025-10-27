@@ -28,7 +28,7 @@ def list_(db: Session, skip: int, limit: int,
     items = q.order_by(Cuidador.rut_cuidador).offset(skip).limit(limit).all()
     return items, total
 
-def get(db: Session, rut_cuidador: int):
+def get(db: Session, rut_cuidador: str):
     return db.get(Cuidador, rut_cuidador)
 
 def create(db: Session, data: CuidadorCreate):
@@ -40,7 +40,7 @@ def create(db: Session, data: CuidadorCreate):
     db.add(obj); db.commit(); db.refresh(obj)
     return obj
 
-def update(db: Session, rut_cuidador: int, data: CuidadorUpdate):
+def update(db: Session, rut_cuidador: str, data: CuidadorUpdate):
     obj = get(db, rut_cuidador)
     if not obj: return None
     upd = data.model_dump(exclude_none=True)
@@ -59,14 +59,14 @@ def update(db: Session, rut_cuidador: int, data: CuidadorUpdate):
     db.commit(); db.refresh(obj)
     return obj
 
-def set_estado(db: Session, rut_cuidador: int, habilitar: bool) -> bool:
+def set_estado(db: Session, rut_cuidador: str, habilitar: bool) -> bool:
     obj = get(db, rut_cuidador)
     if not obj: return False
     obj.estado = habilitar
     db.commit(); db.refresh(obj)
     return True
 
-def delete(db: Session, rut_cuidador: int) -> bool:
+def delete(db: Session, rut_cuidador: str) -> bool:
     return set_estado(db, rut_cuidador, False)
 
 def find_by_email(db: Session, email: str, only_active: bool = True):

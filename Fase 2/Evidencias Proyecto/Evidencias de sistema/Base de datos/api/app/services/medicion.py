@@ -1,7 +1,7 @@
-# app/services/medicion.py
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone
+
 from app.models.medicion import Medicion
 from app.schemas.medicion import MedicionCreate, MedicionUpdate
 
@@ -9,14 +9,15 @@ def list_(
     db: Session,
     skip: int,
     limit: int,
-    rut_paciente: int | None = None,
+    rut_paciente: str | None = None,
     desde: datetime | None = None,
     hasta: datetime | None = None,
     tiene_alerta: bool | None = None,
     estado_alerta: str | None = None,
-    tomada_por: int | None = None,
+    tomada_por: str | None = None,
 ):
     q = db.query(Medicion)
+
     if rut_paciente is not None:
         q = q.filter(Medicion.rut_paciente == rut_paciente)
     if desde:
@@ -54,8 +55,10 @@ def update(db: Session, id_medicion: int, data: MedicionUpdate):
     obj = get(db, id_medicion)
     if not obj:
         return None
+
     for k, v in data.model_dump(exclude_none=True).items():
         setattr(obj, k, v)
+
     db.commit()
     db.refresh(obj)
     return obj
@@ -69,11 +72,11 @@ def delete(db: Session, id_medicion: int):
     return True
 
 # ==== Gestión de alerta (claim / estado) ====
-
-def tomar_alerta(db: Session, id_medicion: int, rut_medico: int) -> Medicion | None:
+def tomar_alerta(db: Session, id_medicion: int, rut_medico: str) -> Medicion | None:
     obj = db.get(Medicion, id_medicion)
     if not obj:
         return None
+
     if not obj.tiene_alerta:
         raise ValueError("La medición no tiene alerta.")
     if obj.estado_alerta in ("resuelta", "ignorada"):
@@ -84,18 +87,31 @@ def tomar_alerta(db: Session, id_medicion: int, rut_medico: int) -> Medicion | N
     obj.estado_alerta = "en_proceso"
     obj.tomada_por = rut_medico
     obj.tomada_en = datetime.now(timezone.utc)
-    db.commit(); db.refresh(obj)
+
+    db.commit()
+    db.refresh(obj)
     return obj
 
 def cambiar_estado_alerta(db: Session, id_medicion: int, nuevo_estado: str) -> Medicion | None:
     obj = db.get(Medicion, id_medicion)
     if not obj:
         return None
+
     if nuevo_estado not in ("resuelta", "ignorada"):
         raise ValueError("Estado inválido.")
     if not obj.tiene_alerta:
         raise ValueError("La medición no tiene alerta.")
 
+    now = datetime.now(timezone.utc)
     obj.estado_alerta = nuevo_estado
-    db.commit(); db.refresh(obj)
+
+    if nuevo_estado == "resuelta":
+        obj.resuelta_en = now
+        obj.ignorada_en = None
+    else:
+        obj.ignorada_en = now
+        obj.resuelta_en = None
+
+    db.commit()
+    db.refresh(obj)
     return obj

@@ -10,8 +10,8 @@ router = APIRouter(prefix="/solicitud-reporte", tags=["reportes"])
 
 @router.get("", response_model=Page[SolicitudReporteOut])
 def list_sr(page: int = 1, page_size: int = 20,
-            rut_medico: int | None = Query(None),
-            rut_paciente: int | None = Query(None),
+            rut_medico: str | None = Query(None),
+            rut_paciente: str | None = Query(None),
             estado: str | None = Query(None),
             desde: datetime | None = Query(None),
             hasta: datetime | None = Query(None),

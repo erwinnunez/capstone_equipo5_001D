@@ -4,8 +4,8 @@ from app.models.solicitud_reporte import SolicitudReporte
 from app.schemas.solicitud_reporte import SolicitudReporteCreate, SolicitudReporteUpdate
 
 def list_(db: Session, skip: int, limit: int,
-          rut_medico: int | None = None,
-          rut_paciente: int | None = None,
+          rut_medico: str | None = None,
+          rut_paciente: str | None = None,
           estado: str | None = None,
           desde: datetime | None = None,
           hasta: datetime | None = None):

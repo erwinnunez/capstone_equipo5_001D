@@ -9,7 +9,7 @@ router = APIRouter(prefix="/rango-paciente", tags=["parametros"])
 
 @router.get("", response_model=Page[RangoPacienteOut])
 def list_rango(page: int = 1, page_size: int = 20,
-               rut_paciente: int | None = Query(None),
+               rut_paciente: str | None = Query(None),
                id_parametro: int | None = Query(None),
                db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_paciente=rut_paciente, id_parametro=id_parametro)

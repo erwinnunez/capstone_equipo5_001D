@@ -4,7 +4,7 @@ from app.models.medicina_detalle import MedicinaDetalle
 from app.schemas.medicina_detalle import MedicinaDetalleCreate, MedicinaDetalleUpdate
 
 def list_(db: Session, skip: int, limit: int,
-          rut_paciente: int | None = None,
+          rut_paciente: str | None = None,
           id_medicina: int | None = None,
           desde: datetime | None = None,
           hasta: datetime | None = None,
@@ -25,24 +25,16 @@ def list_(db: Session, skip: int, limit: int,
     items = q.order_by(MedicinaDetalle.fecha_inicio.desc()).offset(skip).limit(limit).all()
     return items, total
 
-
 def get(db: Session, id_detalle: int):
     return db.get(MedicinaDetalle, id_detalle)
 
-
 def create(db: Session, data: MedicinaDetalleCreate):
     payload = data.model_dump()
-
-    # Si viene marcada como tomada y no se indicó fecha_tomada -> poner ahora(UTC)
     if payload.get("tomada") and not payload.get("fecha_tomada"):
         payload["fecha_tomada"] = datetime.now(timezone.utc)
-
     obj = MedicinaDetalle(**payload)
-    db.add(obj)
-    db.commit()
-    db.refresh(obj)
+    db.add(obj); db.commit(); db.refresh(obj)
     return obj
-
 
 def update(db: Session, id_detalle: int, data: MedicinaDetalleUpdate):
     obj = get(db, id_detalle)
@@ -50,16 +42,12 @@ def update(db: Session, id_detalle: int, data: MedicinaDetalleUpdate):
         return None
 
     payload = data.model_dump(exclude_none=True)
-
-    # Sacamos estos para tratarlos con lógica especial
     tomada = payload.pop("tomada", None)
     fecha_tomada = payload.pop("fecha_tomada", None)
 
-    # Actualizamos el resto de campos normalmente
     for k, v in payload.items():
         setattr(obj, k, v)
 
-    # Si envían 'tomada', fijamos/limpiamos fecha_tomada automáticamente
     if tomada is not None:
         if tomada:
             obj.tomada = True
@@ -68,15 +56,12 @@ def update(db: Session, id_detalle: int, data: MedicinaDetalleUpdate):
             obj.tomada = False
             obj.fecha_tomada = None
 
-    db.commit()
-    db.refresh(obj)
+    db.commit(); db.refresh(obj)
     return obj
-
 
 def delete(db: Session, id_detalle: int):
     obj = get(db, id_detalle)
     if not obj:
         return False
-    db.delete(obj)
-    db.commit()
+    db.delete(obj); db.commit()
     return True

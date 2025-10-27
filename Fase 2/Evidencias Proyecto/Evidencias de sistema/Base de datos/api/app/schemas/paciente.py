@@ -1,64 +1,67 @@
 from pydantic import BaseModel, Field, EmailStr, field_validator
 from datetime import datetime, date
+import re
 
-# -------- Create / Update / Out --------
+_RUT_RE = re.compile(r"^\d{7,8}[0-9K]$")
+
+def _validate_rut_plain(v: str) -> str:
+    v = (v or "").upper()
+    if not _RUT_RE.fullmatch(v):
+        raise ValueError("RUT debe venir SIN puntos ni guion (ej: 12345678K).")
+    cuerpo, dv = v[:-1], v[-1]
+    s, f = 0, 2
+    for ch in reversed(cuerpo):
+        s += int(ch)*f
+        f = 2 if f == 7 else f+1
+    r = 11 - (s % 11)
+    dv_ok = "0" if r == 11 else ("K" if r == 10 else str(r))
+    if dv_ok != dv:
+        raise ValueError("RUT inválido: DV no coincide.")
+    return v
+
 class PacienteCreate(BaseModel):
-    rut_paciente: int = Field(..., example="212511374")
+    rut_paciente: str = Field(..., example="12345678K")
     id_comuna: int
-
     primer_nombre_paciente: str = Field(..., min_length=3, max_length=50)
     segundo_nombre_paciente: str = Field(..., min_length=3, max_length=50)
     primer_apellido_paciente: str = Field(..., min_length=3, max_length=50)
     segundo_apellido_paciente: str = Field(..., min_length=3, max_length=50)
-
     fecha_nacimiento: date
     sexo: bool
     tipo_de_sangre: str = Field(pattern=r"^(A|B|AB|O)[+-]$", example="O+")
     enfermedades: str | None = None
     seguro: str | None = None
-
     direccion: str = Field(..., min_length=5, max_length=150)
     telefono: int = Field(..., example="961072806")
     email: EmailStr
     contrasena: str = Field(..., min_length=8, max_length=64)
-
     tipo_paciente: str = Field(..., example="Crónico")
     nombre_contacto: str = Field(..., min_length=3, max_length=100)
     telefono_contacto: int = Field(..., example="988887777")
-
     estado: bool
-
     id_cesfam: int
-    fecha_inicio_cesfam: date 
+    fecha_inicio_cesfam: date
     fecha_fin_cesfam: date | None = None
     activo_cesfam: bool
 
-# --- VALIDAR RUT ---
     @field_validator("rut_paciente")
     @classmethod
-    def validar_rut(cls, v, field):
-        numero = str(v)
-        if not numero.isdigit():
-            raise ValueError(f"El {field.name} solo debe contener números (sin puntos ni guion).")
-        if len(numero) != 9:
-            raise ValueError(f"El {field.name} debe tener exactamente 9 dígitos.")
-        return v
+    def _val_rut(cls, v: str) -> str:
+        return _validate_rut_plain(v)
 
-    # --- VALIDAR NOMBRES Y APELLIDOS ---
     @field_validator(
         "primer_nombre_paciente", "segundo_nombre_paciente",
         "primer_apellido_paciente", "segundo_apellido_paciente"
     )
     @classmethod
-    def validar_nombres(cls, v):
+    def _val_nombres(cls, v: str) -> str:
         if not all(c.isalpha() or c.isspace() for c in v):
             raise ValueError("Los nombres y apellidos solo pueden contener letras y espacios")
         return v.strip().title()
 
-    # --- VALIDAR FECHA DE NACIMIENTO ---
     @field_validator("fecha_nacimiento")
     @classmethod
-    def validar_fecha_nacimiento(cls, v):
+    def _val_fnac(cls, v: date) -> date:
         hoy = date.today()
         if v > hoy:
             raise ValueError("La fecha de nacimiento no puede ser futura")
@@ -66,39 +69,30 @@ class PacienteCreate(BaseModel):
             raise ValueError("La edad no puede superar los 120 años")
         return v
 
-    # --- VALIDAR TELÉFONOS ---
     @field_validator("telefono", "telefono_contacto")
     @classmethod
-    def validar_telefono(cls, v):
-        numero = str(v)
-        # Validar que tenga exactamente 9 dígitos
-        if not numero.isdigit() or len(numero) != 9:
+    def _val_fonos(cls, v: int) -> int:
+        s = str(v)
+        if not s.isdigit() or len(s) != 9:
             raise ValueError("El número debe tener exactamente 9 dígitos.")
         return v
 
-    # --- VALIDAR DIRECCIÓN ---
     @field_validator("direccion")
     @classmethod
-    def validar_direccion(cls, v):
-        caracteres_permitidos = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789áéíóúÁÉÍÓÚñÑ.,#- ")
-        if not all(c in caracteres_permitidos for c in v):
+    def _val_dir(cls, v: str) -> str:
+        permitidos = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789áéíóúÁÉÍÓÚñÑ.,#- ")
+        if not all(c in permitidos for c in v):
             raise ValueError("La dirección solo puede contener letras, números y ., #-")
         return v.strip().title()
 
-    # --- VALIDAR CONTRASEÑA ---
     @field_validator("contrasena")
     @classmethod
-    def validar_contrasena(cls, v):
-        if len(v) < 8:
-            raise ValueError("La contraseña debe tener al menos 8 caracteres")
-        if not any(c.isupper() for c in v):
-            raise ValueError("La contraseña debe tener al menos una letra mayúscula")
-        if not any(c.islower() for c in v):
-            raise ValueError("La contraseña debe tener al menos una letra minúscula")
-        if not any(c.isdigit() for c in v):
-            raise ValueError("La contraseña debe tener al menos un número")
+    def _val_pass(cls, v: str) -> str:
+        if len(v) < 8: raise ValueError("La contraseña debe tener al menos 8 caracteres")
+        if not any(c.isupper() for c in v): raise ValueError("Debe tener al menos una letra mayúscula")
+        if not any(c.islower() for c in v): raise ValueError("Debe tener al menos una letra minúscula")
+        if not any(c.isdigit() for c in v): raise ValueError("Debe tener al menos un número")
         return v
-
 
 class PacienteUpdate(BaseModel):
     id_comuna: int | None = None
@@ -124,66 +118,46 @@ class PacienteUpdate(BaseModel):
     fecha_fin_cesfam: datetime | None = None
     activo_cesfam: bool | None = None
 
-
-
-    # --- VALIDAR NOMBRES Y APELLIDOS ---
     @field_validator(
         "primer_nombre_paciente", "segundo_nombre_paciente",
         "primer_apellido_paciente", "segundo_apellido_paciente"
     )
     @classmethod
-    def validar_nombres(cls, v):
-        if not all(c.isalpha() or c.isspace() for c in v):
+    def _val_nombres_upd(cls, v: str | None):
+        if v and not all(c.isalpha() or c.isspace() for c in v):
             raise ValueError("Los nombres y apellidos solo pueden contener letras y espacios")
-        return v.strip().title()
+        return v.strip().title() if v else v
 
-    # --- VALIDAR FECHA DE NACIMIENTO ---
-    @field_validator("fecha_nacimiento")
-    @classmethod
-    def validar_fecha_nacimiento(cls, v):
-        hoy = date.today()
-        if v > hoy:
-            raise ValueError("La fecha de nacimiento no puede ser futura")
-        if (hoy.year - v.year) > 120:
-            raise ValueError("La edad no puede superar los 120 años")
-        return v
-
-    # --- VALIDAR TELÉFONOS ---
     @field_validator("telefono", "telefono_contacto")
     @classmethod
-    def validar_telefono(cls, v):
-        numero = str(v)
-        # Validar que tenga exactamente 9 dígitos
-        if not numero.isdigit() or len(numero) != 9:
+    def _val_fonos_upd(cls, v: int | None):
+        if v is None: return v
+        s = str(v)
+        if not s.isdigit() or len(s) != 9:
             raise ValueError("El número debe tener exactamente 9 dígitos.")
         return v
 
-    # --- VALIDAR DIRECCIÓN ---
     @field_validator("direccion")
     @classmethod
-    def validar_direccion(cls, v):
-        caracteres_permitidos = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789áéíóúÁÉÍÓÚñÑ.,#- ")
-        if not all(c in caracteres_permitidos for c in v):
+    def _val_dir_upd(cls, v: str | None):
+        if v is None: return v
+        permitidos = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789áéíóúÁÉÍÓÚñÑ.,#- ")
+        if not all(c in permitidos for c in v):
             raise ValueError("La dirección solo puede contener letras, números y ., #-")
         return v.strip().title()
 
-    # --- VALIDAR CONTRASEÑA ---
     @field_validator("contrasena")
     @classmethod
-    def validar_contrasena(cls, v):
-        if len(v) < 8:
-            raise ValueError("La contraseña debe tener al menos 8 caracteres")
-        if not any(c.isupper() for c in v):
-            raise ValueError("La contraseña debe tener al menos una letra mayúscula")
-        if not any(c.islower() for c in v):
-            raise ValueError("La contraseña debe tener al menos una letra minúscula")
-        if not any(c.isdigit() for c in v):
-            raise ValueError("La contraseña debe tener al menos un número")
+    def _val_pass_upd(cls, v: str | None):
+        if v is None: return v
+        if len(v) < 8: raise ValueError("La contraseña debe tener al menos 8 caracteres")
+        if not any(c.isupper() for c in v): raise ValueError("Debe tener al menos una letra mayúscula")
+        if not any(c.islower() for c in v): raise ValueError("Debe tener al menos una letra minúscula")
+        if not any(c.isdigit() for c in v): raise ValueError("Debe tener al menos un número")
         return v
 
-
 class PacienteOut(BaseModel):
-    rut_paciente: int
+    rut_paciente: str
     id_comuna: int
     primer_nombre_paciente: str
     segundo_nombre_paciente: str
@@ -205,23 +179,20 @@ class PacienteOut(BaseModel):
     fecha_inicio_cesfam: datetime
     fecha_fin_cesfam: datetime | None = None
     activo_cesfam: bool
+
     class Config:
         from_attributes = True
 
-# -------- List filters (paginación + búsqueda) --------
 class PacienteListFilters(BaseModel):
     page: int = 1
     page_size: int = 20
     id_cesfam: int | None = None
     id_comuna: int | None = None
-    estado: bool | None = True  # por defecto, solo activos
-
-    # búsqueda por nombres/apellidos
+    estado: bool | None = True
     primer_nombre: str | None = None
     segundo_nombre: str | None = None
     primer_apellido: str | None = None
     segundo_apellido: str | None = None
 
-# -------- Habilitar / Deshabilitar --------
 class PacienteSetEstado(BaseModel):
     habilitar: bool

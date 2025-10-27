@@ -10,7 +10,7 @@ router = APIRouter(prefix="/descarga-reporte", tags=["reportes"])
 
 @router.get("", response_model=Page[DescargaReporteOut])
 def list_dr(page: int = 1, page_size: int = 20,
-            rut_medico: int | None = Query(None),
+            rut_medico: str | None = Query(None),
             id_reporte: int | None = Query(None),
             desde: datetime | None = Query(None),
             hasta: datetime | None = Query(None),

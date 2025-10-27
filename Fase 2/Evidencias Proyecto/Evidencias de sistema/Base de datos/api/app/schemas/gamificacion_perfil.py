@@ -1,49 +1,61 @@
 from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
+import re
+
+_RUT_RE = re.compile(r"^\d{7,8}[0-9K]$")
+
+def _validate_rut_plain(v: str) -> str:
+    v = (v or "").upper()
+    if not _RUT_RE.fullmatch(v):
+        raise ValueError("RUT debe venir SIN puntos ni guion (ej: 12345678K).")
+    cuerpo, dv = v[:-1], v[-1]
+    s, f = 0, 2
+    for ch in reversed(cuerpo):
+        s += int(ch)*f
+        f = 2 if f == 7 else f+1
+    r = 11 - (s % 11)
+    dv_ok = "0" if r == 11 else ("K" if r == 10 else str(r))
+    if dv_ok != dv:
+        raise ValueError("RUT inválido: DV no coincide.")
+    return v
 
 class GamificacionPerfilCreate(BaseModel):
-    rut_paciente: int = Field(..., example="212511374")
-    puntos: int = Field(..., ge=0, description="Cantidad total de puntos acumulados (no negativos)")
-    racha_dias: int = Field(..., ge=0, description="Número de días consecutivos con actividad")
-    ultima_actividad: datetime = Field(..., description="Fecha y hora de la última actividad registrada")
+    rut_paciente: str = Field(..., example="12345678K")
+    puntos: int = Field(..., ge=0)
+    racha_dias: int = Field(..., ge=0)
+    ultima_actividad: datetime = Field(...)
 
-
-    # Validar formato de RUT chileno
     @field_validator("rut_paciente")
     @classmethod
-    def validar_rut(cls, v, field):
-        numero = str(v)
-        if not numero.isdigit():
-            raise ValueError(f"El {field.name} solo debe contener números (sin puntos ni guion).")
-        if len(numero) != 9:
-            raise ValueError(f"El {field.name} debe tener exactamente 9 dígitos.")
-        return v
+    def _val_rut(cls, v: str) -> str:
+        return _validate_rut_plain(v)
 
-    # Validar que la fecha no sea futura
     @field_validator("ultima_actividad")
     @classmethod
-    def validar_fecha(cls, v):
-        if v > datetime.now():
+    def _val_fecha(cls, v: datetime) -> datetime:
+        from datetime import datetime as _dt
+        if v > _dt.now():
             raise ValueError("La fecha de la última actividad no puede estar en el futuro")
         return v
 
-
 class GamificacionPerfilUpdate(BaseModel):
-    puntos: int | None = Field(None, ge=0, description="Cantidad total de puntos acumulados")
-    racha_dias: int | None = Field(None, ge=0, description="Número de días consecutivos con actividad")
-    ultima_actividad: datetime | None  = Field(None, description="Fecha de la última actividad registrada")
+    puntos: int | None = Field(None, ge=0)
+    racha_dias: int | None = Field(None, ge=0)
+    ultima_actividad: datetime | None = Field(None)
 
     @field_validator("ultima_actividad")
     @classmethod
-    def validar_fecha(cls, v):
-        if v and v > datetime.now():
+    def _val_fecha_upd(cls, v: datetime | None):
+        from datetime import datetime as _dt
+        if v and v > _dt.now():
             raise ValueError("La fecha de la última actividad no puede estar en el futuro")
         return v
 
 class GamificacionPerfilOut(BaseModel):
-    rut_paciente: int
+    rut_paciente: str
     puntos: int
     racha_dias: int
     ultima_actividad: datetime
+
     class Config:
         from_attributes = True

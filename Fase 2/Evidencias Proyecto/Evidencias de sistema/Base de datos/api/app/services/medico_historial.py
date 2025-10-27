@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.medico_historial import MedicoHistorial
 from app.schemas.medico_historial import MedicoHistorialCreate
 
-def list_(db: Session, skip: int, limit: int, rut_medico: int | None = None):
+def list_(db: Session, skip: int, limit: int, rut_medico: str | None = None):
     q = db.query(MedicoHistorial)
     if rut_medico is not None:
         q = q.filter(MedicoHistorial.rut_medico == rut_medico)

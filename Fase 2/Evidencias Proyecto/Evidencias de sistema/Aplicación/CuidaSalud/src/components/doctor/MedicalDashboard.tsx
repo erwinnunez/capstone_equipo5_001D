@@ -13,6 +13,15 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+// Modal (shadcn)
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
+
 // === Medición
 import {
   listarMedicionesConAlerta, listarMediciones, tomarMedicion, resolverMedicion, ignorarMedicion,
@@ -21,39 +30,79 @@ import {
 } from "../../services/medicion";
 
 // === Paciente
-import { getPacientes, getPacienteByRut, type Page as PagePac } from "../../services/paciente";
+import { getPacientes, getPacienteByRut } from "../../services/paciente";
 
-// === Rangos del paciente (tu service)
-import {
-  listRangosPaciente,
-  type RangoPacienteOut,
-} from "../../services/rangoPaciente";
+// === Rangos del paciente
+import { listRangosPaciente, type RangoPacienteOut } from "../../services/rangoPaciente";
 
-/* RUT del médico autenticado */
-function getLoggedMedicoRut(): number | null {
-  const rutFromStorage = localStorage.getItem("medico_rut");
-  if (rutFromStorage) {
-    const n = Number(rutFromStorage);
-    if (!Number.isNaN(n)) return n;
+/* ============================
+   Helpers de debug
+   ============================ */
+const DEBUG_MED = true;
+function dbg(...args: any[]) { if (DEBUG_MED) console.log("[MED]", ...args); }
+
+/* ============================
+   RUT del médico autenticado (robusto, prioriza sesión)
+   ============================ */
+function extractRutFromObject(obj: any): number | null {
+  if (!obj) return null;
+  const cands = [
+    obj?.medico?.rut_medico,
+    obj?.rut_medico,
+    obj?.rutMedico,
+    obj?.rut,
+    obj?.user?.rut_medico,
+    obj?.user?.rutMedico,
+    obj?.user?.rut,
+    obj?.user?.id,
+    obj?.id,
+  ];
+  for (const c of cands) {
+    if (c != null && !Number.isNaN(Number(c))) return Number(c);
   }
+  return null;
+}
+
+/** Devuelve {rut, source} para logging */
+function getLoggedMedicoRut(): { rut: number | null; source: string } {
+  // 1) Sesión primero
   const sessionStr = localStorage.getItem("session");
   if (sessionStr) {
     try {
       const s = JSON.parse(sessionStr);
-      if (s?.medico?.rut_medico) return Number(s.medico.rut_medico);
-      if (s?.rut_medico) return Number(s.rut_medico);
+      const rut = extractRutFromObject(s);
+      if (rut != null) return { rut, source: "session" };
     } catch {}
   }
+
+  // 2) Auth / user (si tu app guarda aquí)
+  for (const k of ["auth", "user", "current_user", "front_user"]) {
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+    try {
+      const obj = JSON.parse(raw);
+      const rut = extractRutFromObject(obj);
+      if (rut != null) return { rut, source: k };
+    } catch {}
+  }
+
+  // 3) JWT (por si viene el rut en el token)
   const jwt = localStorage.getItem("token") || localStorage.getItem("jwt");
   if (jwt && jwt.split(".").length === 3) {
     try {
       const payloadJson = atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"));
       const p = JSON.parse(payloadJson);
-      if (p?.rut_medico) return Number(p.rut_medico);
-      if (p?.sub_rut || p?.rut) return Number(p.sub_rut ?? p.rut);
+      const rut =
+        p?.rut_medico ?? p?.rutMedico ?? p?.sub_rut ?? p?.subRut ?? p?.rut ?? p?.id ?? null;
+      if (rut != null && !Number.isNaN(Number(rut))) return { rut: Number(rut), source: "jwt" };
     } catch {}
   }
-  return null;
+
+  // 4) ÚLTIMO RECURSO: clave suelta 'medico_rut' (puede estar “fija” de antes)
+  const direct = localStorage.getItem("medico_rut");
+  if (direct && !Number.isNaN(Number(direct))) return { rut: Number(direct), source: "medico_rut" };
+
+  return { rut: null, source: "none" };
 }
 
 /* Tipos UI */
@@ -81,6 +130,8 @@ interface AlertUI {
   status: EstadoAlerta;
   timestamp: Date;
   assignedTo?: string;
+  resolvedAt?: Date | null;
+  ignoredAt?: Date | null;
 }
 
 /* Helpers UI */
@@ -90,15 +141,15 @@ const getStatusColor = (s: EstadoAlerta) =>
   s === "nueva" ? "destructive" : s === "en_proceso" ? "secondary" : "outline";
 const getStatusIcon = (s: EstadoAlerta) =>
   s === "nueva" ? <Bell className="h-4 w-4" /> :
-  s === "en_proceso" ? <PlayCircle className="h-4 w-4" /> :
-  s === "resuelta" ? <CheckCircle className="h-4 w-4" /> :
-  s === "ignorada" ? <XCircle className="h-4 w-4" /> : <Bell className="h-4 w-4" />;
+    s === "en_proceso" ? <PlayCircle className="h-4 w-4" /> :
+      s === "resuelta" ? <CheckCircle className="h-4 w-4" /> :
+        s === "ignorada" ? <XCircle className="h-4 w-4" /> : <Bell className="h-4 w-4" />;
 const getTypeIcon = (t: string) =>
   t === "vital_signs" ? <Activity className="h-4 w-4" /> :
-  t === "symptoms" ? <AlertCircle className="h-4 w-4" /> :
-  t === "medication" ? <Heart className="h-4 w-4" /> :
-  t === "emergency" ? <AlertTriangle className="h-4 w-4" /> :
-  t === "lab_results" ? <Stethoscope className="h-4 w-4" /> : <Bell className="h-4 w-4" />;
+    t === "symptoms" ? <AlertCircle className="h-4 w-4" /> :
+      t === "medication" ? <Heart className="h-4 w-4" /> :
+        t === "emergency" ? <AlertTriangle className="h-4 w-4" /> :
+          t === "lab_results" ? <Stethoscope className="h-4 w-4" /> : <Bell className="h-4 w-4" />;
 
 const formatTimestamp = (d: Date) => {
   const diff = Date.now() - d.getTime();
@@ -126,6 +177,8 @@ function mapMedicionToAlert(m: MedicionOut): AlertUI {
     status: m.estado_alerta ?? "nueva",
     timestamp: new Date(m.fecha_registro),
     assignedTo: m.tomada_por != null ? String(m.tomada_por) : undefined,
+    resolvedAt: (m as any).resuelta_en ? new Date((m as any).resuelta_en) : null,
+    ignoredAt: (m as any).ignorada_en ? new Date((m as any).ignorada_en) : null,
   };
 }
 function toPatientUI(p: any): PatientUI {
@@ -148,7 +201,7 @@ function toPatientUI(p: any): PatientUI {
   };
 }
 
-/* Nombres de parámetros por id (ajusta si tu catálogo cambia) */
+/* Param helpers */
 function getParamNameById(id?: number | null) {
   switch (id) {
     case 1: return "Glucosa";
@@ -172,7 +225,7 @@ function getParamName(det: MedicionDetalleOut) {
   return getParamNameById(det.id_parametro) || prettyParamName(det.tipo_alerta) || "Parámetro";
 }
 
-/* Vigencia: algunos TS tuyos ponen vigencias opcionales => toleramos null */
+/* Rango helpers */
 function isVigente(fechaISO: string, r: RangoPacienteOut) {
   const t = new Date(fechaISO).getTime();
   const d = r.vigencia_desde ? new Date(r.vigencia_desde).getTime() : -Infinity;
@@ -191,7 +244,7 @@ function chooseRangeFor(
     const va = a.version ?? 0, vb = b.version ?? 0;
     if (vb !== va) return vb - va;
     return (b.vigencia_desde ? new Date(b.vigencia_desde).getTime() : 0)
-         - (a.vigencia_desde ? new Date(a.vigencia_desde).getTime() : 0);
+      - (a.vigencia_desde ? new Date(a.vigencia_desde).getTime() : 0);
   });
   return cands[0];
 }
@@ -200,28 +253,80 @@ function chooseRangeFor(
 export default function MedicalDashboard() {
   const [alerts, setAlerts] = useState<AlertUI[]>([]);
   const [selected, setSelected] = useState<AlertUI | null>(null);
+  const [open, setOpen] = useState(false);
   const [patientsByRut, setPatientsByRut] = useState<Map<string, PatientUI>>(new Map());
   const [detallesByMed, setDetallesByMed] = useState<Record<string, MedicionDetalleOut[]>>({});
   const [loadingDetalles, setLoadingDetalles] = useState(false);
 
-  // 🔹 Rangos cacheados por RUT
   const [rangosByRut, setRangosByRut] = useState<Record<string, RangoPacienteOut[]>>({});
+  const [medicosByRut, setMedicosByRut] = useState<Record<string, string>>({});
 
   const [filter, setFilter] = useState<"todas" | "nuevas" | "proceso" | "críticas">("todas");
   const latestIdsRef = useRef<Set<string>>(new Set());
-  const medicoRut = getLoggedMedicoRut();
+
+  // obtenemos rut + source (para debug)
+  const { rut: medicoRut, source: medicoRutSource } = getLoggedMedicoRut();
+
   const [actionLoading, setActionLoading] =
     useState<Record<string, "take" | "resolve" | "ignore" | null>>({});
+
+  // Init doctor name desde auth (sin fijar medico_rut en localStorage)
+  useEffect(() => {
+    try {
+      const auth = JSON.parse(localStorage.getItem("auth") || "null");
+      const name = auth?.user?.name ?? auth?.name ?? null;
+      if (name && medicoRut != null) setMedicosByRut(prev => ({ ...prev, [String(medicoRut)]: String(name) }));
+    } catch {}
+    dbg("medicoRut detectado", medicoRut, {
+      source: medicoRutSource,
+      medico_rut: localStorage.getItem("medico_rut"),
+      session: localStorage.getItem("session"),
+      auth: localStorage.getItem("auth"),
+      user: localStorage.getItem("user"),
+      token: localStorage.getItem("token") ? "sí" : "no",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function ensureDoctorName(rutStr: string) {
+    if (!rutStr || medicosByRut[rutStr]) return;
+    if (medicoRut != null && rutStr === String(medicoRut)) {
+      try {
+        const auth = JSON.parse(localStorage.getItem("auth") || "null");
+        const name = auth?.user?.name ?? auth?.name ?? null;
+        if (name) return setMedicosByRut(prev => ({ ...prev, [rutStr]: String(name) }));
+      } catch {}
+    }
+    const cacheKeys = ["medicosByRut", "medicos_cache", "doctors_cache"];
+    for (const k of cacheKeys) {
+      try {
+        const raw = localStorage.getItem(k);
+        if (!raw) continue;
+        const map = JSON.parse(raw);
+        const name = map?.[rutStr];
+        if (typeof name === "string" && name.trim()) {
+          setMedicosByRut(prev => ({ ...prev, [rutStr]: name.trim() }));
+          return;
+        }
+      } catch {}
+    }
+  }
+  useEffect(() => {
+    const ruts = Array.from(new Set(alerts.map(a => a.assignedTo).filter(Boolean))) as string[];
+    ruts.forEach(r => { void ensureDoctorName(r); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [alerts]);
 
   /* Pacientes base */
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const data: any[] = await getPacientes<any[]>();
+        const data: any = await getPacientes<any>();
+        const arr: any[] = Array.isArray(data) ? data : (data?.items ?? []);
         if (cancelled) return;
         const m = new Map<string, PatientUI>();
-        for (const p of data ?? []) {
+        for (const p of arr ?? []) {
           const pui = toPatientUI(p);
           if (pui.rut) m.set(pui.rut, pui);
         }
@@ -269,7 +374,7 @@ export default function MedicalDashboard() {
     return () => { cancelled = true; clearInterval(iv); };
   }, [patientsByRut]);
 
-  /* Cargar rangos del paciente si no están */
+  /* Rangos por paciente */
   async function ensureRangos(rutStr: string) {
     if (rangosByRut[rutStr]) return;
     try {
@@ -280,7 +385,7 @@ export default function MedicalDashboard() {
     }
   }
 
-  /* Al seleccionar: detalles, ficha y rangos */
+  /* Cargar detalles/ficha cuando cambia selected (para el modal) */
   useEffect(() => {
     if (!selected) return;
     const key = selected.id;
@@ -311,6 +416,7 @@ export default function MedicalDashboard() {
           } catch {}
         }
         await ensureRangos(rut);
+        if (selected.assignedTo) void ensureDoctorName(selected.assignedTo);
       } finally {
         if (!cancelled) setLoadingDetalles(false);
       }
@@ -322,11 +428,12 @@ export default function MedicalDashboard() {
   /* Filtro */
   const filteredAlerts = useMemo(() => {
     return alerts.filter(a => {
+      if (a.status === "resuelta" || a.status === "ignorada") return false;
       switch (filter) {
         case "nuevas": return a.status === "nueva";
         case "proceso": return a.status === "en_proceso";
         case "críticas": return a.priority === "crítica";
-        default: return a.status !== "ignorada";
+        default: return true;
       }
     });
   }, [alerts, filter]);
@@ -334,15 +441,17 @@ export default function MedicalDashboard() {
   /* Guards & acciones */
   const isTakenByOther = (a: AlertUI) => !!a.assignedTo && medicoRut != null && a.assignedTo !== String(medicoRut);
   const canTake = (a: AlertUI) => a.status === "nueva" && (!a.assignedTo || !isTakenByOther(a));
-  const canResolve = (a: AlertUI) => a.status === "en_proceso" && !!a.assignedTo && medicoRut != null && a.assignedTo === String(medicoRut);
+  const canResolve = (a: AlertUI) =>
+    a.status === "en_proceso" && !!a.assignedTo && medicoRut != null && a.assignedTo === String(medicoRut);
   const canIgnore = canResolve;
   const isLoading = (id: string, kind: "take" | "resolve" | "ignore") => actionLoading[id] === kind;
   const setLoading = (id: string, k: "take" | "resolve" | "ignore" | null) =>
     setActionLoading(prev => ({ ...prev, [id]: k }));
 
   async function handleTakeAlert(alertId: string) {
-    if (!medicoRut) return toast.error("No se pudo tomar la alerta", { description: "No hay RUT de médico en sesión." });
-    const a = alerts.find(x => x.id === alertId); if (!a) return;
+    const a = alerts.find(x => x.id === alertId);
+    if (!medicoRut) return toast.error("No hay RUT de médico en sesión.");
+    if (!a) return;
     if (!canTake(a)) return toast.info("Esta alerta ya fue tomada por otro médico.");
 
     try {
@@ -352,6 +461,7 @@ export default function MedicalDashboard() {
       const updated = mapMedicionToAlert(resp.data);
       setAlerts(prev => prev.map(x => (x.id === alertId ? updated : x)));
       setSelected(prev => (prev && prev.id === alertId ? updated : prev));
+      if (updated.assignedTo) void ensureDoctorName(updated.assignedTo);
       toast.success("Alerta tomada");
     } catch (e: any) {
       toast.error("No se pudo tomar la alerta", { description: e?.message ?? "Error" });
@@ -360,7 +470,8 @@ export default function MedicalDashboard() {
     }
   }
   async function handleResolveAlert(alertId: string) {
-    const a = alerts.find(x => x.id === alertId); if (!a) return;
+    const a = alerts.find(x => x.id === alertId);
+    if (!a) return;
     if (!canResolve(a)) return toast.info("Solo el médico asignado puede resolver esta alerta.");
     try {
       setLoading(alertId, "resolve");
@@ -375,7 +486,8 @@ export default function MedicalDashboard() {
     } finally { setLoading(alertId, null); }
   }
   async function handleIgnoreAlert(alertId: string) {
-    const a = alerts.find(x => x.id === alertId); if (!a) return;
+    const a = alerts.find(x => x.id === alertId);
+    if (!a) return;
     if (!canIgnore(a)) return toast.info("Solo el médico asignado puede ignorar esta alerta.");
     try {
       setLoading(alertId, "ignore");
@@ -398,56 +510,45 @@ export default function MedicalDashboard() {
   /* Lookup */
   const findPatient = (rutId: string) => patientsByRut.get(rutId);
 
-  /* Render fila de detalle (con rangos de BD si existen) */
+  /* Row detalle de medición (tile) */
   function renderDetalleRow(d: MedicionDetalleOut) {
     const rangos = rangosByRut[selected!.patientId];
     const vigente = chooseRangeFor(rangos, d.id_parametro, selected!.timestamp.toISOString());
     const min = vigente?.min_normal ?? d.umbral_min ?? undefined;
     const max = vigente?.max_normal ?? d.umbral_max ?? undefined;
-
     const outOfRange =
       d.fuera_rango ||
-      (typeof d.valor_num === "number" &&
-        ((min != null && d.valor_num < min) || (max != null && d.valor_num > max)));
-
+      (typeof d.valor_num === "number" && ((min != null && d.valor_num < min) || (max != null && d.valor_num > max)));
     const title = getParamName(d);
 
     return (
-      <div
-        key={d.id_detalle}
-        className={`grid grid-cols-12 gap-2 items-center rounded-md p-3 border ${
-          outOfRange ? "border-destructive/50 bg-destructive/5" : "border-border"
-        }`}
-      >
-        <div className="col-span-6 md:col-span-4 text-sm">
-          <span className="font-medium">{title}</span>
-          {(min != null || max != null) && (
-            <span className="block text-xs text-muted-foreground">
-              umbral {min ?? "—"} – {max ?? "—"}
-            </span>
-          )}
-        </div>
-
-        <div className="col-span-4 md:col-span-5 text-sm">
-          <span className="font-medium">
-            {typeof d.valor_num === "number" ? d.valor_num : d.valor_texto ?? "—"}
-          </span>
-        </div>
-
-        <div className="col-span-2 md:col-span-2 flex justify-end">
-          <Badge variant={outOfRange ? "destructive" : "outline"}>
-            {d.severidad?.toLowerCase() || (outOfRange ? "alerta" : "normal")}
-          </Badge>
-        </div>
-
-        <div className="col-span-12 md:col-span-1 flex md:justify-end">
-          {outOfRange ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <CheckCircle className="h-4 w-4" />}
-        </div>
-      </div>
+      <Card key={d.id_detalle} className={`border ${outOfRange ? "border-destructive/40 shadow-sm" : "border-border"}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-medium">{title}</p>
+              {(min != null || max != null) && (
+                <p className="text-xs text-muted-foreground">umbral {min ?? "—"} – {max ?? "—"}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <p className="font-semibold text-sm">
+                {typeof d.valor_num === "number" ? d.valor_num : d.valor_texto ?? "—"}
+              </p>
+              <div className="flex items-center justify-end gap-2 mt-1">
+                <Badge variant={outOfRange ? "destructive" : "outline"}>
+                  {d.severidad?.toLowerCase() || (outOfRange ? "alerta" : "normal")}
+                </Badge>
+                {outOfRange ? <AlertTriangle className="h-4 w-4 text-destructive" /> : <CheckCircle className="h-4 w-4" />}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
-  /* Qué parámetro disparó la alerta */
+  // Qué parámetro disparó la alerta
   const firedLabel = useMemo(() => {
     if (!selected) return null;
     const dets = detallesByMed[selected.id] ?? [];
@@ -466,34 +567,26 @@ export default function MedicalDashboard() {
   }, [selected, detallesByMed, rangosByRut]);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Panel alertas */}
-      <div className="lg:col-span-2 space-y-4">
+    <div className="grid grid-cols-1 gap-6">
+      {/* Panel de KPIs + Alertas */}
+      <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card><CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <div><p className="text-sm font-medium">Críticas</p><p className="text-2xl font-bold text-destructive">{criticalCount}</p></div>
-            </div>
-          </CardContent></Card>
-          <Card><CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <BellRing className="h-5 w-5 text-orange-500" />
-              <div><p className="text-sm font-medium">Nuevas</p><p className="text-2xl font-bold text-orange-500">{newCount}</p></div>
-            </div>
-          </CardContent></Card>
-          <Card><CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <PlayCircle className="h-5 w-5 text-blue-500" />
-              <div><p className="text-sm font-medium">En Proceso</p><p className="text-2xl font-bold text-blue-500">{inProcessCount}</p></div>
-            </div>
-          </CardContent></Card>
-          <Card><CardContent className="p-4">
-            <div className="flex items-center space-x-2">
-              <UserCheck className="h-5 w-5 text-green-500" />
-              <div><p className="text-sm font-medium">Pacientes</p><p className="text-2xl font-bold text-green-500">{patientsByRut.size}</p></div>
-            </div>
-          </CardContent></Card>
+          <Card><CardContent className="p-4"><div className="flex items-center space-x-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <div><p className="text-sm font-medium">Críticas</p><p className="text-2xl font-bold text-destructive">{criticalCount}</p></div>
+          </div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="flex items-center space-x-2">
+            <BellRing className="h-5 w-5" />
+            <div><p className="text-sm font-medium">Nuevas</p><p className="text-2xl font-bold">{newCount}</p></div>
+          </div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="flex items-center space-x-2">
+            <PlayCircle className="h-5 w-5" />
+            <div><p className="text-sm font-medium">En Proceso</p><p className="text-2xl font-bold">{inProcessCount}</p></div>
+          </div></CardContent></Card>
+          <Card><CardContent className="p-4"><div className="flex items-center space-x-2">
+            <UserCheck className="h-5 w-5" />
+            <div><p className="text-sm font-medium">Pacientes</p><p className="text-2xl font-bold">{patientsByRut.size}</p></div>
+          </div></CardContent></Card>
         </div>
 
         <Card>
@@ -509,29 +602,28 @@ export default function MedicalDashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[600px]">
+            <ScrollArea className="h-[calc(100vh-320px)] md:h-[600px]">
               <div className="space-y-3">
                 {filteredAlerts.map((a) => {
                   const patient = findPatient(a.patientId);
+                  const doctorName = a.assignedTo ? (medicosByRut[a.assignedTo] ?? `Médico ${a.assignedTo}`) : null;
                   const takeDisabled = !canTake(a) || isLoading(a.id, "take");
                   return (
                     <Card
                       key={a.id}
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        selected?.id === a.id ? "ring-2 ring-primary" : ""
-                      } ${a.priority === "crítica" ? "border-destructive" : ""}`}
-                      onClick={() => setSelected(a)}
+                      className={`cursor-pointer transition-all hover:shadow-md ${a.priority === "crítica" ? "border-destructive" : ""}`}
+                      onClick={() => { setSelected(a); setOpen(true); }}
                     >
                       <CardContent className="p-4">
-                        <div className="flex items-start justify-between space-x-3">
-                          <div className="flex items-start space-x-3 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 flex-1">
                             <div className="flex-shrink-0">{getTypeIcon(a.type)}</div>
                             <div className="flex-1 min-w-0">
                               <div className="flex flex-wrap items-center gap-2 mb-1">
                                 <p className="font-medium text-sm truncate">{patient ? patient.name : `RUT ${a.patientId}`}</p>
                                 <Badge variant={getPriorityColor(a.priority)} className="text-xs">{a.priority}</Badge>
                                 <Badge variant={getStatusColor(a.status)} className="text-xs">{getStatusIcon(a.status)}{a.status.replace("_", " ")}</Badge>
-                                {a.assignedTo && <Badge variant="secondary" className="text-xs">{`Tomada por ${a.assignedTo}`}</Badge>}
+                                {a.assignedTo && <Badge variant="secondary" className="text-xs">{doctorName}</Badge>}
                               </div>
                               <p className="font-medium text-sm mb-1">{a.title}</p>
                               <p className="text-xs text-muted-foreground line-clamp-2">{a.description}</p>
@@ -542,22 +634,24 @@ export default function MedicalDashboard() {
                             <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
                               <Clock className="h-3 w-3" />{formatTimestamp(a.timestamp)}
                             </div>
-                            {a.status === "nueva" && (
-                              <Button size="sm" disabled={takeDisabled} onClick={(e) => { e.stopPropagation(); handleTakeAlert(a.id); }}>
-                                {isLoading(a.id, "take") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Tomar
-                              </Button>
-                            )}
-                            {a.status === "en_proceso" && a.assignedTo && (
-                              <Badge variant="secondary" className="text-xs">{a.assignedTo}</Badge>
-                            )}
+                            <Button
+                              size="sm"
+                              disabled={takeDisabled}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelected(a);
+                                setOpen(true); // abre modal, no desaparece el botón
+                              }}
+                            >
+                              {isLoading(a.id, "take") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                              Tomar
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
                     </Card>
                   );
                 })}
-
                 {filteredAlerts.length === 0 && (
                   <div className="text-center py-12 text-muted-foreground">
                     <Bell className="mx-auto h-12 w-12 mb-4 opacity-50" />
@@ -570,150 +664,263 @@ export default function MedicalDashboard() {
         </Card>
       </div>
 
-      {/* Panel de Detalles */}
-      <div className="space-y-4">
-        {selected ? (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Eye className="h-5 w-5" />Detalles de la Alerta</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
+      {/* === MODAL: alerta a la IZQUIERDA, paciente a la DERECHA === */}
+      {selected && (
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogContent
+            className="w-auto sm:max-w-[980px] lg:max-w-[1120px] p-0 overflow-hidden"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+          >
+            {/* Header */}
+            <DialogHeader className="px-6 pt-5 pb-3 bg-muted/30 border-b">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <DialogTitle className="flex items-center gap-2 text-base md:text-lg">
+                    <Eye className="h-5 w-5" />
+                    Detalles de la alerta
+                  </DialogTitle>
+                  <DialogDescription className="mt-1">
+                    {(() => {
+                      const p = findPatient(selected.patientId);
+                      return (
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-medium">
+                            {p?.name ?? `RUT ${selected.patientId}`}
+                          </span>
+                          <span className="text-muted-foreground">•</span>
+                          <span>{selected.timestamp.toLocaleString("es-CL")}</span>
+                        </div>
+                      );
+                    })()}
+                  </DialogDescription>
+                </div>
+                <div className="flex flex-wrap gap-2 justify-end">
                   <Badge variant={getPriorityColor(selected.priority)}>{selected.priority}</Badge>
-                  <Badge variant={getStatusColor(selected.status)}>{getStatusIcon(selected.status)}{selected.status.replace("_", " ")}</Badge>
-                  {selected.assignedTo && <Badge variant="secondary">{`Tomada por ${selected.assignedTo}`}</Badge>}
+                  <Badge variant={getStatusColor(selected.status)}>
+                    {getStatusIcon(selected.status)}
+                    {selected.status.replace("_", " ")}
+                  </Badge>
+                  {selected.assignedTo && (
+                    <Badge variant="secondary">
+                      {medicosByRut[selected.assignedTo] ?? `Médico ${selected.assignedTo}`}
+                    </Badge>
+                  )}
                 </div>
+              </div>
+            </DialogHeader>
 
-                <div>
-                  <h4 className="font-medium mb-1">{selected.title}</h4>
-                  <p className="text-sm text-muted-foreground">{selected.description}</p>
-                </div>
-
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />{selected.timestamp.toLocaleString("es-CL")}
-                </div>
-
-                <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
-                  <span className="font-medium">Disparó la alerta:</span>
-                  {firedLabel ? <Badge variant="outline" className="text-xs">{firedLabel}</Badge> : <span>—</span>}
-                </div>
-
-                <Separator />
-
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Activity className="h-4 w-4" />
-                    <h5 className="font-medium text-sm">Registros de esta medición</h5>
-                    {loadingDetalles && <span className="text-xs text-muted-foreground">Cargando…</span>}
-                  </div>
-
-                  {(detallesByMed[selected.id] ?? []).length > 0 ? (
-                    <div className="space-y-2">
-                      {(detallesByMed[selected.id] ?? []).map((d) => renderDetalleRow(d))}
+            {/* Contenido principal: IZQ (alerta) / DER (paciente) */}
+            <div className="flex flex-col sm:flex-row gap-0">
+              {/* Columna izquierda - Alerta */}
+              <div className="w-full sm:w-1/2 lg:w-7/12 sm:border-r bg-muted/20">
+                <ScrollArea className="max-h-[72vh] sm:max-h-[75vh]">
+                  <div className="px-6 py-5 space-y-5">
+                    <div className="space-y-1">
+                      <h4 className="font-semibold leading-tight">{selected.title}</h4>
+                      <p className="text-sm text-muted-foreground">{selected.description}</p>
                     </div>
-                  ) : (
-                    !loadingDetalles && <p className="text-sm text-muted-foreground">No hay detalles para esta medición.</p>
-                  )}
-                </div>
 
-                <Separator />
-
-                <div className="space-y-2">
-                  {selected.status === "nueva" && (
-                    <Button className="w-full" disabled={!canTake(selected) || isLoading(selected.id, "take")} onClick={() => handleTakeAlert(selected.id)}>
-                      {isLoading(selected.id, "take") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
-                      Tomar Alerta
-                    </Button>
-                  )}
-
-                  {(selected.status === "en_proceso" || selected.status === "nueva") && (
-                    <>
-                      <Button className="w-full" variant="default" disabled={!canResolve(selected) || isLoading(selected.id, "resolve")} onClick={() => handleResolveAlert(selected.id)}>
-                        {isLoading(selected.id, "resolve") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
-                        Resolver
-                      </Button>
-
-                      <Button className="w-full" variant="outline" disabled={!canIgnore(selected) || isLoading(selected.id, "ignore")} onClick={() => handleIgnoreAlert(selected.id)}>
-                        {isLoading(selected.id, "ignore") ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
-                        Ignorar
-                      </Button>
-
-                      {!canResolve(selected) && selected.status === "en_proceso" && (
-                        <p className="text-xs text-muted-foreground text-center">Solo el médico asignado puede resolver o ignorar.</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="font-medium">Disparó la alerta:</span>
+                      {firedLabel ? (
+                        <Badge variant="outline" className="text-xs">{firedLabel}</Badge>
+                      ) : (
+                        <span>—</span>
                       )}
-                    </>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Ficha paciente */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><User className="h-5 w-5" />Información del Paciente</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {(() => {
-                  const p = findPatient(selected.patientId);
-                  if (!p) {
-                    return (
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-3">
-                          <Avatar><AvatarFallback>PT</AvatarFallback></Avatar>
-                          <div>
-                            <p className="font-medium">RUT {selected.patientId}</p>
-                            <p className="text-sm text-muted-foreground">Paciente sin ficha local</p>
-                          </div>
-                        </div>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex items-center gap-2"><Stethoscope className="h-4 w-4" /><span>—</span></div>
-                          <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><span>—</span></div>
-                          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" /><Badge variant="outline">Riesgo —</Badge></div>
-                        </div>
-                        <Button className="w-full" variant="outline" disabled><Phone className="mr-2 h-4 w-4" /> Llamar Paciente</Button>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3">
-                        <Avatar>
-                          <AvatarImage src={p.avatar} />
-                          <AvatarFallback>{p.name.split(" ").map(n => n[0]).join("").substring(0, 2)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">{p.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {p.age ? `${p.age} años, ` : ""}{p.gender === "M" ? "Masculino" : p.gender === "F" ? "Femenino" : "—"}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2"><Phone className="h-4 w-4" /><span>{p.phone ?? "—"}</span></div>
-                        <div className="flex items-center gap-2"><Stethoscope className="h-4 w-4" /><span>{p.diagnosis ?? "—"}</span></div>
-                        <div className="flex items-center gap-2"><Droplet className="h-4 w-4" /><span>Tipo de sangre: {p.bloodType ?? "—"}</span></div>
-                        <div className="flex items-center gap-2"><Shield className="h-4 w-4" /><span>Seguro: {p.insurance ?? "—"}</span></div>
-                        <div className="flex items-center gap-2"><MapPin className="h-4 w-4" /><span>{p.address ?? "—"}</span></div>
-                        <div className="flex items-center gap-2"><Calendar className="h-4 w-4" /><span>Último contacto: {p.lastContact ? new Date(p.lastContact).toLocaleDateString("es-CL") : "—"}</span></div>
-                        <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4" />
-                          <Badge variant={p.riskLevel === "alto" ? "destructive" : p.riskLevel === "medio" ? "secondary" : "outline"}>Riesgo {p.riskLevel ?? "—"}</Badge>
-                        </div>
-                      </div>
-                      <Button className="w-full" variant="outline"><Phone className="mr-2 h-4 w-4" /> Llamar Paciente</Button>
                     </div>
-                  );
-                })()}
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <Card><CardContent className="p-8 text-center text-muted-foreground">
-            <Eye className="mx-auto h-12 w-12 mb-4 opacity-50" />
-            <p>Selecciona una alerta para ver los detalles</p>
-          </CardContent></Card>
-        )}
-      </div>
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Activity className="h-4 w-4" />
+                        <h5 className="font-medium text-sm">Registros de esta medición</h5>
+                        {loadingDetalles && <span className="text-xs text-muted-foreground">Cargando…</span>}
+                      </div>
+
+                      {(detallesByMed[selected.id] ?? []).length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {(detallesByMed[selected.id] ?? []).map((d) => renderDetalleRow(d))}
+                        </div>
+                      ) : (
+                        !loadingDetalles && (
+                          <p className="text-sm text-muted-foreground">No hay detalles para esta medición.</p>
+                        )
+                      )}
+                    </div>
+                  </div>
+                </ScrollArea>
+              </div>
+
+              {/* Columna derecha - Paciente */}
+              <div className="w-full sm:w-1/2 lg:w-5/12">
+                <ScrollArea className="max-h-[72vh] sm:max-h-[75vh]">
+                  <div className="px-6 py-5 space-y-5">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      <h5 className="font-medium text-sm">Información del Paciente</h5>
+                    </div>
+
+                    {(() => {
+                      const p = findPatient(selected.patientId);
+                      if (!p) {
+                        return (
+                          <Card>
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-3">
+                                <Avatar><AvatarFallback>PT</AvatarFallback></Avatar>
+                                <div>
+                                  <p className="font-medium">RUT {selected.patientId}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    Paciente sin ficha local
+                                  </p>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      }
+                      const initials = p.name.split(" ").map(n => n[0]).join("").substring(0, 2);
+                      return (
+                        <Card>
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <Avatar>
+                                <AvatarImage src={p.avatar ?? undefined} />
+                                <AvatarFallback>{initials || "PT"}</AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <p className="font-medium">{p.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {p.age ? `${p.age} años, ` : ""}
+                                  {p.gender === "M" ? "Masculino" : p.gender === "F" ? "Femenino" : "—"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <Separator className="my-3" />
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-4 w-4" />
+                                <span>{p.phone ?? "—"}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Stethoscope className="h-4 w-4" />
+                                <span>{p.diagnosis ?? "—"}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Droplet className="h-4 w-4" />
+                                <span>Tipo de sangre: {p.bloodType ?? "—"}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Shield className="h-4 w-4" />
+                                <span>Seguro: {p.insurance ?? "—"}</span>
+                              </div>
+                              <div className="flex items-center gap-2 sm:col-span-2">
+                                <MapPin className="h-4 w-4" />
+                                <span className="truncate">{p.address ?? "—"}</span>
+                              </div>
+                              <div className="flex items-center gap-2 sm:col-span-2">
+                                <Calendar className="h-4 w-4" />
+                                <span>
+                                  Último contacto:{" "}
+                                  {p.lastContact
+                                    ? new Date(p.lastContact).toLocaleDateString("es-CL")
+                                    : "—"}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 sm:col-span-2">
+                                <AlertTriangle className="h-4 w-4" />
+                                <Badge
+                                  variant={p.riskLevel === "alto"
+                                    ? "destructive"
+                                    : p.riskLevel === "medio"
+                                      ? "secondary"
+                                      : "outline"}
+                                >
+                                  Riesgo {p.riskLevel ?? "—"}
+                                </Badge>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })()}
+
+                    {/* Acciones rápidas */}
+                    <Card>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm">Acciones rápidas</CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-0">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Button variant="outline" onClick={() => toast.message("Llamar paciente")}>
+                            <Phone className="mr-2 h-4 w-4" /> Llamar
+                          </Button>
+                          <Button variant="outline" onClick={() => toast.message("Ver ficha")}>
+                            <User className="mr-2 h-4 w-4" /> Ver ficha
+                          </Button>
+                          <Button variant="outline" className="sm:col-span-2" onClick={() => toast.message("Agendar control")}>
+                            <Calendar className="mr-2 h-4 w-4" /> Agendar control
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 md:px-6 border-t bg-background flex flex-col md:flex-row gap-2 md:gap-3 md:justify-end">
+              <div className="flex-1 md:flex-none text-xs text-muted-foreground md:text-right">
+                {selected.assignedTo
+                  ? `Asignada a: ${medicosByRut[selected.assignedTo] ?? selected.assignedTo}`
+                  : "Sin asignar"}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  disabled={!canTake(selected) || isLoading(selected.id, "take")}
+                  onClick={() => handleTakeAlert(selected.id)}
+                >
+                  {isLoading(selected.id, "take") ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <PlayCircle className="mr-2 h-4 w-4" />
+                  )}
+                  Tomar
+                </Button>
+                <Button
+                  variant="default"
+                  disabled={!canResolve(selected) || isLoading(selected.id, "resolve")}
+                  onClick={() => handleResolveAlert(selected.id)}
+                >
+                  {isLoading(selected.id, "resolve") ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                  )}
+                  Resolver
+                </Button>
+                <Button
+                  variant="outline"
+                  disabled={!canIgnore(selected) || isLoading(selected.id, "ignore")}
+                  onClick={() => handleIgnoreAlert(selected.id)}
+                >
+                  {isLoading(selected.id, "ignore") ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <XCircle className="mr-2 h-4 w-4" />
+                  )}
+                  Ignorar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
     </div>
   );
 }

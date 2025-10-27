@@ -24,7 +24,7 @@ def list_paciente(page: int = 1, page_size: int = 20,
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 @router.get("/{rut_paciente}", response_model=PacienteOut)
-def get_paciente(rut_paciente: int, db: Session = Depends(get_db)):
+def get_paciente(rut_paciente: str, db: Session = Depends(get_db)):
     obj = svc.get(db, rut_paciente)
     if not obj: raise HTTPException(404, "Not found")
     return obj
@@ -34,19 +34,19 @@ def create_paciente(payload: PacienteCreate, db: Session = Depends(get_db)):
     return svc.create(db, payload)
 
 @router.patch("/{rut_paciente}", response_model=PacienteOut)
-def update_paciente(rut_paciente: int, payload: PacienteUpdate, db: Session = Depends(get_db)):
+def update_paciente(rut_paciente: str, payload: PacienteUpdate, db: Session = Depends(get_db)):
     obj = svc.update(db, rut_paciente, payload)
     if not obj: raise HTTPException(404, "Not found")
     return obj
 
 @router.post("/{rut_paciente}/estado")
-def set_estado_paciente(rut_paciente: int, payload: PacienteSetEstado, db: Session = Depends(get_db)):
+def set_estado_paciente(rut_paciente: str, payload: PacienteSetEstado, db: Session = Depends(get_db)):
     ok = svc.set_estado(db, rut_paciente, payload.habilitar)
     if not ok: raise HTTPException(404, "Not found")
     return {"message": "OK", "habilitado": payload.habilitar}
 
 @router.delete("/{rut_paciente}")
-def delete_paciente(rut_paciente: int, db: Session = Depends(get_db)):
+def delete_paciente(rut_paciente: str, db: Session = Depends(get_db)):
     ok = svc.delete(db, rut_paciente)
     if not ok: raise HTTPException(404, "Not found")
     return {"message": "Disabled"}

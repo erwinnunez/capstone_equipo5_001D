@@ -21,7 +21,7 @@ def list_cuidadores(page: int = 1, page_size: int = 20,
     return Page(items=items, total=total, page=page, page_size=page_size)
 
 @router.get("/{rut_cuidador}", response_model=CuidadorOut)
-def get_cuidador(rut_cuidador: int, db: Session = Depends(get_db)):
+def get_cuidador(rut_cuidador: str, db: Session = Depends(get_db)):
     obj = svc.get(db, rut_cuidador)
     if not obj: raise HTTPException(404, "Not found")
     return obj
@@ -31,19 +31,19 @@ def create_cuidador(payload: CuidadorCreate, db: Session = Depends(get_db)):
     return svc.create(db, payload)
 
 @router.patch("/{rut_cuidador}", response_model=CuidadorOut)
-def update_cuidador(rut_cuidador: int, payload: CuidadorUpdate, db: Session = Depends(get_db)):
+def update_cuidador(rut_cuidador: str, payload: CuidadorUpdate, db: Session = Depends(get_db)):
     obj = svc.update(db, rut_cuidador, payload)
     if not obj: raise HTTPException(404, "Not found")
     return obj
 
 @router.post("/{rut_cuidador}/estado")
-def set_estado_cuidador(rut_cuidador: int, payload: CuidadorSetEstado, db: Session = Depends(get_db)):
+def set_estado_cuidador(rut_cuidador: str, payload: CuidadorSetEstado, db: Session = Depends(get_db)):
     ok = svc.set_estado(db, rut_cuidador, payload.habilitar)
     if not ok: raise HTTPException(404, "Not found")
     return {"message": "OK", "habilitado": payload.habilitar}
 
 @router.delete("/{rut_cuidador}")
-def delete_cuidador(rut_cuidador: int, db: Session = Depends(get_db)):
+def delete_cuidador(rut_cuidador: str, db: Session = Depends(get_db)):
     ok = svc.delete(db, rut_cuidador)
     if not ok: raise HTTPException(404, "Not found")
     return {"message": "Disabled"}

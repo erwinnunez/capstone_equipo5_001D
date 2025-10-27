@@ -8,7 +8,7 @@ from app.services import medico_historial as svc
 router = APIRouter(prefix="/medico-historial", tags=["historial"])
 
 @router.get("", response_model=Page[MedicoHistorialOut])
-def list_mh(page: int = 1, page_size: int = 20, rut_medico: int | None = Query(None), db: Session = Depends(get_db)):
+def list_mh(page: int = 1, page_size: int = 20, rut_medico: str | None = Query(None), db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_medico=rut_medico)
     return Page(items=items, total=total, page=page, page_size=page_size)
 

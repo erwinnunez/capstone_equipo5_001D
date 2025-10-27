@@ -1,12 +1,12 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+# app/models/paciente.py
+from sqlalchemy import Column, String, Boolean, Integer, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db import Base
-
 
 class Paciente(Base):
     __tablename__ = "paciente"
 
-    rut_paciente = Column(Integer, primary_key=True, index=True)
+    rut_paciente = Column(String, primary_key=True, index=True)  # ← String
     id_comuna = Column(Integer, ForeignKey("comuna.id_comuna", ondelete="RESTRICT"), nullable=False, index=True)
 
     primer_nombre_paciente = Column(String, nullable=False)
@@ -31,13 +31,11 @@ class Paciente(Base):
 
     estado = Column(Boolean, nullable=False)
 
-    # relación directa con CESFAM (NO hay tabla intermedia)
     id_cesfam = Column(Integer, ForeignKey("cesfam.id_cesfam", ondelete="RESTRICT"), nullable=False, index=True)
     fecha_inicio_cesfam = Column(DateTime(timezone=True), nullable=False)
     fecha_fin_cesfam = Column(DateTime(timezone=True), nullable=True)
     activo_cesfam = Column(Boolean, nullable=False)
 
-    # relaciones
     comuna = relationship("Comuna", back_populates="pacientes", lazy="joined")
     cesfam = relationship("Cesfam", back_populates="pacientes", lazy="joined")
 
@@ -48,6 +46,5 @@ class Paciente(Base):
     insignias = relationship("UsuarioInsignia", back_populates="paciente", cascade="all,delete")
     notas = relationship("NotaClinica", back_populates="paciente", cascade="all,delete")
 
-    # detalles
     medicina_detalles = relationship("MedicinaDetalle", back_populates="paciente", cascade="all,delete")
     medicion = relationship("Medicion", back_populates="paciente", cascade="all,delete")

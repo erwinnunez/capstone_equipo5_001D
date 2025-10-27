@@ -8,7 +8,7 @@ from app.services import cuidador_historial as svc
 router = APIRouter(prefix="/cuidador-historial", tags=["historial"])
 
 @router.get("", response_model=Page[CuidadorHistorialOut])
-def list_ch(page: int = 1, page_size: int = 20, rut_cuidador: int | None = Query(None), db: Session = Depends(get_db)):
+def list_ch(page: int = 1, page_size: int = 20, rut_cuidador: str | None = Query(None), db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_cuidador=rut_cuidador)
     return Page(items=items, total=total, page=page, page_size=page_size)
 

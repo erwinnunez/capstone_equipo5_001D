@@ -4,8 +4,8 @@ from app.models.nota_clinica import NotaClinica
 from app.schemas.nota_clinica import NotaClinicaCreate, NotaClinicaUpdate
 
 def list_(db: Session, skip: int, limit: int,
-          rut_paciente: int | None = None,
-          rut_medico: int | None = None,
+          rut_paciente: str | None = None,
+          rut_medico: str | None = None,
           tipo_nota: str | None = None,
           desde: datetime | None = None,
           hasta: datetime | None = None):

@@ -1,3 +1,4 @@
+// src/services/cuidador.ts
 // Servicio de Cuidador: crear (registro)
 // Compatible con schema CuidadorCreate del backend
 
@@ -5,7 +6,7 @@ const API_HOST = "http://127.0.0.1:8000";
 const RUTA_CUIDADOR = `${API_HOST}/cuidador`;
 
 export type CuidadorCreatePayload = {
-  rut_cuidador: number;
+  rut_cuidador: string; // <-- string sin . ni -
   primer_nombre_cuidador: string;
   segundo_nombre_cuidador: string;
   primer_apellido_cuidador: string;

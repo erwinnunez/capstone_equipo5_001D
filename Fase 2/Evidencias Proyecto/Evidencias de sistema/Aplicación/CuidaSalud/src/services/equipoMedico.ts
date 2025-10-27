@@ -5,7 +5,7 @@ const API_HOST = "http://127.0.0.1:8000";
 const RUTA_EQUIPO_MEDICO = `${API_HOST}/equipo-medico`;
 
 export type EquipoMedicoCreatePayload = {
-  rut_medico: number; // 9 dígitos, sin puntos/guion
+  rut_medico: string; // 9 dígitos, sin puntos/guion
   id_cesfam: number;
   primer_nombre_medico: string;
   segundo_nombre_medico?: string | null; // null si vacío

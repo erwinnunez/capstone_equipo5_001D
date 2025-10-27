@@ -5,7 +5,7 @@ from app.db import Base
 class Cuidador(Base):
     __tablename__ = "cuidador"
 
-    rut_cuidador = Column(Integer, primary_key=True, index=True)
+    rut_cuidador = Column(String, primary_key=True, index=True)
     primer_nombre_cuidador = Column(String, nullable=False)
     segundo_nombre_cuidador = Column(String, nullable=False)
     primer_apellido_cuidador = Column(String, nullable=False)

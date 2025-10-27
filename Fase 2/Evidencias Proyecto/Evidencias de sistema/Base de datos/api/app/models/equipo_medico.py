@@ -1,13 +1,12 @@
 # app/models/equipo_medico.py
-
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, String, Boolean, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db import Base
 
 class EquipoMedico(Base):
     __tablename__ = "equipo_medico"
 
-    rut_medico = Column(Integer, primary_key=True, index=True)
+    rut_medico = Column(String, primary_key=True, index=True)  # ← String
     id_cesfam = Column(Integer, ForeignKey("cesfam.id_cesfam", ondelete="RESTRICT"), nullable=False, index=True)
 
     primer_nombre_medico = Column(String, nullable=False)

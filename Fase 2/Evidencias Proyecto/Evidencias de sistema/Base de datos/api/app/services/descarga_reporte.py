@@ -3,8 +3,11 @@ from datetime import datetime
 from app.models.descarga_reporte import DescargaReporte
 from app.schemas.descarga_reporte import DescargaReporteCreate
 
-def list_(db: Session, skip: int, limit: int, rut_medico: int | None = None, id_reporte: int | None = None,
-          desde: datetime | None = None, hasta: datetime | None = None):
+def list_(db: Session, skip: int, limit: int,
+          rut_medico: str | None = None,
+          id_reporte: int | None = None,
+          desde: datetime | None = None,
+          hasta: datetime | None = None):
     q = db.query(DescargaReporte)
     if rut_medico is not None:
         q = q.filter(DescargaReporte.rut_medico == rut_medico)

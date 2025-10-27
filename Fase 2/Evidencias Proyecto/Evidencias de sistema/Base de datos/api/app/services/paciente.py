@@ -1,4 +1,3 @@
-# app/services/paciente.py
 from __future__ import annotations
 
 from typing import Optional, Tuple, List
@@ -7,7 +6,7 @@ from sqlalchemy import func
 
 from app.models.paciente import Paciente
 from app.schemas.paciente import PacienteCreate, PacienteUpdate
-from app.core.security import hash_password  # 🔐 usa core
+from app.core.security import hash_password  # 🔐
 
 def list_(
     db: Session,
@@ -46,7 +45,7 @@ def list_(
     items = q.order_by(Paciente.rut_paciente).offset(skip).limit(limit).all()
     return items, total
 
-def get(db: Session, rut_paciente: int) -> Optional[Paciente]:
+def get(db: Session, rut_paciente: str) -> Optional[Paciente]:
     return db.get(Paciente, rut_paciente)
 
 def create(db: Session, data: PacienteCreate) -> Paciente:
@@ -63,7 +62,7 @@ def create(db: Session, data: PacienteCreate) -> Paciente:
     db.add(obj); db.commit(); db.refresh(obj)
     return obj
 
-def update(db: Session, rut_paciente: int, data: PacienteUpdate) -> Optional[Paciente]:
+def update(db: Session, rut_paciente: str, data: PacienteUpdate) -> Optional[Paciente]:
     obj = get(db, rut_paciente)
     if not obj:
         return None
@@ -85,7 +84,7 @@ def update(db: Session, rut_paciente: int, data: PacienteUpdate) -> Optional[Pac
     db.commit(); db.refresh(obj)
     return obj
 
-def set_estado(db: Session, rut_paciente: int, habilitar: bool) -> bool:
+def set_estado(db: Session, rut_paciente: str, habilitar: bool) -> bool:
     obj = get(db, rut_paciente)
     if not obj:
         return False
@@ -93,7 +92,7 @@ def set_estado(db: Session, rut_paciente: int, habilitar: bool) -> bool:
     db.commit(); db.refresh(obj)
     return True
 
-def delete(db: Session, rut_paciente: int) -> bool:
+def delete(db: Session, rut_paciente: str) -> bool:
     return set_estado(db, rut_paciente, False)
 
 def find_by_email(db: Session, email: str, only_active: bool = True) -> Optional[Paciente]:

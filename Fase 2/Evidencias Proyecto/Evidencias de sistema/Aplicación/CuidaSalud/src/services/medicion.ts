@@ -20,6 +20,9 @@ export type MedicionOut = {
   estado_alerta: EstadoAlerta;
   tomada_por: number | null;
   tomada_en: string | null;
+  /** 👇 NUEVOS CAMPOS */
+  resuelta_en: string | null;
+  ignorada_en: string | null;
 };
 
 export type MedicionDetalleOut = {
@@ -65,7 +68,11 @@ async function handleJson<T>(res: Response): Promise<ApiResult<T>> {
   }
   const text = await res.text();
   let json: any = null;
-  try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = null;
+  }
 
   if (!res.ok) {
     if (res.status === 422 && json?.detail) {
@@ -80,7 +87,7 @@ async function handleJson<T>(res: Response): Promise<ApiResult<T>> {
   return { ok: true, data: (json ?? ({} as T)) as T };
 }
 
-/** NUEVO: obtener una medición por id */
+/** Obtener una medición por id */
 export async function getMedicionById(id_medicion: number): Promise<ApiResult<MedicionOut>> {
   const res = await fetch(`${RUTA_MEDICION}/${id_medicion}`, {
     method: "GET",
@@ -94,7 +101,7 @@ export async function getMedicionById(id_medicion: number): Promise<ApiResult<Me
 export async function listarMedicionesConAlerta(
   page = 1,
   page_size = 50,
-  params?: { rut_paciente?: number; desde?: string; hasta?: string; estado_alerta?: EstadoAlerta }
+  params?: { rut_paciente?: number; desde?: string; hasta?: string; estado_alerta?: EstadoAlerta; tomada_por?: number }
 ): Promise<ApiResult<Page<MedicionOut>>> {
   const url = new URL(RUTA_ALERTAS);
   url.searchParams.set("page", String(page));
@@ -103,6 +110,7 @@ export async function listarMedicionesConAlerta(
   if (params?.desde) url.searchParams.set("desde", params.desde);
   if (params?.hasta) url.searchParams.set("hasta", params.hasta);
   if (params?.estado_alerta) url.searchParams.set("estado_alerta", params.estado_alerta);
+  if (params?.tomada_por != null) url.searchParams.set("tomada_por", String(params.tomada_por));
 
   const res = await fetch(url.toString(), {
     method: "GET",
@@ -112,6 +120,7 @@ export async function listarMedicionesConAlerta(
   return handleJson<Page<MedicionOut>>(res);
 }
 
+/** Lista mediciones (filtro opcional tiene_alerta) */
 export async function listarMediciones(
   page = 1,
   page_size = 50,
@@ -130,7 +139,7 @@ export async function listarMediciones(
   return handleJson<Page<MedicionOut>>(res);
 }
 
-/** Detalles */
+/** Detalles de medición */
 export async function listMedicionDetalles(params: {
   id_medicion?: number;
   id_parametro?: number;
@@ -151,37 +160,37 @@ export async function listMedicionDetalles(params: {
   return handleJson<Page<MedicionDetalleOut>>(res);
 }
 
-/** PATCH estado de una medición */
-export type MedicionEstadoIn = {
-  estado_alerta: EstadoAlerta;
-  tomada_por?: number | null;
-  tomada_en?: string | null;
-};
+/* ============================
+   ACCIONES QUE COINCIDEN CON TU API
+   ============================ */
 
-export async function patchEstadoMedicion(
-  id_medicion: number,
-  body: MedicionEstadoIn
-): Promise<ApiResult<MedicionOut>> {
-  const res = await fetch(`${RUTA_MEDICION}/${id_medicion}/estado`, {
-    method: "PATCH",
+/** Tomar alerta (claim) -> POST /medicion/{id}/tomar  { rut_medico } */
+export async function tomarMedicion(id_medicion: number, rut_medico: number) {
+  const res = await fetch(`${RUTA_MEDICION}/${id_medicion}/tomar`, {
+    method: "POST",
     headers: { "content-type": "application/json" },
     credentials: "include",
-    body: JSON.stringify(body),
+    body: JSON.stringify({ rut_medico }),
   });
   return handleJson<MedicionOut>(res);
 }
 
-/** Helpers de acción */
-export async function tomarMedicion(id_medicion: number, rut_medico: number) {
-  return patchEstadoMedicion(id_medicion, {
-    estado_alerta: "en_proceso",
-    tomada_por: rut_medico,
-    tomada_en: new Date().toISOString(),
+/** Cambiar estado -> POST /medicion/{id}/estado  { nuevo_estado } */
+async function postCambiarEstado(id_medicion: number, nuevo_estado: EstadoAlerta) {
+  const res = await fetch(`${RUTA_MEDICION}/${id_medicion}/estado`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ nuevo_estado }),
   });
+  return handleJson<MedicionOut>(res);
 }
+
+/** Resolver o ignorar (guardan timestamp según backend) */
 export async function resolverMedicion(id_medicion: number) {
-  return patchEstadoMedicion(id_medicion, { estado_alerta: "resuelta" });
+  return postCambiarEstado(id_medicion, "resuelta");
 }
+
 export async function ignorarMedicion(id_medicion: number) {
-  return patchEstadoMedicion(id_medicion, { estado_alerta: "ignorada" });
+  return postCambiarEstado(id_medicion, "ignorada");
 }

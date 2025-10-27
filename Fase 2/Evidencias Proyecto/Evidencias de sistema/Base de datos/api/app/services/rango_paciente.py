@@ -2,13 +2,16 @@ from sqlalchemy.orm import Session
 from app.models.rango_paciente import RangoPaciente
 from app.schemas.rango_paciente import RangoPacienteCreate, RangoPacienteUpdate
 
-def list_(db: Session, skip: int, limit: int, rut_paciente: int | None = None, id_parametro: int | None = None, vigente: bool | None = None):
+def list_(db: Session, skip: int, limit: int,
+          rut_paciente: str | None = None,
+          id_parametro: int | None = None,
+          vigente: bool | None = None):
     q = db.query(RangoPaciente)
     if rut_paciente is not None:
         q = q.filter(RangoPaciente.rut_paciente == rut_paciente)
     if id_parametro is not None:
         q = q.filter(RangoPaciente.id_parametro == id_parametro)
-    # "vigente" lo dejas para lógica por fechas si quieres (no infiero aquí)
+    # 'vigente' -> lógica por fechas si aplica
     total = q.count()
     items = q.order_by(RangoPaciente.id_rango.desc()).offset(skip).limit(limit).all()
     return items, total

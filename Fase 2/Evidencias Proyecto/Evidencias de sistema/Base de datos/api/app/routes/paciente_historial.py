@@ -8,7 +8,7 @@ from app.services import paciente_historial as svc
 router = APIRouter(prefix="/paciente-historial", tags=["historial"])
 
 @router.get("", response_model=Page[PacienteHistorialOut])
-def list_ph(page: int = 1, page_size: int = 20, rut_paciente: int | None = Query(None), db: Session = Depends(get_db)):
+def list_ph(page: int = 1, page_size: int = 20, rut_paciente: str | None = Query(None), db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size, rut_paciente=rut_paciente)
     return Page(items=items, total=total, page=page, page_size=page_size)
 

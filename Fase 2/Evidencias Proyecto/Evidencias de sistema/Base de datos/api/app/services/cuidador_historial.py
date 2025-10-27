@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.cuidador_historial import CuidadorHistorial
 from app.schemas.cuidador_historial import CuidadorHistorialCreate
 
-def list_(db: Session, skip: int, limit: int, rut_cuidador: int | None = None):
+def list_(db: Session, skip: int, limit: int, rut_cuidador: str | None = None):
     q = db.query(CuidadorHistorial)
     if rut_cuidador is not None:
         q = q.filter(CuidadorHistorial.rut_cuidador == rut_cuidador)

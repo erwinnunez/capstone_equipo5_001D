@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey
+# app/models/descarga_reporte.py
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.db import Base
 
@@ -7,23 +8,9 @@ class DescargaReporte(Base):
 
     id_descarga = Column(Integer, primary_key=True, index=True, autoincrement=True)
 
-    # 🔧 ARREGLO: esta FK debe ir a equipo_medico, no a solicitud_reporte
-    rut_medico = Column(
-        Integer,
-        ForeignKey("equipo_medico.rut_medico", ondelete="RESTRICT"),
-        nullable=False,
-        index=True,
-    )
-
-    id_reporte = Column(
-        Integer,
-        ForeignKey("solicitud_reporte.id_reporte", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-
+    rut_medico = Column(String, ForeignKey("equipo_medico.rut_medico", ondelete="RESTRICT"), nullable=False, index=True)  # ← String
+    id_reporte = Column(Integer, ForeignKey("solicitud_reporte.id_reporte", ondelete="CASCADE"), nullable=False, index=True)
     descargado_en = Column(DateTime(timezone=True), nullable=False)
 
-    # Relaciones ORM (opcionales)
     medico = relationship("EquipoMedico", lazy="joined")
     reporte = relationship("SolicitudReporte", lazy="joined")

@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.models.evento_gamificacion import EventoGamificacion
 from app.schemas.evento_gamificacion import EventoGamificacionCreate
 
-def list_(db: Session, skip: int, limit: int, rut_paciente: int | None = None, tipo: str | None = None):
+def list_(db: Session, skip: int, limit: int, rut_paciente: str | None = None, tipo: str | None = None):
     q = db.query(EventoGamificacion)
     if rut_paciente is not None:
         q = q.filter(EventoGamificacion.rut_paciente == rut_paciente)

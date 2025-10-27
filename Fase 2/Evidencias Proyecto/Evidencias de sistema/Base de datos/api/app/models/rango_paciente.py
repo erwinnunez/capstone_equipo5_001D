@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, Boolean, DateTime, ForeignKey
+# app/models/rango_paciente.py
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from app.db import Base
 
@@ -6,7 +7,7 @@ class RangoPaciente(Base):
     __tablename__ = "rango_paciente"
 
     id_rango = Column(Integer, primary_key=True, index=True)
-    rut_paciente = Column(Integer, ForeignKey("paciente.rut_paciente", ondelete="CASCADE"), nullable=False, index=True)
+    rut_paciente = Column(String, ForeignKey("paciente.rut_paciente", ondelete="CASCADE"), nullable=False, index=True)  # ← String
     id_parametro = Column(Integer, ForeignKey("parametro_clinico.id_parametro", ondelete="RESTRICT"), nullable=False, index=True)
 
     min_normal = Column(Integer, nullable=False)
