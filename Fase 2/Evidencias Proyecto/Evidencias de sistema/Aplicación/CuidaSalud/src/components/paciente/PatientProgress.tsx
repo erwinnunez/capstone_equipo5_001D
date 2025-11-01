@@ -38,7 +38,7 @@ export default function PatientProgress({ currentStreak, totalPoints, rutPacient
     if (!rutPaciente) return;
     setLoading(true);
     setError(null);
-    listMediciones({ rut_paciente: rutPaciente, page: 1, page_size: pageSize })
+    listMediciones({ rut_paciente: String(rutPaciente), page: 1, page_size: pageSize })
       .then((res) => {
         setMeds(res.items ?? []);
         setTotal(res.total ?? 0);
@@ -52,7 +52,7 @@ export default function PatientProgress({ currentStreak, totalPoints, rutPacient
     if (!rutPaciente) return;
     const next = page + 1;
     setLoading(true);
-    listMediciones({ rut_paciente: rutPaciente, page: next, page_size: pageSize })
+    listMediciones({ rut_paciente: String(rutPaciente), page: next, page_size: pageSize })
       .then((res) => {
         setMeds((prev) => [...prev, ...(res.items ?? [])]);
         setTotal(res.total ?? total);

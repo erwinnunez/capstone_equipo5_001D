@@ -17,7 +17,7 @@ import {
 
 type UserLike = {
   name: string;
-  rutPaciente?: number;
+  rutPaciente?: string;
 };
 
 export default function PatientHome({

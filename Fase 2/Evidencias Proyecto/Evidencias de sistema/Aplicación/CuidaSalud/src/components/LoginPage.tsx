@@ -176,7 +176,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                         name: `Demo ${role.label}`,
                         role: role.value as Role,
                         email: `demo@${role.value}.com`,
-                        rut_paciente: role.value === "patient" ? 12345678 : undefined,
+                        rut_paciente: role.value === "patient" ? String(12345678) : undefined,
                       },
                     })
                   }

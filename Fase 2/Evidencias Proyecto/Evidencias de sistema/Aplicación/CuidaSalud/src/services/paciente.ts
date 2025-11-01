@@ -144,7 +144,7 @@ export async function getPacientes<T = PacienteOut[]>(): Promise<T> {
   return handleResponse(resp);
 }
 
-export async function getPacienteByRut<T = PacienteOut>(rut_paciente: number): Promise<T> {
+export async function getPacienteByRut<T = PacienteOut>(rut_paciente: string): Promise<T> {
   const resp = await fetch(`${RUTA_PACIENTE}/${rut_paciente}`, {
     method: "GET",
     headers: { "content-type": "application/json" },
@@ -168,7 +168,7 @@ export const getPacienteFicha = getPacienteByRut;
 export type Severidad = "normal" | "warning" | "critical";
 
 export interface MedicionCreatePayload {
-  rut_paciente: number;
+  rut_paciente: string;
   fecha_registro: string;  // ISO
   origen: string;
   registrado_por: string;
@@ -263,7 +263,7 @@ function buildQuery(params: Record<string, any>) {
 }
 
 export async function listMediciones(params: {
-  rut_paciente?: number;
+  rut_paciente?: string;
   desde?: string;        // ISO
   hasta?: string;        // ISO
   tiene_alerta?: boolean;
@@ -310,7 +310,7 @@ export async function listMedicionDetalles(params: {
 
 // ===== Helper específico: listar SOLO mediciones con alerta = true =====
 export async function listAlertasMediciones(params?: {
-  rut_paciente?: number;
+  rut_paciente?: string;
   desde?: string; // ISO
   hasta?: string; // ISO
   page?: number;

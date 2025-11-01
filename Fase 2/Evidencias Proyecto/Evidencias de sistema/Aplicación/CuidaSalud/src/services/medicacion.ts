@@ -35,7 +35,7 @@ export interface MedicinaOut {
 export interface MedicinaDetalleOut {
   id_detalle: number;
   id_medicina: number;
-  rut_paciente: number;
+  rut_paciente: string;
   dosis?: string | null;
   instrucciones_toma?: string | null;
   fecha_inicio?: string | null;   // ISO
@@ -55,7 +55,7 @@ export async function getMedicina(id_medicina: number): Promise<MedicinaOut> {
 
 // ---- GET /medicina-detalle
 export async function listMedicinaDetalles(params: {
-  rut_paciente?: number;
+  rut_paciente?: string;
   id_medicina?: number;
   desde?: string; // ISO
   hasta?: string; // ISO

@@ -8,7 +8,7 @@ export interface FrontUser {
   name: string;
   role: Role;
   email: string;
-  rut_paciente?: number;
+  rut_paciente?: string;
 }
 
 export interface LoginResponse {

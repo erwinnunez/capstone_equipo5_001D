@@ -34,7 +34,7 @@ export type Page<T> = {
 };
 
 export interface RangoPacienteCreate {
-  rut_paciente: number;
+  rut_paciente: string;
   id_parametro: number;
   min_normal: number | null;
   max_normal: number | null;
@@ -65,7 +65,7 @@ export interface RangoPacienteUpdate {
 export async function listRangosPaciente(params: {
   page?: number;
   page_size?: number;
-  rut_paciente?: number;
+  rut_paciente?: string;
   id_parametro?: number;
 }): Promise<Page<RangoPacienteOut>> {
   const qs = buildQuery({
@@ -121,7 +121,7 @@ export async function deleteRangoPaciente(id_rango: number): Promise<{ message: 
 // ---------- Helpers ----------
 /** Devuelve un índice por id_parametro con el rango más reciente (primer item) */
 export async function getRangosIndexByParametro(
-  rut_paciente: number
+  rut_paciente: string
 ): Promise<Record<number, RangoPacienteOut>> {
   const page = await listRangosPaciente({ rut_paciente, page_size: 500 });
   const idx: Record<number, RangoPacienteOut> = {};

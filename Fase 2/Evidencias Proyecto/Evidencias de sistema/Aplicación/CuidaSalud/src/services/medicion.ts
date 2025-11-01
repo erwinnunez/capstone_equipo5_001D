@@ -8,7 +8,7 @@ export type EstadoAlerta = "nueva" | "en_proceso" | "resuelta" | "ignorada";
 
 export type MedicionOut = {
   id_medicion: number;
-  rut_paciente: number;
+  rut_paciente: string;
   fecha_registro: string;
   origen: string;
   registrado_por: string;
@@ -101,7 +101,7 @@ export async function getMedicionById(id_medicion: number): Promise<ApiResult<Me
 export async function listarMedicionesConAlerta(
   page = 1,
   page_size = 50,
-  params?: { rut_paciente?: number; desde?: string; hasta?: string; estado_alerta?: EstadoAlerta; tomada_por?: number }
+  params?: { rut_paciente?: string; desde?: string; hasta?: string; estado_alerta?: EstadoAlerta; tomada_por?: number }
 ): Promise<ApiResult<Page<MedicionOut>>> {
   const url = new URL(RUTA_ALERTAS);
   url.searchParams.set("page", String(page));
@@ -165,7 +165,7 @@ export async function listMedicionDetalles(params: {
    ============================ */
 
 /** Tomar alerta (claim) -> POST /medicion/{id}/tomar  { rut_medico } */
-export async function tomarMedicion(id_medicion: number, rut_medico: number) {
+export async function tomarMedicion(id_medicion: number, rut_medico: string) {
   const res = await fetch(`${RUTA_MEDICION}/${id_medicion}/tomar`, {
     method: "POST",
     headers: { "content-type": "application/json" },

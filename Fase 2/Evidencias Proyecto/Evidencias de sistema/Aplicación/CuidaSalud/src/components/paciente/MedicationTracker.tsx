@@ -103,7 +103,7 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
       setErr(null);
       try {
         const det = await listMedicinaDetalles({
-          rut_paciente: rutPaciente,
+          rut_paciente: String(rutPaciente),
           page: 1,
           page_size: 500,
         });

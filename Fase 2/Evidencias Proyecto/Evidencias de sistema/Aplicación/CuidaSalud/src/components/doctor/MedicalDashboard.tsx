@@ -64,46 +64,54 @@ function extractRutFromObject(obj: any): number | null {
 }
 
 /** Devuelve {rut, source} para logging */
-function getLoggedMedicoRut(): { rut: number | null; source: string } {
-  // 1) Sesión primero
+function getLoggedMedicoRut(): { rut: string | null; source: string } {
+  // 1) Revisar sesión
   const sessionStr = localStorage.getItem("session");
   if (sessionStr) {
     try {
       const s = JSON.parse(sessionStr);
       const rut = extractRutFromObject(s);
-      if (rut != null) return { rut, source: "session" };
+      if (rut != null) return { rut: String(rut), source: "session" };
     } catch {}
   }
 
-  // 2) Auth / user (si tu app guarda aquí)
+  // 2) Revisar otras claves típicas de usuario
   for (const k of ["auth", "user", "current_user", "front_user"]) {
     const raw = localStorage.getItem(k);
     if (!raw) continue;
     try {
       const obj = JSON.parse(raw);
       const rut = extractRutFromObject(obj);
-      if (rut != null) return { rut, source: k };
+      if (rut != null) return { rut: String(rut), source: k };
     } catch {}
   }
 
-  // 3) JWT (por si viene el rut en el token)
+  // 3) Revisar JWT
   const jwt = localStorage.getItem("token") || localStorage.getItem("jwt");
   if (jwt && jwt.split(".").length === 3) {
     try {
       const payloadJson = atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"));
       const p = JSON.parse(payloadJson);
       const rut =
-        p?.rut_medico ?? p?.rutMedico ?? p?.sub_rut ?? p?.subRut ?? p?.rut ?? p?.id ?? null;
-      if (rut != null && !Number.isNaN(Number(rut))) return { rut: Number(rut), source: "jwt" };
+        p?.rut_medico ??
+        p?.rutMedico ??
+        p?.sub_rut ??
+        p?.subRut ??
+        p?.rut ??
+        p?.id ??
+        null;
+      if (rut != null) return { rut: String(rut), source: "jwt" };
     } catch {}
   }
 
-  // 4) ÚLTIMO RECURSO: clave suelta 'medico_rut' (puede estar “fija” de antes)
+  // 4) Último recurso: clave suelta 'medico_rut'
   const direct = localStorage.getItem("medico_rut");
-  if (direct && !Number.isNaN(Number(direct))) return { rut: Number(direct), source: "medico_rut" };
+  if (direct) return { rut: String(direct), source: "medico_rut" };
 
   return { rut: null, source: "none" };
 }
+
+
 
 /* Tipos UI */
 interface PatientUI {
@@ -378,7 +386,7 @@ export default function MedicalDashboard() {
   async function ensureRangos(rutStr: string) {
     if (rangosByRut[rutStr]) return;
     try {
-      const page = await listRangosPaciente({ rut_paciente: Number(rutStr), page_size: 500 });
+      const page = await listRangosPaciente({ rut_paciente: String(rutStr), page_size: 500 });
       setRangosByRut(prev => ({ ...prev, [rutStr]: page.items ?? [] }));
     } catch (e: any) {
       toast.error("No se pudieron cargar rangos del paciente", { description: e?.message ?? "Error" });
@@ -405,7 +413,7 @@ export default function MedicalDashboard() {
         }
         if (!patientsByRut.has(rut)) {
           try {
-            const ficha = await getPacienteByRut<any>(Number(rut));
+            const ficha = await getPacienteByRut<any>(String(rut));
             if (!cancelled) {
               setPatientsByRut(prev => {
                 const copy = new Map(prev);

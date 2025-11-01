@@ -63,7 +63,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       try {
         setLoadingRangos(true);
         setRangosError(null);
-        const idx = await getRangosIndexByParametro(rutPaciente);
+        const idx = await getRangosIndexByParametro(String(rutPaciente));
         setRangos(idx);
       } catch (e: any) {
         setRangosError(e?.message ?? 'No se pudieron cargar los rangos del paciente');
@@ -194,7 +194,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
     const nowIso = new Date().toISOString();
 
     const baseMedicion: MedicionCreatePayload = {
-      rut_paciente: rutPaciente,
+      rut_paciente: String(rutPaciente),
       fecha_registro: nowIso,
       origen: 'WEB',
       registrado_por: 'SELF',

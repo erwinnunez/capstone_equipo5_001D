@@ -15,7 +15,7 @@ import { listCesfam, CesfamOut } from '../../services/cesfam.ts';
 
 // ---------- TIPOS ----------
 type PacienteOut = {
-  rut_paciente: number;
+  rut_paciente: string;
   id_comuna: number;
   primer_nombre_paciente: string;
   segundo_nombre_paciente: string;
