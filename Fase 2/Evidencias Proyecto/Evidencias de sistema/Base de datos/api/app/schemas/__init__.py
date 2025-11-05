@@ -10,3 +10,5 @@ from .usuario_insignia import UsuarioInsigniaCreate, UsuarioInsigniaOut
 from .solicitud_reporte import SolicitudReporteCreate, SolicitudReporteUpdate, SolicitudReporteOut
 from .descarga_reporte import DescargaReporteCreate, DescargaReporteOut
 from.rango_paciente import RangoPacienteCreate,RangoPacienteOut,RangoPacienteUpdate
+from .tarea import  TareaCreate, TareaOut, TareaUpdate
+from .notificaciones import NotificacionOut, PreferenciaNotificacionOut

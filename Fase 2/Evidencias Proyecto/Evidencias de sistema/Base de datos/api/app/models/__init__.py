@@ -22,3 +22,6 @@ from .medicion import Medicion
 from .medicion_detalle import MedicionDetalle
 from .medicina import Medicina
 from .medicina_detalle import MedicinaDetalle
+from .tarea import Tarea
+from .notificaciones import Notificacion
+from .preferencia_notificaciones import PreferenciaNotificacion

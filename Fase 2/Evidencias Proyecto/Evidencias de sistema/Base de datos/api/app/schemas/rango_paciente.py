@@ -20,7 +20,7 @@ class RangoPacienteCreate(BaseModel):
         numero = str(v)
         if not numero.isdigit():
             raise ValueError(f"El {field.name} solo debe contener números (sin puntos ni guion).")
-        if len(numero) != 8: #cambiar valor a 9 despues
+        if len(numero) not in (8,9): #cambiar valor a 9 despues
             raise ValueError(f"El {field.name} debe tener exactamente 9 dígitos.")
         return v
 

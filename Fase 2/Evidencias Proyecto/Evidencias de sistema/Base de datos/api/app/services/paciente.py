@@ -7,7 +7,8 @@ from sqlalchemy import func
 
 from app.models.paciente import Paciente
 from app.schemas.paciente import PacienteCreate, PacienteUpdate
-from app.core.security import hash_password  # 🔐 usa core
+#from app.core.security import hash_password  # 🔐 usa core
+from app.core.security_utils import safe_hash_password
 
 def list_(
     db: Session,
@@ -54,7 +55,9 @@ def create(db: Session, data: PacienteCreate) -> Paciente:
     raw = payload.get("contrasena")
     if not raw:
         raise ValueError("contrasena es requerida")
-    payload["contrasena"] = hash_password(raw)
+    #payload["contrasena"] = hash_password(raw)
+    payload["contrasena"] = safe_hash_password(raw)
+
 
     if payload.get("email"):
         payload["email"] = payload["email"].strip().lower()
@@ -75,7 +78,8 @@ def update(db: Session, rut_paciente: int, data: PacienteUpdate) -> Optional[Pac
 
     if "contrasena" in upd:
         if upd["contrasena"]:
-            upd["contrasena"] = hash_password(upd["contrasena"])
+            #upd["contrasena"] = hash_password(upd["contrasena"])
+            upd["contrasena"] = safe_hash_password(upd["contrasena"])
         else:
             upd.pop("contrasena", None)
 

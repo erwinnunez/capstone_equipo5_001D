@@ -358,3 +358,40 @@ export async function getPacienteMetricas(rut: number): Promise<MetricaPaciente[
   });
   return handleResponse<MetricaPaciente[]>(resp);
 }
+
+
+// ==================== PACIENTES ASIGNADOS A CUIDADOR ====================
+
+// Tipo alineado al formato visual del front-end
+export interface PacienteAsignado {
+  rut_paciente: number;
+  nombre_completo: string;
+  edad: number;
+  enfermedad_principal: string | null;
+  ultima_actualizacion: string | null;
+  alertas: number;
+  estado: "stable" | "attention_needed" | "critical";
+  proxima_cita: string | null;
+}
+
+// Endpoint que obtiene el listado de pacientes por cuidador
+export async function listPacientesPorCuidador(
+  rut_cuidador: number
+): Promise<PacienteAsignado[]> {
+  const API_HOST = import.meta.env.VITE_API_HOST ?? "http://127.0.0.1:8000";
+  const url = `${API_HOST}/paciente-cuidador/resumen/${rut_cuidador}`;
+
+  const resp = await fetch(url, {
+    method: "GET",
+    headers: { "content-type": "application/json" },
+    credentials: "include",
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Error al cargar pacientes: ${text}`);
+  }
+
+  return resp.json();
+}
+

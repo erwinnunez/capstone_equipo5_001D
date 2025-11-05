@@ -82,7 +82,7 @@ interface MetricaComun {
 
 export default function SeguimientoTendencias() {
   // Datos del paciente
-  const [rutInput, setRutInput] = useState<string>("11111111");
+  const [rutInput, setRutInput] = useState<string>("");
   const [rut, setRut] = useState<number | null>(null);
   const [nombre, setNombre] = useState("");
   const [edad, setEdad] = useState("");
