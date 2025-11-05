@@ -1,12 +1,13 @@
-// src/components/cuidador/PatientManagement.tsx
+ // src/components/cuidador/PatientManagement.tsx
 import { useState } from "react";
 import { usePatients } from "./PatientContext";
 import type { Patient } from "./PatientContext";
 
+import { createPacienteCuidador, type PacienteCuidadorCreate } from "../../services/pacienteCuidador";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Textarea } from "../ui/textarea";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../ui/dialog";
@@ -17,82 +18,92 @@ import {
 import { Users, Plus, Edit, Trash2, Phone, Heart, Calendar, FileText, AlertTriangle } from "lucide-react";
 
 export default function PatientManagement() {
-  const { patients, addPatient, updatePatient, deletePatient, selectPatient, selectedPatientId } = usePatients();
+  const { patients, deletePatient, selectPatient, selectedPatientId } = usePatients();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingPatient, setEditingPatient] = useState<Patient | null>(null);
 
   const [formData, setFormData] = useState({
-    name: "",
-    age: "",
-    condition: "",
-    emergencyContact: "",
-    emergencyPhone: "",
-    medications: "",
-    allergies: "",
-    notes: "",
+    rut_paciente: "",
+    rut_cuidador: "",
+    permiso_registro: true,
+    permiso_lectura: true,
+    fecha_inicio: new Date().toISOString().split('T')[0], // Fecha actual por defecto
+    fecha_fin: "", // Opcional, puede estar vacía
+    activo: true
   });
+
+  // Estados para manejo del formulario
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const resetForm = () => {
     setFormData({
-      name: "",
-      age: "",
-      condition: "",
-      emergencyContact: "",
-      emergencyPhone: "",
-      medications: "",
-      allergies: "",
-      notes: "",
+      rut_paciente: "",
+      rut_cuidador: "",
+      permiso_registro: true,
+      permiso_lectura: true,
+      fecha_inicio: new Date().toISOString().split('T')[0],
+      fecha_fin: "",
+      activo: true
     });
+    setSubmitError(null);
   };
 
-  const handleAddPatient = () => {
-    if (!formData.name.trim()) return;
+  const handleAddPatient = async () => {
+    // Validaciones básicas
+    if (!formData.rut_paciente.trim() || !formData.rut_cuidador.trim()) {
+      setSubmitError("RUT del paciente y RUT del cuidador son obligatorios");
+      return;
+    }
 
-    addPatient({
-      name: formData.name,
-      age: parseInt(formData.age) || 0,
-      condition: formData.condition,
-      emergencyContact: formData.emergencyContact,
-      emergencyPhone: formData.emergencyPhone,
-      medications: formData.medications.split(",").map((m) => m.trim()).filter(Boolean),
-      allergies: formData.allergies.split(",").map((a) => a.trim()).filter(Boolean),
-      notes: formData.notes,
-    });
+    if (!formData.fecha_inicio) {
+      setSubmitError("Fecha de inicio es obligatoria");
+      return;
+    }
 
-    resetForm();
-    setIsAddDialogOpen(false);
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+
+      // Preparar datos para el endpoint
+      const payload: PacienteCuidadorCreate = {
+        rut_paciente: formData.rut_paciente.trim(),
+        rut_cuidador: formData.rut_cuidador.trim(),
+        permiso_registro: formData.permiso_registro,
+        permiso_lectura: formData.permiso_lectura,
+        fecha_inicio: new Date(formData.fecha_inicio).toISOString(),
+        fecha_fin: formData.fecha_fin ? new Date(formData.fecha_fin).toISOString() : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 año por defecto
+        activo: formData.activo,
+      };
+
+      // Llamar al endpoint
+      const result = await createPacienteCuidador(payload);
+      
+      console.log("✅ Paciente-Cuidador creado:", result);
+
+      resetForm();
+      setIsAddDialogOpen(false);
+      
+    } catch (error: any) {
+      console.error("❌ Error al crear paciente-cuidador:", error);
+      setSubmitError(error?.message || "Error al crear la relación paciente-cuidador");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditPatient = (patient: Patient) => {
     setEditingPatient(patient);
+    // Solo datos del endpoint disponibles - no tenemos RUTs en el mock
     setFormData({
-      name: patient.name,
-      age: String(patient.age),
-      condition: patient.condition,
-      emergencyContact: patient.emergencyContact,
-      emergencyPhone: patient.emergencyPhone,
-      medications: patient.medications.join(", "),
-      allergies: patient.allergies.join(", "),
-      notes: patient.notes,
+      rut_paciente: "", // TODO: agregar RUT a Patient interface
+      rut_cuidador: "",
+      permiso_registro: true,
+      permiso_lectura: true,
+      fecha_inicio: new Date().toISOString().split('T')[0],
+      fecha_fin: "",
+      activo: true
     });
-  };
-
-  const handleUpdatePatient = () => {
-    if (!editingPatient || !formData.name.trim()) return;
-
-    updatePatient(editingPatient.id, {
-      name: formData.name,
-      age: parseInt(formData.age) || 0,
-      condition: formData.condition,
-      emergencyContact: formData.emergencyContact,
-      emergencyPhone: formData.emergencyPhone,
-      medications: formData.medications.split(",").map((m) => m.trim()).filter(Boolean),
-      allergies: formData.allergies.split(",").map((a) => a.trim()).filter(Boolean),
-      notes: formData.notes,
-    });
-
-    resetForm();
-    setEditingPatient(null);
   };
 
   const handleDeletePatient = (patientId: string) => {
@@ -125,59 +136,161 @@ export default function PatientManagement() {
                   Agregar Paciente
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Agregar Nuevo Paciente</DialogTitle>
-                  <DialogDescription>Complete la información del nuevo paciente bajo su cuidado</DialogDescription>
+              <DialogContent className="max-w-[85vw] w-[85vw] max-h-[80vh] overflow-hidden flex flex-col">
+                <DialogHeader className="flex-shrink-0 pb-3 border-b">
+                  <DialogTitle className="text-xl font-semibold">Agregar Nuevo Paciente</DialogTitle>
+                  <DialogDescription className="text-sm text-gray-600">Complete la información del nuevo paciente bajo su cuidado</DialogDescription>
                 </DialogHeader>
 
-                {/* Form Agregar */}
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name">Nombre completo *</Label>
-                      <Input id="name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                {/* Contenido scrolleable */}
+                <div className="flex-1 overflow-y-auto px-1 min-h-0">
+                  {/* Error Message */}
+                  {submitError && (
+                    <div className="p-2 rounded-md bg-red-50 border border-red-200 mb-3">
+                      <p className="text-sm text-red-700">{submitError}</p>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="age">Edad</Label>
-                      <Input id="age" type="number" value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })} />
+                  )}
+
+                  {/* Formulario simplificado - solo campos del endpoint */}
+                  <div className="space-y-4 pb-4">
+                    <div className="max-w-2xl mx-auto">
+                      <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center">
+                            <Users className="h-3 w-3 text-blue-600" />
+                          </div>
+                          <h4 className="font-semibold text-blue-900 text-sm">Relación Paciente-Cuidador</h4>
+                        </div>                        <div className="space-y-3">
+                          <div className="space-y-1">
+                            <Label htmlFor="rut_paciente" className="text-xs font-medium text-gray-700">
+                              RUT del Paciente *
+                            </Label>
+                            <Input 
+                              id="rut_paciente" 
+                              placeholder="12345678-9"
+                              value={formData.rut_paciente} 
+                              onChange={(e) => setFormData({ ...formData, rut_paciente: e.target.value })}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label htmlFor="rut_cuidador" className="text-xs font-medium text-gray-700">
+                              RUT del Cuidador *
+                            </Label>
+                            <Input 
+                              id="rut_cuidador" 
+                              placeholder="87654321-0"
+                              value={formData.rut_cuidador} 
+                              onChange={(e) => setFormData({ ...formData, rut_cuidador: e.target.value })}
+                              className="h-8 text-sm"
+                            />
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1">
+                              <Label htmlFor="fecha_inicio" className="text-xs font-medium text-gray-700">
+                                Fecha de Inicio *
+                              </Label>
+                              <Input 
+                                id="fecha_inicio" 
+                                type="date"
+                                value={formData.fecha_inicio} 
+                                onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <Label htmlFor="fecha_fin" className="text-xs font-medium text-gray-700">
+                                Fecha de Fin
+                              </Label>
+                              <Input 
+                                id="fecha_fin" 
+                                type="date"
+                                value={formData.fecha_fin} 
+                                onChange={(e) => setFormData({ ...formData, fecha_fin: e.target.value })}
+                                className="h-8 text-sm"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Permisos en una sola fila */}
+                          <div className="space-y-2 pt-1">
+                            <Label className="text-xs font-medium text-gray-700">Permisos</Label>
+                            <div className="grid grid-cols-1 gap-1">
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="permiso_registro"
+                                  checked={formData.permiso_registro}
+                                  onChange={(e) => setFormData({ ...formData, permiso_registro: e.target.checked })}
+                                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <Label htmlFor="permiso_registro" className="text-xs text-gray-700">
+                                  Permiso de Registro
+                                </Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="permiso_lectura"
+                                  checked={formData.permiso_lectura}
+                                  onChange={(e) => setFormData({ ...formData, permiso_lectura: e.target.checked })}
+                                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                                />
+                                <Label htmlFor="permiso_lectura" className="text-xs text-gray-700">
+                                  Permiso de Lectura
+                                </Label>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <input
+                                  type="checkbox"
+                                  id="activo"
+                                  checked={formData.activo}
+                                  onChange={(e) => setFormData({ ...formData, activo: e.target.checked })}
+                                  className="w-4 h-4 text-green-600 bg-gray-100 border-gray-300 rounded focus:ring-green-500"
+                                />
+                                <Label htmlFor="activo" className="text-xs text-gray-700">
+                                  Activo
+                                </Label>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="condition">Condición/Diagnóstico</Label>
-                    <Input id="condition" value={formData.condition} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="emergencyContact">Contacto de emergencia</Label>
-                      <Input id="emergencyContact" value={formData.emergencyContact} onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="emergencyPhone">Teléfono de emergencia</Label>
-                      <Input id="emergencyPhone" value={formData.emergencyPhone} onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })} />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="medications">Medicamentos (separados por comas)</Label>
-                    <Textarea id="medications" value={formData.medications} onChange={(e) => setFormData({ ...formData, medications: e.target.value })} className="min-h-[80px]" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="allergies">Alergias (separadas por comas)</Label>
-                    <Input id="allergies" value={formData.allergies} onChange={(e) => setFormData({ ...formData, allergies: e.target.value })} />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Notas adicionales</Label>
-                    <Textarea id="notes" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="min-h-[100px]" />
-                  </div>
-
-                  <div className="flex justify-end gap-2 pt-4">
-                    <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancelar</Button>
-                    <Button onClick={handleAddPatient}>Agregar Paciente</Button>
+                {/* Footer con botones - SIEMPRE VISIBLE */}
+                <div className="flex-shrink-0 border-t bg-white p-4 shadow-lg">
+                  <div className="flex justify-end gap-4 max-w-2xl mx-auto">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsAddDialogOpen(false)} 
+                      disabled={isSubmitting}
+                      className="px-6 h-10 border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </Button>
+                    <Button 
+                      onClick={handleAddPatient} 
+                      disabled={isSubmitting}
+                      className="px-6 h-10 bg-blue-600 hover:bg-blue-700 text-black font-medium shadow-md"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Agregando...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4 mr-2" />
+                          Agregar Paciente
+                        </>
+                      )}
+                    </Button>
                   </div>
                 </div>
               </DialogContent>
@@ -288,59 +401,27 @@ export default function PatientManagement() {
                         <Edit className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogContent className="max-w-md max-h-[60vh] overflow-y-auto">
                       <DialogHeader>
-                        <DialogTitle>Editar Paciente</DialogTitle>
-                        <DialogDescription>Modifique la información del paciente</DialogDescription>
+                        <DialogTitle>Información del Paciente</DialogTitle>
+                        <DialogDescription>Vista de solo lectura - datos del paciente existente</DialogDescription>
                       </DialogHeader>
 
-                      {/* Form Editar */}
+                      {/* Información del paciente */}
                       <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-name">Nombre completo *</Label>
-                            <Input id="edit-name" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <h4 className="font-medium text-gray-900 mb-2">Datos del Paciente</h4>
+                          <div className="space-y-2 text-sm">
+                            <div><span className="font-medium">Nombre:</span> {editingPatient?.name}</div>
+                            <div><span className="font-medium">Edad:</span> {editingPatient?.age} años</div>
+                            <div><span className="font-medium">Condición:</span> {editingPatient?.condition}</div>
+                            <div><span className="font-medium">Contacto de emergencia:</span> {editingPatient?.emergencyContact}</div>
+                            <div><span className="font-medium">Teléfono:</span> {editingPatient?.emergencyPhone}</div>
                           </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-age">Edad</Label>
-                            <Input id="edit-age" type="number" value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })} />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-condition">Condición/Diagnóstico</Label>
-                          <Input id="edit-condition" value={formData.condition} onChange={(e) => setFormData({ ...formData, condition: e.target.value })} />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-emergencyContact">Contacto de emergencia</Label>
-                            <Input id="edit-emergencyContact" value={formData.emergencyContact} onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-emergencyPhone">Teléfono de emergencia</Label>
-                            <Input id="edit-emergencyPhone" value={formData.emergencyPhone} onChange={(e) => setFormData({ ...formData, emergencyPhone: e.target.value })} />
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-medications">Medicamentos (separados por comas)</Label>
-                          <Textarea id="edit-medications" value={formData.medications} onChange={(e) => setFormData({ ...formData, medications: e.target.value })} className="min-h-[80px]" />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-allergies">Alergias (separadas por comas)</Label>
-                          <Input id="edit-allergies" value={formData.allergies} onChange={(e) => setFormData({ ...formData, allergies: e.target.value })} />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="edit-notes">Notas adicionales</Label>
-                          <Textarea id="edit-notes" value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="min-h-[100px]" />
                         </div>
 
                         <div className="flex justify-end gap-2 pt-4">
-                          <Button variant="outline" onClick={() => setEditingPatient(null)}>Cancelar</Button>
-                          <Button onClick={handleUpdatePatient}>Guardar Cambios</Button>
+                          <Button variant="outline" onClick={() => setEditingPatient(null)}>Cerrar</Button>
                         </div>
                       </div>
                     </DialogContent>

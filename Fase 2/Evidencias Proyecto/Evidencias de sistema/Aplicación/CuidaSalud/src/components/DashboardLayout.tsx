@@ -1,11 +1,12 @@
 import type { ReactNode } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import {
   Activity,
   LogOut,
-  Settings,
-  Bell,
+  ChevronDown,
+  User,
 } from 'lucide-react';
 
 interface User {
@@ -20,7 +21,6 @@ interface DashboardLayoutProps {
   onLogout: () => void;
   children: ReactNode;
   sidebarContent?: ReactNode;
-  notifications?: number;
 }
 
 // Helpers
@@ -47,9 +47,22 @@ export function DashboardLayout({
   onLogout,
   children,
   sidebarContent,
-  notifications = 0,
 }: DashboardLayoutProps) {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const initials = getInitials(user?.name, user?.email);
+
+  // Cerrar dropdown cuando se hace click fuera
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -62,39 +75,56 @@ export function DashboardLayout({
           </div>
 
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="h-5 w-5" />
-              {notifications > 0 && (
-                <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center text-xs p-0">
-                  {notifications}
-                </Badge>
-              )}
-            </Button>
-
-            {/* Usuario logueado */}
-            <div className="flex items-center space-x-3">
-              <div className="h-9 w-9 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-700">
-                {initials}
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900 leading-tight">{user.name}</p>
-                <p className="text-xs text-gray-500 leading-tight">{user.email}</p>
-                <div className="mt-1 flex justify-end">
-                  <Badge variant="outline" className="capitalize">
-                    {roleLabel(user.role)}
-                  </Badge>
+            {/* Dropdown del Usuario - Implementación manual */}
+            <div className="relative" ref={dropdownRef}>
+              <Button 
+                variant="ghost" 
+                className="flex items-center space-x-3 px-3 py-2 hover:bg-gray-100"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              >
+                <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-700">
+                  {initials}
                 </div>
-              </div>
+                <div className="text-left hidden sm:block">
+                  <p className="text-sm font-medium text-gray-900 leading-tight">{user.name}</p>
+                  <p className="text-xs text-gray-500 leading-tight">{user.email}</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              </Button>
+
+              {/* Dropdown Content */}
+              {isDropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white border border-gray-200 shadow-lg rounded-md z-50">
+                  {/* Header con información del usuario */}
+                  <div className="p-3 border-b border-gray-100">
+                    <div className="flex flex-col space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <User className="h-4 w-4 text-gray-500" />
+                        <span className="font-medium text-gray-900">{user.name}</span>
+                      </div>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                      <Badge variant="outline" className="capitalize w-fit text-xs">
+                        {roleLabel(user.role)}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {/* Opción de cerrar sesión */}
+                  <div className="p-1">
+                    <button
+                      onClick={() => {
+                        setIsDropdownOpen(false);
+                        onLogout();
+                      }}
+                      className="w-full flex items-center px-3 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md cursor-pointer transition-colors"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Cerrar sesión
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-
-            <Button variant="ghost" size="sm" aria-label="Settings">
-              <Settings className="h-5 w-5" />
-            </Button>
-
-            <Button variant="outline" size="sm" onClick={onLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Cerrar sesión
-            </Button>
           </div>
         </div>
       </header>

@@ -8,8 +8,8 @@ from app.routes import ALL_ROUTERS
 app = FastAPI(title="CuidaSalud API", version="1.0.0")
 
 # ⚠️ DEV-ONLY: DROP & CREATE en cada arranque (ojo con esto en prod)
-Base.metadata.drop_all(bind=engine)
-Base.metadata.create_all(bind=engine)
+# Base.metadata.drop_all(bind=engine)
+# Base.metadata.create_all(bind=engine)
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",

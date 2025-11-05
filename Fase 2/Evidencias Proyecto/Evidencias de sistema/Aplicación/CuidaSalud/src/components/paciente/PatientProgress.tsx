@@ -4,7 +4,6 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { recentMeasurements } from '../../data/patientMock';
 
 import {
   listMediciones,
@@ -18,13 +17,33 @@ import {
   type ParametroClinicoOut,
 } from '../../services/parametroClinico';
 
+import {
+  getGamificacionPerfil,
+  getRecentMeasurementsForChart,
+  type GamificacionPerfilOut,
+} from '../../services/gamificacion';
+
 interface Props {
-  currentStreak: number;
-  totalPoints: number;
   rutPaciente?: number; // <- viene del login (igual que en tu ejemplo)
 }
 
-export default function PatientProgress({ currentStreak, totalPoints, rutPaciente }: Props) {
+export default function PatientProgress({ rutPaciente }: Props) {
+  // ----- estado gamificación -----
+  const [gamificacion, setGamificacion] = useState<GamificacionPerfilOut | null>(null);
+  const [loadingGamificacion, setLoadingGamificacion] = useState(false);
+  const [gamificacionError, setGamificacionError] = useState<string | null>(null);
+
+  // ----- estado gráfica de tendencias -----
+  const [recentMeasurements, setRecentMeasurements] = useState<Array<{
+    date: string;
+    bloodSugar?: number;
+    bloodPressure?: number;
+    oxygen?: number;
+    temperature?: number;
+    [key: string]: any;
+  }>>([]);
+  const [loadingChart, setLoadingChart] = useState(false);
+
   // ----- estado listado mediciones -----
   const [meds, setMeds] = useState<MedicionOut[]>([]);
   const [page, setPage] = useState(1);
@@ -34,6 +53,33 @@ export default function PatientProgress({ currentStreak, totalPoints, rutPacient
   const [error, setError] = useState<string | null>(null);
   const canLoadMore = meds.length < total;
 
+  // Cargar datos de gamificación y gráfica
+  useEffect(() => {
+    if (!rutPaciente) return;
+    (async () => {
+      try {
+        setLoadingGamificacion(true);
+        setLoadingChart(true);
+        setGamificacionError(null);
+        
+        // Cargar gamificación y datos de gráfica en paralelo
+        const [perfil, chartData] = await Promise.all([
+          getGamificacionPerfil(String(rutPaciente)),
+          getRecentMeasurementsForChart(String(rutPaciente), 7)
+        ]);
+        
+        setGamificacion(perfil);
+        setRecentMeasurements(chartData);
+      } catch (e: any) {
+        setGamificacionError(e?.message ?? 'No se pudieron cargar los datos de gamificación');
+      } finally {
+        setLoadingGamificacion(false);
+        setLoadingChart(false);
+      }
+    })();
+  }, [rutPaciente]);
+
+  // Cargar mediciones
   useEffect(() => {
     if (!rutPaciente) return;
     setLoading(true);
@@ -90,18 +136,35 @@ export default function PatientProgress({ currentStreak, totalPoints, rutPacient
       <CardContent>
         {/* KPI cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{currentStreak}</div>
-            <p className="text-sm text-blue-600">Racha de días</p>
-          </div>
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">{totalPoints}</div>
-            <p className="text-sm text-green-600">Puntos totales</p>
-          </div>
-          <div className="text-center p-4 bg-purple-50 rounded-lg">
-            <div className="text-2xl font-bold text-purple-600">85%</div>
-            <p className="text-sm text-purple-600">Metas con</p>
-          </div>
+          {loadingGamificacion ? (
+            <div className="col-span-3 text-center p-4 text-muted-foreground">
+              Cargando datos de progreso...
+            </div>
+          ) : gamificacionError ? (
+            <div className="col-span-3 text-center p-4 text-red-600">
+              Error: {gamificacionError}
+            </div>
+          ) : gamificacion ? (
+            <>
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600">{gamificacion.racha_dias}</div>
+                <p className="text-sm text-blue-600">Racha de días</p>
+              </div>
+              <div className="text-center p-4 bg-green-50 rounded-lg">
+                <div className="text-2xl font-bold text-green-600">{gamificacion.puntos}</div>
+                <p className="text-sm text-green-600">Puntos totales</p>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600">-</div>
+                <p className="text-sm text-purple-600">Metas cumplidas</p>
+                <p className="text-xs text-purple-500 mt-1">Próximamente</p>
+              </div>
+            </>
+          ) : (
+            <div className="col-span-3 text-center p-4 text-muted-foreground">
+              No hay datos de gamificación disponibles
+            </div>
+          )}
         </div>
 
         {/* ======= Datatable de mediciones ======= */}
@@ -184,17 +247,90 @@ export default function PatientProgress({ currentStreak, totalPoints, rutPacient
         {/* ======= FIN datatable ======= */}
 
         {/* Gráfico */}
-        <ResponsiveContainer width="100%" height={400}>
-          <LineChart data={recentMeasurements}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="bloodSugar" stroke="#3b82f6" strokeWidth={2} name="Blood Sugar" />
-            <Line type="monotone" dataKey="bloodPressure" stroke="#ef4444" strokeWidth={2} name="Blood Pressure" />
-            <Line type="monotone" dataKey="oxygen" stroke="#10b981" strokeWidth={2} name="Oxygen %" />
-          </LineChart>
-        </ResponsiveContainer>
+        {loadingChart ? (
+          <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+            Cargando gráfica de tendencias...
+          </div>
+        ) : recentMeasurements.length === 0 ? (
+          <div className="h-[400px] flex items-center justify-center text-muted-foreground">
+            No hay datos de mediciones recientes para mostrar
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={recentMeasurements}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="timestamp" 
+                tickFormatter={(value) => {
+                  const date = new Date(value);
+                  return date.toLocaleDateString('es-CL', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                }}
+                interval="preserveStartEnd"
+              />
+              <YAxis />
+              <Tooltip 
+                labelFormatter={(value) => {
+                  const date = new Date(value);
+                  return date.toLocaleDateString('es-CL', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                }}
+                formatter={(value, name) => [value, name]}
+              />
+              {/* Solo mostrar líneas para datos que existen */}
+              {recentMeasurements.some(d => d.bloodSugar != null) && (
+                <Line 
+                  type="monotone" 
+                  dataKey="bloodSugar" 
+                  stroke="#3b82f6" 
+                  strokeWidth={2} 
+                  name="Glucosa" 
+                  connectNulls={false}
+                />
+              )}
+              {recentMeasurements.some(d => d.bloodPressure != null) && (
+                <Line 
+                  type="monotone" 
+                  dataKey="bloodPressure" 
+                  stroke="#ef4444" 
+                  strokeWidth={2} 
+                  name="Presión Arterial" 
+                  connectNulls={false}
+                />
+              )}
+              {recentMeasurements.some(d => d.oxygen != null) && (
+                <Line 
+                  type="monotone" 
+                  dataKey="oxygen" 
+                  stroke="#10b981" 
+                  strokeWidth={2} 
+                  name="Oxígeno %" 
+                  connectNulls={false}
+                />
+              )}
+              {recentMeasurements.some(d => d.temperature != null) && (
+                <Line 
+                  type="monotone" 
+                  dataKey="temperature" 
+                  stroke="#f59e0b" 
+                  strokeWidth={2} 
+                  name="Temperatura" 
+                  connectNulls={false}
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </CardContent>
     </Card>
   );

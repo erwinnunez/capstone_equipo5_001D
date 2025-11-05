@@ -120,6 +120,24 @@ export async function listarMedicionesConAlerta(
   return handleJson<Page<MedicionOut>>(res);
 }
 
+/** Obtener alertas por cuidador */
+export async function listarAlertasPorCuidador(
+  rut_cuidador: string,
+  skip = 0,
+  limit = 100
+): Promise<ApiResult<MedicionOut[]>> {
+  const url = new URL(`${RUTA_ALERTAS}/cuidador/${rut_cuidador}`);
+  url.searchParams.set("skip", String(skip));
+  url.searchParams.set("limit", String(limit));
+
+  const res = await fetch(url.toString(), {
+    method: "GET",
+    headers: { "content-type": "application/json" },
+    credentials: "include",
+  });
+  return handleJson<MedicionOut[]>(res);
+}
+
 /** Lista mediciones (filtro opcional tiene_alerta) */
 export async function listarMediciones(
   page = 1,

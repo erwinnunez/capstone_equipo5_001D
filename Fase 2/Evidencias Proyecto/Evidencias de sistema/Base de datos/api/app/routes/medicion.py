@@ -13,6 +13,7 @@ from app.schemas.medicion import (
     CambiarEstadoPayload,
 )
 from app.services import medicion as svc
+from app.services.medicion import list_alertas_por_cuidador
 
 router = APIRouter(prefix="/medicion", tags=["medicion"])
 
@@ -111,3 +112,15 @@ def cambiar_estado_alerta(id_medicion: int, payload: CambiarEstadoPayload, db: S
     if not obj:
         raise HTTPException(status_code=404, detail="Not found")
     return obj
+
+@router.get("/alertas/cuidador/{rut_cuidador}", response_model=list[MedicionOut])
+def listar_alertas_por_cuidador(
+    rut_cuidador: str,
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    items, total = list_alertas_por_cuidador(db, rut_cuidador, skip=skip, limit=limit)
+    if total == 0:
+        raise HTTPException(status_code=204, detail="No se encontraron alertas para este cuidador.")
+    return items

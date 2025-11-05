@@ -17,7 +17,7 @@ import {
 
 type UserLike = {
   name: string;
-  rutPaciente?: string;
+  rutPaciente?: number;
 };
 
 export default function PatientHome({
@@ -85,7 +85,7 @@ export default function PatientHome({
       try {
         // última medición del paciente
         const meds = await listMediciones({
-          rut_paciente: user.rutPaciente,
+          rut_paciente: user.rutPaciente ? String(user.rutPaciente) : undefined,
           page: 1,
           page_size: 1,
         });

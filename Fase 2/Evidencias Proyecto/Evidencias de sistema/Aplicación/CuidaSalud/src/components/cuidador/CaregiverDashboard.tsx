@@ -7,12 +7,9 @@ import CuidadorStats from "./CuidadorStats.tsx";
 import CuidadorPacientes from "./CuidadorPacientes.tsx";
 import CuidadorDataEntry from "./CuidadorDataEntry.tsx";
 import CuidadorNotificaciones from "./CuidadorNotificaciones.tsx";
-import CuidadorPreferencias from "./CuidadorPreferencias.tsx";
-import PatientManagement from "./PatientManagement.tsx";
+import AddPatientButton from "./AddPatientButton.tsx";
 import { PatientsProvider } from "./PatientContext.tsx";
 import { DailyChecklist } from "./DailyChecklist.tsx";
-
-import { notifications, assignedPatients } from "../../data/cuidadorMock.ts";
 
 interface User {
   id: string;
@@ -28,27 +25,31 @@ interface CaregiverDashboardProps {
 
 export default function CaregiverDashboard({ user, onLogout }: CaregiverDashboardProps) {
   const [section, setSection] = useState<CareSection>("patients");
-  const criticalCount = notifications.filter((n) => n.type === "critical").length;
 
   return (
     <DashboardLayout
       user={user}
       onLogout={onLogout}
       sidebarContent={<CuidadorSidebar current={section} onSelect={setSection} />}
-      notifications={notifications.length}
     >
       <PatientsProvider>
         <div className="space-y-6">
-          
+          {section === "patients" && (
+            <div className="space-y-6">
+              {/* Indicadores solo en la sección Mis Pacientes */}
+              <CuidadorStats />
+              
+              {/* Botón Agregar Paciente debajo de los indicadores */}
+              <div className="flex justify-start">
+                <AddPatientButton />
+              </div>
 
-          <CuidadorStats assignedCount={assignedPatients.length} criticalCount={criticalCount} />
-
-          {section === "patients" && <CuidadorPacientes onSelectPatient={(id) => console.log("select", id)} />}
+              <CuidadorPacientes onSelectPatient={(rutPaciente) => console.log("select paciente RUT:", rutPaciente)} />
+            </div>
+          )}
           {section === "dataEntry" && <CuidadorDataEntry />}
-          {section === "notifications" && <CuidadorNotificaciones />}
-          {section === "management" && <PatientManagement />}
+          {section === "notifications" && <CuidadorNotificaciones cuidadorId={user.id} />}
           {section === "checklist" && <DailyChecklist />}
-          {section === "preferences" && <CuidadorPreferencias />}
         </div>
       </PatientsProvider>
     </DashboardLayout>

@@ -5,12 +5,12 @@ import { Input } from '../ui/input';
 import { Progress } from '../ui/progress';
 import { Plus } from 'lucide-react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { recentMeasurements } from '../../data/patientMock';
 
 import { createMedicionWithDetails } from '../../services/paciente';
 import type { MedicionCreatePayload, Severidad } from '../../services/paciente';
 import { listParametrosClinicos, type ParametroClinicoOut } from '../../services/parametroClinico';
 import { getRangosIndexByParametro, type RangoPacienteOut } from '../../services/rangoPaciente';
+import { getGamificacionPerfil, getWeeklyMeasurementProgress, getRecentMeasurementsForChart, type GamificacionPerfilOut } from '../../services/gamificacion';
 
 interface Props {
   rutPaciente?: number;
@@ -37,8 +37,25 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
   const [rangosError, setRangosError] = useState<string | null>(null);
   const [loadingRangos, setLoadingRangos] = useState(false);
 
-  const weeklyGoal = 7;
-  const weeklyProgress = 5;
+  // Estados para gamificación y metas semanales
+  const [gamificacion, setGamificacion] = useState<GamificacionPerfilOut | null>(null);
+  const [loadingGamificacion, setLoadingGamificacion] = useState(false);
+  const [gamificacionError, setGamificacionError] = useState<string | null>(null);
+
+  // Estados para progreso semanal
+  const [weeklyProgress, setWeeklyProgress] = useState<{ weeklyProgress: number; weeklyGoal: number }>({ weeklyProgress: 0, weeklyGoal: 7 });
+  const [loadingWeeklyProgress, setLoadingWeeklyProgress] = useState(false);
+
+  // Estados para gráfica de tendencias
+  const [recentMeasurements, setRecentMeasurements] = useState<Array<{
+    date: string;
+    bloodSugar?: number;
+    bloodPressure?: number;
+    oxygen?: number;
+    temperature?: number;
+    [key: string]: any;
+  }>>([]);
+  const [loadingChart, setLoadingChart] = useState(false);
 
   // Carga parámetros clínicos
   useEffect(() => {
@@ -69,6 +86,36 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
         setRangosError(e?.message ?? 'No se pudieron cargar los rangos del paciente');
       } finally {
         setLoadingRangos(false);
+      }
+    })();
+  }, [rutPaciente]);
+
+  // Carga datos de gamificación y progreso semanal
+  useEffect(() => {
+    (async () => {
+      if (!rutPaciente) return;
+      try {
+        setLoadingGamificacion(true);
+        setLoadingWeeklyProgress(true);
+        setLoadingChart(true);
+        setGamificacionError(null);
+        
+        // Cargar gamificación, progreso semanal y datos de gráfica en paralelo
+        const [perfil, progreso, chartData] = await Promise.all([
+          getGamificacionPerfil(String(rutPaciente)),
+          getWeeklyMeasurementProgress(String(rutPaciente)),
+          getRecentMeasurementsForChart(String(rutPaciente), 7)
+        ]);
+        
+        setGamificacion(perfil);
+        setWeeklyProgress(progreso);
+        setRecentMeasurements(chartData);
+      } catch (e: any) {
+        setGamificacionError(e?.message ?? 'No se pudieron cargar los datos de gamificación');
+      } finally {
+        setLoadingGamificacion(false);
+        setLoadingWeeklyProgress(false);
+        setLoadingChart(false);
       }
     })();
   }, [rutPaciente]);
@@ -452,22 +499,44 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
             <CardDescription>Realice un seguimiento de su progreso hacia sus objetivos de salud semanales</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <div className="flex justify-between mb-2">
-                <span className="text-sm font-medium">Medidas de esta semana</span>
-                <span className="text-sm text-muted-foreground">
-                  {weeklyProgress}/{weeklyGoal}
-                </span>
-              </div>
-              <Progress value={(weeklyProgress / weeklyGoal) * 100} className="h-2" />
-            </div>
+            {loadingGamificacion || loadingWeeklyProgress ? (
+              <p className="text-sm text-muted-foreground">Cargando datos de progreso...</p>
+            ) : gamificacionError ? (
+              <p className="text-sm text-red-600">Error: {gamificacionError}</p>
+            ) : (
+              <>
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-medium">Medidas de esta semana</span>
+                    <span className="text-sm text-muted-foreground">
+                      {weeklyProgress.weeklyProgress}/{weeklyProgress.weeklyGoal}
+                    </span>
+                  </div>
+                  <Progress value={(weeklyProgress.weeklyProgress / weeklyProgress.weeklyGoal) * 100} className="h-2" />
+                </div>
 
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h4 className="font-medium text-green-800 mb-2">¡Gran progreso!</h4>
-              <p className="text-sm text-green-700">
-                Has iniciado sesión {weeklyProgress} de {weeklyGoal} Medidas esta semana. ¡Sigue así para mantener la racha!
-              </p>
-            </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <h4 className="font-medium text-green-800 mb-2">¡Gran progreso!</h4>
+                  <p className="text-sm text-green-700">
+                    Has iniciado sesión {weeklyProgress.weeklyProgress} de {weeklyProgress.weeklyGoal} Medidas esta semana. ¡Sigue así para mantener la racha!
+                  </p>
+                </div>
+
+                {/* Información adicional de gamificación */}
+                {gamificacion && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t">
+                    <div className="text-center p-3 bg-blue-50 rounded-lg">
+                      <div className="text-lg font-bold text-blue-600">{gamificacion.puntos}</div>
+                      <p className="text-xs text-blue-700">Puntos totales</p>
+                    </div>
+                    <div className="text-center p-3 bg-purple-50 rounded-lg">
+                      <div className="text-lg font-bold text-purple-600">{gamificacion.racha_dias}</div>
+                      <p className="text-xs text-purple-700">Días de racha</p>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -476,19 +545,93 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       <Card>
         <CardHeader>
           <CardTitle>Tendencias recientes</CardTitle>
-          <CardDescription>Su historial de mediciones durante los últimos 5 días</CardDescription>
+          <CardDescription>Su historial de mediciones durante los últimos 7 días</CardDescription>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={recentMeasurements}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" />
-              <YAxis />
-              <Tooltip />
-              <Line type="monotone" dataKey="bloodSugar" stroke="#3b82f6" strokeWidth={2} name="Blood Sugar" />
-              <Line type="monotone" dataKey="oxygen" stroke="#10b981" strokeWidth={2} name="Oxygen %" />
-            </LineChart>
-          </ResponsiveContainer>
+          {loadingChart ? (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              Cargando gráfica de tendencias...
+            </div>
+          ) : recentMeasurements.length === 0 ? (
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              No hay datos de mediciones recientes para mostrar
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart data={recentMeasurements}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="timestamp" 
+                  tickFormatter={(value) => {
+                    const date = new Date(value);
+                    return date.toLocaleDateString('es-CL', { 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                  }}
+                  interval="preserveStartEnd"
+                />
+                <YAxis />
+                <Tooltip 
+                  labelFormatter={(value) => {
+                    const date = new Date(value);
+                    return date.toLocaleDateString('es-CL', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    });
+                  }}
+                  formatter={(value, name) => [value, name]}
+                />
+                {/* Solo mostrar líneas para datos que existen */}
+                {recentMeasurements.some(d => d.bloodSugar != null) && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="bloodSugar" 
+                    stroke="#3b82f6" 
+                    strokeWidth={2} 
+                    name="Glucosa" 
+                    connectNulls={false}
+                  />
+                )}
+                {recentMeasurements.some(d => d.oxygen != null) && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="oxygen" 
+                    stroke="#10b981" 
+                    strokeWidth={2} 
+                    name="Oxígeno %" 
+                    connectNulls={false}
+                  />
+                )}
+                {recentMeasurements.some(d => d.bloodPressure != null) && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="bloodPressure" 
+                    stroke="#f59e0b" 
+                    strokeWidth={2} 
+                    name="Presión Arterial" 
+                    connectNulls={false}
+                  />
+                )}
+                {recentMeasurements.some(d => d.temperature != null) && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="temperature" 
+                    stroke="#ef4444" 
+                    strokeWidth={2} 
+                    name="Temperatura" 
+                    connectNulls={false}
+                  />
+                )}
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timezone
 
+from app.models.paciente_cuidador import PacienteCuidador
 from app.models.medicion import Medicion
 from app.schemas.medicion import MedicionCreate, MedicionUpdate
 
@@ -115,3 +116,31 @@ def cambiar_estado_alerta(db: Session, id_medicion: int, nuevo_estado: str) -> M
     db.commit()
     db.refresh(obj)
     return obj
+
+def list_alertas_por_cuidador(
+    db: Session,
+    rut_cuidador: str,
+    solo_vigentes: bool = True,
+    skip: int = 0,
+    limit: int = 100,
+):
+    q = (
+        db.query(Medicion)
+        .join(PacienteCuidador, Medicion.rut_paciente == PacienteCuidador.rut_paciente)
+        .filter(PacienteCuidador.rut_cuidador == rut_cuidador)
+    )
+
+    if solo_vigentes:
+        q = q.filter(PacienteCuidador.activo == True)
+
+    q = q.filter(Medicion.tiene_alerta == True)
+
+    total = q.count()
+    items = (
+        q.order_by(Medicion.fecha_registro.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+    return items, total

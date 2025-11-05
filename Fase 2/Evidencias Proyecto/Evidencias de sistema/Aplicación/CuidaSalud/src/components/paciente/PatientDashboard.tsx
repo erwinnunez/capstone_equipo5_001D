@@ -46,8 +46,6 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
 
         {section === "progress" && (
           <PatientProgress
-            currentStreak={currentStreak}
-            totalPoints={totalPoints}
             rutPaciente={user.rutPaciente}
           />
         )}
