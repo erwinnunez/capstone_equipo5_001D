@@ -4,6 +4,7 @@
 
 const API_HOST = "http://127.0.0.1:8000";
 const RUTA_CUIDADOR = `${API_HOST}/cuidador`;
+const RUTA_CUIDADOR_HISTORIAL = `${API_HOST}/cuidador-historial`;
 
 // Función para verificar si existe un cuidador por RUT
 const checkCuidadorByRut = async (rut: string): Promise<boolean> => {
@@ -264,20 +265,102 @@ export async function listCuidadores(params: {
   return handleResponse<Page<any>>(resp);
 }
 
-// ===== Función para actualizar cuidador =====
-export async function updateCuidador(rut: string, payload: any) {
-  const response = await fetch(`${RUTA_CUIDADOR}/${rut}`, {
-    method: 'PATCH',
+// ===== Función para crear historial de cuidador =====
+export async function createCuidadorHistorial(rutCuidador: string, cambio: string, resultado: boolean) {
+  // El backend del historial requiere RUT SIN guión
+  const rutSinGuion = rutCuidador.replace('-', '');
+  
+  const payload = {
+    rut_cuidador: rutSinGuion,
+    fecha_cambio: new Date().toISOString(),
+    cambio: cambio,
+    resultado: resultado
+  };
+
+  const response = await fetch(RUTA_CUIDADOR_HISTORIAL, {
+    method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
   });
-  return handleResponse(response);
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error en historial: ${response.status} - ${errorText}`);
+  }
+  
+  return await response.json();
+}
+
+// ===== Función para actualizar cuidador =====
+export async function updateCuidador(rut: string, payload: any) {
+  try {
+    // 1. Actualizar el cuidador
+    const response = await fetch(`${RUTA_CUIDADOR}/${rut}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+    
+    const result = await handleResponse(response);
+    
+    // 2. Crear historial del cambio
+    const camposModificados = Object.keys(payload);
+    let descripcion = '';
+    
+    // Crear descripción más detallada
+    const tiposDeAcampos = {
+      nombres: camposModificados.filter(campo => 
+        campo.includes('nombre') || campo.includes('apellido')
+      ),
+      contacto: camposModificados.filter(campo => 
+        campo.includes('telefono') || campo.includes('direccion') || campo.includes('email')
+      ),
+      otros: camposModificados.filter(campo => 
+        !campo.includes('nombre') && !campo.includes('apellido') && 
+        !campo.includes('telefono') && !campo.includes('direccion') && !campo.includes('email')
+      )
+    };
+    
+    const partes = [];
+    if (tiposDeAcampos.nombres.length > 0) partes.push('nombres');
+    if (tiposDeAcampos.contacto.length > 0) partes.push('datos de contacto');
+    if (tiposDeAcampos.otros.length > 0) partes.push('otros datos');
+    
+    if (partes.length === 1) {
+      descripcion = `Actualización de ${partes[0]}`;
+    } else if (partes.length === 2) {
+      descripcion = `Actualización de ${partes.join(' y ')}`;
+    } else {
+      descripcion = `Actualización de ${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+    }
+    
+    // Asegurar que no exceda 200 caracteres
+    if (descripcion.length > 200) {
+      descripcion = descripcion.substring(0, 197) + '...';
+    }
+    
+    await createCuidadorHistorial(rut, descripcion, true);
+    
+    return result;
+  } catch (error) {
+    // Si falla la actualización, registrar el error en el historial
+    try {
+      const errorMsg = `Error al actualizar datos del cuidador`;
+      await createCuidadorHistorial(rut, errorMsg, false);
+    } catch (historialError) {
+      console.error('Error al guardar historial de error:', historialError);
+    }
+    throw error;
+  }
 }
 
 // ===== Función para activar/desactivar cuidador =====
 export async function toggleCuidadorStatus(rut: string, estado: boolean) {
+  // 1. Cambiar el estado del cuidador (esto es lo principal)
   const response = await fetch(`${RUTA_CUIDADOR}/${rut}`, {
     method: 'PATCH',
     headers: {
@@ -285,5 +368,56 @@ export async function toggleCuidadorStatus(rut: string, estado: boolean) {
     },
     body: JSON.stringify({ estado }),
   });
+  
+  const result = await handleResponse(response);
+  
+  // 2. Crear historial del cambio de estado (no crítico)
+  try {
+    const accion = estado ? 'activado' : 'desactivado';
+    await createCuidadorHistorial(rut, `Usuario ${accion}`, true);
+  } catch (historialError) {
+    console.warn('No se pudo guardar el historial del cambio de estado:', historialError);
+    // No lanzar error, la operación principal ya fue exitosa
+  }
+  
+  return result;
+}
+
+// ===== Función para obtener historial de cuidadores =====
+export async function getCuidadorHistorial(params?: { 
+  page?: number; 
+  page_size?: number; 
+  rut_cuidador?: string; 
+}) {
+  const queryParams = new URLSearchParams();
+  
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+  if (params?.rut_cuidador) queryParams.append('rut_cuidador', params.rut_cuidador);
+  
+  const url = `${RUTA_CUIDADOR_HISTORIAL}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+  });
+  
   return handleResponse(response);
+}
+
+// ===== Función para obtener total de cuidadores =====
+export async function getTotalCuidadores() {
+  const response = await fetch(`${RUTA_CUIDADOR}?page=1&page_size=1`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+  });
+  
+  const result = await handleResponse(response) as { total?: number };
+  return result.total || 0;
 }

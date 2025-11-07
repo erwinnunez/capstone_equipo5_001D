@@ -10,7 +10,7 @@ import { createMedicionWithDetails } from '../../services/paciente';
 import type { MedicionCreatePayload, Severidad } from '../../services/paciente';
 import { listParametrosClinicos, type ParametroClinicoOut } from '../../services/parametroClinico';
 import { getRangosIndexByParametro, type RangoPacienteOut } from '../../services/rangoPaciente';
-import { getGamificacionPerfil, getWeeklyMeasurementProgress, getRecentMeasurementsForChart, type GamificacionPerfilOut } from '../../services/gamificacion';
+import { getGamificacionPerfil, getWeeklyMeasurementProgress, getRecentMeasurementsForChart, procesarGamificacionMedicion, type GamificacionPerfilOut } from '../../services/gamificacion';
 
 interface Props {
   rutPaciente?: number;
@@ -336,7 +336,33 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
 
     try {
       setSubmitting(true);
+      
+      // 1. Crear la medición
       await createMedicionWithDetails({ medicion: baseMedicion, detalles });
+      
+      // 2. Procesar gamificación para el paciente
+      const rutPacienteStr = rutPaciente?.toString() || '';
+      if (rutPacienteStr) {
+        try {
+          const resultadoGamificacion = await procesarGamificacionMedicion(rutPacienteStr);
+          if (resultadoGamificacion.success && resultadoGamificacion.puntosGanados && resultadoGamificacion.puntosGanados > 0) {
+            console.log(`🎮 Gamificación: +${resultadoGamificacion.puntosGanados} puntos, racha ${resultadoGamificacion.nuevaRacha} días`);
+            alert(`¡Medición registrada exitosamente!\n🎮 ¡Ganaste ${resultadoGamificacion.puntosGanados} puntos! Tu racha actual: ${resultadoGamificacion.nuevaRacha} días.`);
+          } else {
+            alert('Medición registrada correctamente.');
+          }
+          
+          // Refrescar datos de gamificación en la UI
+          // Las funciones se ejecutarán automáticamente por los useEffect existentes
+        } catch (gamificationError) {
+          console.warn('Error en gamificación, pero medición guardada:', gamificationError);
+          alert('Medición registrada correctamente.');
+        }
+      } else {
+        alert('Medición registrada correctamente.');
+      }
+      
+      // 3. Limpiar formulario
       setNewMeasurement({
         bloodSugar: '',
         bloodPressureSys: '',
@@ -346,7 +372,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
         notes: '',
       });
       setErrors({});
-      alert('Medición registrada correctamente.');
+      
     } catch (e: any) {
       alert(e?.message ?? 'No se pudo registrar la medición.');
     } finally {

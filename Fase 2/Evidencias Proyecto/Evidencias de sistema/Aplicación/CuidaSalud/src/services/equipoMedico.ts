@@ -3,6 +3,7 @@
 
 const API_HOST = "http://127.0.0.1:8000";
 const RUTA_EQUIPO_MEDICO = `${API_HOST}/equipo-medico`;
+const RUTA_MEDICO_HISTORIAL = `${API_HOST}/medico-historial`;
 
 // Función para verificar si existe un médico por RUT
 const checkMedicoByRut = async (rut: string): Promise<boolean> => {
@@ -284,8 +285,37 @@ export async function listMedicos(params: {
   return handleResponse<Page<any>>(resp);
 }
 
+// ===== Función para crear historial de médico =====
+export async function createMedicoHistorial(rutMedico: string, cambio: string, resultado: boolean) {
+  // El backend del historial requiere RUT SIN guión
+  const rutSinGuion = rutMedico.replace('-', '');
+  
+  const payload = {
+    rut_medico: rutSinGuion,
+    fecha_cambio: new Date().toISOString(),
+    cambio: cambio,
+    resultado: resultado
+  };
+
+  const response = await fetch(RUTA_MEDICO_HISTORIAL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error en historial médico: ${response.status} - ${errorText}`);
+  }
+  
+  return await response.json();
+}
+
 // ===== Función para actualizar médico =====
 export async function updateMedico(rut: string, payload: any) {
+  // 1. Actualizar el médico (operación principal)
   const response = await fetch(`${RUTA_EQUIPO_MEDICO}/${rut}`, {
     method: 'PATCH',
     headers: {
@@ -293,11 +323,67 @@ export async function updateMedico(rut: string, payload: any) {
     },
     body: JSON.stringify(payload),
   });
-  return handleResponse(response);
+  
+  const result = await handleResponse(response);
+  
+  // 2. Crear historial del cambio (no crítico)
+  try {
+    const camposModificados = Object.keys(payload);
+    let descripcion = '';
+    
+    // Crear descripción más detallada para médicos
+    const tiposDeCampos = {
+      nombres: camposModificados.filter(campo => 
+        campo.includes('nombre') || campo.includes('apellido')
+      ),
+      contacto: camposModificados.filter(campo => 
+        campo.includes('telefono') || campo.includes('direccion') || campo.includes('email')
+      ),
+      especialidad: camposModificados.filter(campo => 
+        campo.includes('especialidad')
+      ),
+      admin: camposModificados.filter(campo => 
+        campo.includes('is_admin')
+      ),
+      otros: camposModificados.filter(campo => 
+        !campo.includes('nombre') && !campo.includes('apellido') && 
+        !campo.includes('telefono') && !campo.includes('direccion') && !campo.includes('email') &&
+        !campo.includes('especialidad') && !campo.includes('is_admin')
+      )
+    };
+    
+    const partes = [];
+    if (tiposDeCampos.nombres.length > 0) partes.push('nombres');
+    if (tiposDeCampos.contacto.length > 0) partes.push('datos de contacto');
+    if (tiposDeCampos.especialidad.length > 0) partes.push('especialidad');
+    if (tiposDeCampos.admin.length > 0) partes.push('permisos de administrador');
+    if (tiposDeCampos.otros.length > 0) partes.push('otros datos');
+    
+    if (partes.length === 1) {
+      descripcion = `Actualización de ${partes[0]}`;
+    } else if (partes.length === 2) {
+      descripcion = `Actualización de ${partes.join(' y ')}`;
+    } else {
+      descripcion = `Actualización de ${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+    }
+    
+    // Asegurar que no exceda 200 caracteres
+    if (descripcion.length > 200) {
+      descripcion = descripcion.substring(0, 197) + '...';
+    }
+    
+    await createMedicoHistorial(rut, descripcion, true);
+  } catch (historialError) {
+    console.warn('No se pudo guardar el historial del médico:', historialError);
+    // No lanzar error, la operación principal ya fue exitosa
+  }
+  
+  return result;
 }
 
 // ===== Función para activar/desactivar médico =====
 export async function toggleMedicoStatus(rut: string, estado: boolean) {
+  // 1. Cambiar el estado del médico (operación principal)
   const response = await fetch(`${RUTA_EQUIPO_MEDICO}/${rut}`, {
     method: 'PATCH',
     headers: {
@@ -305,5 +391,56 @@ export async function toggleMedicoStatus(rut: string, estado: boolean) {
     },
     body: JSON.stringify({ estado }),
   });
+  
+  const result = await handleResponse(response);
+  
+  // 2. Crear historial del cambio de estado (no crítico)
+  try {
+    const accion = estado ? 'activado' : 'desactivado';
+    await createMedicoHistorial(rut, `Usuario ${accion}`, true);
+  } catch (historialError) {
+    console.warn('No se pudo guardar el historial del cambio de estado:', historialError);
+    // No lanzar error, la operación principal ya fue exitosa
+  }
+  
+  return result;
+}
+
+// ===== Función para obtener historial de médicos =====
+export async function getMedicoHistorial(params?: { 
+  page?: number; 
+  page_size?: number; 
+  rut_medico?: string; 
+}) {
+  const queryParams = new URLSearchParams();
+  
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+  if (params?.rut_medico) queryParams.append('rut_medico', params.rut_medico);
+  
+  const url = `${RUTA_MEDICO_HISTORIAL}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+  });
+  
   return handleResponse(response);
+}
+
+// ===== Función para obtener total de médicos =====
+export async function getTotalMedicos() {
+  const response = await fetch(`${RUTA_EQUIPO_MEDICO}?page=1&page_size=1`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+  });
+  
+  const result = await handleResponse(response) as { total?: number };
+  return result.total || 0;
 }

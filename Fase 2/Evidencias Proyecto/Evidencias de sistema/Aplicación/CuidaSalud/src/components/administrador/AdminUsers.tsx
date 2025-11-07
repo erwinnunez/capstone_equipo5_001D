@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Search, Filter, Users as UsersIcon, UserPlus, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Filter, Users as UsersIcon, UserPlus, Edit, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
@@ -587,10 +587,27 @@ export default function AdminUsers() {
 
       // Agregar campos específicos según el tipo de usuario
       if (editingUser.role === 'doctor' || editingUser.role === 'admin') {
-        payload.especialidad = editFormData.especialidad || '';
-        payload.is_admin = editFormData.isAdmin; // Incluir el campo is_admin
-        console.log('Payload para médico:', payload);
-        await updateMedico(editingUser.rut, payload);
+        // Para médicos, usar nombres de campos específicos que espera el backend
+        const medicoPayload: any = {};
+        medicoPayload.primer_nombre_medico = editFormData.primerNombre || '';
+        medicoPayload.primer_apellido_medico = editFormData.primerApellido || '';
+        if (editFormData.segundoNombre?.trim()) {
+          medicoPayload.segundo_nombre_medico = editFormData.segundoNombre.trim();
+        }
+        if (editFormData.segundoApellido?.trim()) {
+          medicoPayload.segundo_apellido_medico = editFormData.segundoApellido.trim();
+        }
+        if (editFormData.telefono?.trim()) {
+          medicoPayload.telefono = editFormData.telefono.trim();
+        }
+        if (editFormData.direccion?.trim()) {
+          medicoPayload.direccion = editFormData.direccion.trim();
+        }
+        medicoPayload.especialidad = editFormData.especialidad || '';
+        medicoPayload.is_admin = editFormData.isAdmin;
+        
+        console.log('Payload para médico:', medicoPayload);
+        await updateMedico(editingUser.rut, medicoPayload);
       } 
       else if (editingUser.role === 'caregiver') {
         // Para cuidadores, usar nombres de campos específicos
@@ -1142,10 +1159,6 @@ export default function AdminUsers() {
                       disabled={loading}
                     >
                       {user.status === 'active' ? 'Desactivar' : 'Activar'}
-                    </Button>
-                    
-                    <Button variant="outline" size="sm" aria-label="Eliminar usuario">
-                      <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>

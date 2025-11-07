@@ -7,7 +7,6 @@ import AdminOverview from "./AdminOverview";
 import AdminUsers from "./AdminUsers";
 import AdminAnalytics from "./AdminAnalytics";
 import AdminAudit from "./AdminAudit";
-import AdminSettings from "./AdminSettings";
 
 interface User {
   id: string;
@@ -29,7 +28,6 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
       user={user}
       onLogout={onLogout}
       sidebarContent={<AdminSidebar current={section} onSelect={setSection} />}
-      notifications={5}
     >
       <div className="space-y-6">
         {/* Header */}
@@ -40,7 +38,6 @@ export default function AdminDashboard({ user, onLogout }: AdminDashboardProps) 
         {section === "users"     && <AdminUsers />}
         {section === "analytics" && <AdminAnalytics />}
         {section === "audit"     && <AdminAudit />}
-        {section === "settings"  && <AdminSettings />}
       </div>
     </DashboardLayout>
   );

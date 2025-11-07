@@ -7,6 +7,7 @@ import { Plus, Loader2, Search, Calendar, AlertTriangle, CheckCircle, Clock, Use
 
 import { createMedicionWithDetails } from '../../services/paciente';
 import type { MedicionCreatePayload, Severidad } from '../../services/paciente';
+import { procesarGamificacionMedicion } from '../../services/gamificacion';
 import { listParametrosClinicos, type ParametroClinicoOut } from '../../services/parametroClinico';
 import { getRangosIndexByParametro, type RangoPacienteOut } from '../../services/rangoPaciente';
 import { listarMediciones, type MedicionOut } from '../../services/medicion';
@@ -341,7 +342,25 @@ export default function CuidadorDataEntry() {
 
     try {
       setSubmitting(true);
+      
+      // 1. Crear la medición
       await createMedicionWithDetails({ medicion: baseMedicion, detalles });
+      
+      // 2. Procesar gamificación (20 puntos por medición diaria)
+      try {
+        const resultadoGamificacion = await procesarGamificacionMedicion(selectedPatientRut);
+        if (resultadoGamificacion.success && resultadoGamificacion.puntosGanados && resultadoGamificacion.puntosGanados > 0) {
+          console.log(`🎮 Gamificación: +${resultadoGamificacion.puntosGanados} puntos, racha ${resultadoGamificacion.nuevaRacha} días`);
+          alert(`Medición registrada correctamente.\n🎮 ¡El paciente ganó ${resultadoGamificacion.puntosGanados} puntos! Racha: ${resultadoGamificacion.nuevaRacha} días.`);
+        } else {
+          alert('Medición registrada correctamente para el paciente.');
+        }
+      } catch (gamificationError) {
+        console.warn('Error en gamificación, pero medición guardada:', gamificationError);
+        alert('Medición registrada correctamente para el paciente.');
+      }
+      
+      // 3. Limpiar formulario
       setNewMeasurement({
         bloodSugar: '',
         bloodPressureSys: '',
@@ -351,7 +370,7 @@ export default function CuidadorDataEntry() {
         notes: '',
       });
       setErrors({});
-      alert('Medición registrada correctamente para el paciente.');
+      
     } catch (e: any) {
       alert(e?.message ?? 'No se pudo registrar la medición.');
     } finally {

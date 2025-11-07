@@ -1,8 +1,8 @@
 // src/components/admin/AdminSidebar.tsx
 import { Button } from "../ui/button";
-import { Shield, Users, Eye, Settings } from "lucide-react";
+import { Shield, Users, Eye } from "lucide-react";
 
-export type AdminSection = "overview" | "users" | "analytics" | "audit" | "settings";
+export type AdminSection = "overview" | "users" | "analytics" | "audit";
 
 export default function AdminSidebar({
   current,
@@ -27,7 +27,6 @@ export default function AdminSidebar({
       <Item k="overview"  icon={Shield}  label="System Overview" />
       <Item k="users"     icon={Users}   label="User Management" />
       <Item k="audit"     icon={Eye}     label="Audit Logs" />
-      <Item k="settings"  icon={Settings}label="System Settings" />
       <Item k="analytics" icon={Shield}  label="System Analytics" />
     </nav>
   );

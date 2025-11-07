@@ -319,3 +319,298 @@ export async function getRecentMeasurementsForChart(
     return [];
   }
 }
+
+/* =========================================================
+   OBTENER PERFIL DE GAMIFICACIÓN
+   ========================================================= */
+
+export async function getGamificacionPerfilDetallado(rutPaciente: string): Promise<GamificacionPerfilOut | null> {
+  try {
+    console.log(`🎮 [getGamificacionPerfilDetallado] Obteniendo perfil para paciente ${rutPaciente}`);
+
+    const response = await fetch(`${RUTA_GAMIFICACION}/${rutPaciente}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        console.warn(`⚠️ [getGamificacionPerfilDetallado] Perfil no encontrado para paciente ${rutPaciente}`);
+        return null;
+      }
+      
+      let errorMessage = `Error HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData?.detail || errorData?.message || errorMessage;
+      } catch {
+        // Si no se puede parsear el JSON del error, usar el mensaje HTTP
+      }
+      
+      throw new Error(errorMessage);
+    }
+
+    const perfil = await response.json() as GamificacionPerfilOut;
+    console.log(`✅ [getGamificacionPerfilDetallado] Perfil obtenido para paciente ${rutPaciente}:`, perfil);
+    return perfil;
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error(`❌ [getGamificacionPerfilDetallado] Error para paciente ${rutPaciente}:`, errorMessage);
+    throw error;
+  }
+}
+
+export interface GamificacionPerfilUpdate {
+  ultima_actividad?: string;
+  puntos?: number;
+  racha_dias?: number;
+}
+
+export async function updateUltimaActividad(rutPaciente: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Crear fecha en formato local sin zona horaria (offset-naive)
+    const now = new Date();
+    const localISOString = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, -1);
+    
+    const payload: GamificacionPerfilUpdate = {
+      ultima_actividad: localISOString
+    };
+
+    console.log(`🎮 [updateUltimaActividad] Intentando actualizar última actividad para paciente ${rutPaciente} con fecha: ${localISOString}`);
+
+    const response = await fetch(`${RUTA_GAMIFICACION}/${rutPaciente}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Error HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData?.detail || errorData?.message || errorMessage;
+      } catch {
+        // Si no se puede parsear el JSON del error, usar el mensaje HTTP
+      }
+      
+      console.warn(`❌ [updateUltimaActividad] Error ${response.status} para paciente ${rutPaciente}:`, errorMessage);
+      return { success: false, error: errorMessage };
+    }
+
+    await response.json(); // Consumir la respuesta
+    console.log(`✅ [updateUltimaActividad] Última actividad actualizada exitosamente para paciente ${rutPaciente}`);
+    return { success: true };
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error(`❌ [updateUltimaActividad] Error de conexión para paciente ${rutPaciente}:`, errorMessage);
+    return { success: false, error: `Error de conexión: ${errorMessage}` };
+  }
+}
+
+/* =========================================================
+   GAMIFICACIÓN POR MEDICIÓN DIARIA
+   ========================================================= */
+
+export async function procesarGamificacionMedicion(rutPaciente: string): Promise<{ success: boolean; error?: string; puntosGanados?: number; nuevaRacha?: number }> {
+  try {
+    console.log(`🎮 [procesarGamificacionMedicion] Procesando gamificación para medición del paciente ${rutPaciente}`);
+    
+    // 1. Verificar si ya hizo una medición hoy consultando las mediciones del día
+    const hoy = new Date().toISOString().split('T')[0]; // Solo fecha YYYY-MM-DD
+    const mañana = new Date();
+    mañana.setDate(mañana.getDate() + 1);
+    const fechaMañana = mañana.toISOString().split('T')[0];
+    
+    // Verificar si ya existe una medición hoy usando el mismo método que CuidadorDataEntry
+    const { listarMediciones } = await import('../services/medicion');
+    
+    try {
+      console.log(`🔍 [procesarGamificacionMedicion] Consultando mediciones del día para ${rutPaciente}`);
+      
+      const result = await listarMediciones(1, 100, undefined);
+      
+      if (result.ok) {
+        // Filtrar por paciente y fecha de hoy (mismo método que CuidadorDataEntry)
+        const inicioDelDia = new Date(`${hoy}T00:00:00Z`);
+        const finDelDia = new Date(`${fechaMañana}T00:00:00Z`);
+        
+        const medicionesDeHoy = result.data.items.filter(m => {
+          const fechaMedicion = new Date(m.fecha_registro);
+          return m.rut_paciente === rutPaciente && 
+                 fechaMedicion >= inicioDelDia && 
+                 fechaMedicion < finDelDia;
+        });
+        
+        console.log(`📊 [procesarGamificacionMedicion] Encontradas ${medicionesDeHoy.length} mediciones hoy para ${rutPaciente}`);
+        
+        // Si ya hay 2 o más mediciones hoy (incluyendo la recién creada), no dar puntos
+        if (medicionesDeHoy.length >= 2) {
+          console.log(`ℹ️ [procesarGamificacionMedicion] Paciente ${rutPaciente} ya tenía ${medicionesDeHoy.length - 1} medición(es) hoy, no se otorgan puntos adicionales`);
+          
+          // Obtener perfil actual para devolver la racha
+          let perfilActual: GamificacionPerfilOut | null = null;
+          try {
+            perfilActual = await getGamificacionPerfilDetallado(rutPaciente);
+          } catch (error) {
+            console.warn(`⚠️ [procesarGamificacionMedicion] Error obteniendo perfil para devolver racha actual`);
+          }
+          
+          return { 
+            success: true, 
+            puntosGanados: 0, 
+            nuevaRacha: perfilActual?.racha_dias || 0
+          };
+        } else {
+          console.log(`✅ [procesarGamificacionMedicion] Primera medición del día para ${rutPaciente} (${medicionesDeHoy.length} total)`);
+        }
+      } else {
+        console.warn(`⚠️ [procesarGamificacionMedicion] Error consultando mediciones: ${result.message}`);
+      }
+    } catch (error) {
+      console.warn(`⚠️ [procesarGamificacionMedicion] Error consultando mediciones del día, continuando con gamificación:`, error);
+    }
+    
+    // 2. Obtener perfil actual de gamificación
+    let perfilActual: GamificacionPerfilOut | null;
+    try {
+      perfilActual = await getGamificacionPerfilDetallado(rutPaciente);
+    } catch (error) {
+      console.warn(`⚠️ [procesarGamificacionMedicion] Error obteniendo perfil para ${rutPaciente}, creando uno nuevo`);
+      perfilActual = null;
+    }
+
+    const ahora = new Date();
+    let nuevoPuntos = 20; // Puntos base por medición
+    let nuevaRacha = 1;   // Racha por defecto
+    
+    if (perfilActual) {
+      // 3. Calcular nueva racha basada en la última actividad
+      const ultimaActividad = new Date(perfilActual.ultima_actividad);
+      const diferenciaDias = Math.floor((ahora.getTime() - ultimaActividad.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (diferenciaDias > 2) {
+        // Si han pasado más de 2 días, reiniciar racha
+        nuevaRacha = 1;
+        console.log(`🔄 [procesarGamificacionMedicion] Racha reiniciada para ${rutPaciente} (${diferenciaDias} días sin actividad)`);
+      } else if (diferenciaDias >= 1) {
+        // Si es un día diferente (pero no más de 2), incrementar racha
+        nuevaRacha = perfilActual.racha_dias + 1;
+        console.log(`📈 [procesarGamificacionMedicion] Racha incrementada para ${rutPaciente}: ${perfilActual.racha_dias} → ${nuevaRacha}`);
+      } else {
+        // Mismo día, mantener racha actual (primera medición del día)
+        nuevaRacha = Math.max(1, perfilActual.racha_dias);
+        console.log(`📊 [procesarGamificacionMedicion] Primera medición del día para ${rutPaciente}, racha mantenida: ${nuevaRacha}`);
+      }
+      
+      // Sumar puntos a los existentes
+      nuevoPuntos = perfilActual.puntos + 20;
+    } else {
+      // 4. Crear perfil nuevo si no existe
+      console.log(`🆕 [procesarGamificacionMedicion] Creando nuevo perfil de gamificación para ${rutPaciente}`);
+      
+      const fechaActual = new Date();
+      const localISOString = new Date(fechaActual.getTime() - fechaActual.getTimezoneOffset() * 60000).toISOString().slice(0, -1);
+      
+      const nuevoPerfil: GamificacionPerfilCreate = {
+        rut_paciente: rutPaciente,
+        puntos: 20,
+        racha_dias: 1,
+        ultima_actividad: localISOString
+      };
+      
+      try {
+        await createGamificacionPerfil(nuevoPerfil);
+        console.log(`✅ [procesarGamificacionMedicion] Perfil creado exitosamente para ${rutPaciente}`);
+        return { 
+          success: true, 
+          puntosGanados: 20, 
+          nuevaRacha: 1 
+        };
+      } catch (createError) {
+        console.error(`❌ [procesarGamificacionMedicion] Error creando perfil para ${rutPaciente}:`, createError);
+        return { 
+          success: false, 
+          error: "Error creando perfil de gamificación" 
+        };
+      }
+    }
+
+    // 5. Actualizar perfil existente
+    const fechaActual = new Date();
+    const localISOString = new Date(fechaActual.getTime() - fechaActual.getTimezoneOffset() * 60000).toISOString().slice(0, -1);
+    
+    const updatePayload: GamificacionPerfilUpdate = {
+      puntos: nuevoPuntos,
+      racha_dias: nuevaRacha,
+      ultima_actividad: localISOString
+    };
+
+    const updateResult = await updateGamificacionPerfilWithPayload(rutPaciente, updatePayload);
+    
+    if (updateResult.success) {
+      console.log(`✅ [procesarGamificacionMedicion] Gamificación actualizada para ${rutPaciente}: +20 puntos, racha ${nuevaRacha}`);
+      return { 
+        success: true, 
+        puntosGanados: 20, 
+        nuevaRacha: nuevaRacha 
+      };
+    } else {
+      return { 
+        success: false, 
+        error: updateResult.error 
+      };
+    }
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error(`❌ [procesarGamificacionMedicion] Error procesando gamificación para ${rutPaciente}:`, errorMessage);
+    return { 
+      success: false, 
+      error: `Error procesando gamificación: ${errorMessage}` 
+    };
+  }
+}
+
+/* =========================================================
+   ACTUALIZAR PERFIL DE GAMIFICACIÓN CON PAYLOAD COMPLETO
+   ========================================================= */
+
+async function updateGamificacionPerfilWithPayload(rutPaciente: string, payload: GamificacionPerfilUpdate): Promise<{ success: boolean; error?: string }> {
+  try {
+    const response = await fetch(`${RUTA_GAMIFICACION}/${rutPaciente}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Error HTTP ${response.status}: ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData?.detail || errorData?.message || errorMessage;
+      } catch {
+        // Si no se puede parsear el JSON del error, usar el mensaje HTTP
+      }
+      
+      return { success: false, error: errorMessage };
+    }
+
+    await response.json(); // Consumir la respuesta
+    return { success: true };
+    
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    return { success: false, error: `Error de conexión: ${errorMessage}` };
+  }
+}

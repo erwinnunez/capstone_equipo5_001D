@@ -1,8 +1,11 @@
 // src/services/paciente.ts
 
+import { calcularDV } from '../utils/rut';
+
 const API_HOST = import.meta.env.VITE_API_HOST ?? "http://127.0.0.1:8000";
 
 const RUTA_PACIENTE = `${API_HOST}/paciente`;
+const RUTA_PACIENTE_HISTORIAL = `${API_HOST}/paciente-historial`;
 const RUTA_MEDICION = `${API_HOST}/medicion`;
 const RUTA_MEDICION_DETALLE = `${API_HOST}/medicion-detalle`;
 
@@ -590,8 +593,44 @@ export async function listAlertasMediciones(params?: {
   });
 }
 
+// ===== Función para crear historial de paciente =====
+export async function createPacienteHistorial(rutPaciente: string, cambio: string, resultado: boolean) {
+  // El backend del historial de pacientes requiere RUT sin guión pero con DV válido
+  let rutValido = rutPaciente.replace('-', '');
+  
+  // Si el RUT no tiene dígito verificador (solo números de 8 dígitos), calcularlo
+  if (/^\d{8}$/.test(rutValido)) {
+    const dv = calcularDV(rutValido);
+    rutValido = `${rutValido}${dv}`;
+  }
+  
+  const payload = {
+    rut_paciente: rutValido,
+    fecha_cambio: new Date().toISOString(),
+    cambio: cambio,
+    resultado: resultado
+  };
+
+  const response = await fetch(RUTA_PACIENTE_HISTORIAL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Error en historial paciente: ${response.status} - ${errorText}`);
+  }
+  
+  return await response.json();
+}
+
 // ===== Función para actualizar paciente =====
 export async function updatePaciente(rut: string, payload: any) {
+  // 1. Actualizar el paciente (operación principal)
   const response = await fetch(`${RUTA_PACIENTE}/${rut}`, {
     method: 'PATCH',
     headers: {
@@ -600,11 +639,68 @@ export async function updatePaciente(rut: string, payload: any) {
     credentials: "include",
     body: JSON.stringify(payload),
   });
-  return handleResponse(response);
+  
+  const result = await handleResponse(response);
+  
+  // 2. Crear historial del cambio (no crítico)
+  try {
+    const camposModificados = Object.keys(payload);
+    let descripcion = '';
+    
+    // Crear descripción más detallada para pacientes
+    const tiposDeCampos = {
+      nombres: camposModificados.filter(campo => 
+        campo.includes('nombre') || campo.includes('apellido')
+      ),
+      contacto: camposModificados.filter(campo => 
+        campo.includes('telefono') || campo.includes('direccion') || campo.includes('email')
+      ),
+      salud: camposModificados.filter(campo => 
+        campo.includes('sangre') || campo.includes('enfermedad') || campo.includes('seguro')
+      ),
+      emergencia: camposModificados.filter(campo => 
+        campo.includes('contacto')
+      ),
+      otros: camposModificados.filter(campo => 
+        !campo.includes('nombre') && !campo.includes('apellido') && 
+        !campo.includes('telefono') && !campo.includes('direccion') && !campo.includes('email') &&
+        !campo.includes('sangre') && !campo.includes('enfermedad') && !campo.includes('seguro') &&
+        !campo.includes('contacto')
+      )
+    };
+    
+    const partes = [];
+    if (tiposDeCampos.nombres.length > 0) partes.push('nombres');
+    if (tiposDeCampos.contacto.length > 0) partes.push('datos de contacto');
+    if (tiposDeCampos.salud.length > 0) partes.push('información médica');
+    if (tiposDeCampos.emergencia.length > 0) partes.push('contacto de emergencia');
+    if (tiposDeCampos.otros.length > 0) partes.push('otros datos');
+    
+    if (partes.length === 1) {
+      descripcion = `Actualización de ${partes[0]}`;
+    } else if (partes.length === 2) {
+      descripcion = `Actualización de ${partes.join(' y ')}`;
+    } else {
+      descripcion = `Actualización de ${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+    }
+    
+    // Asegurar que no exceda 200 caracteres
+    if (descripcion.length > 200) {
+      descripcion = descripcion.substring(0, 197) + '...';
+    }
+    
+    await createPacienteHistorial(rut, descripcion, true);
+  } catch (historialError) {
+    console.warn('No se pudo guardar el historial del paciente:', historialError);
+    // No lanzar error, la operación principal ya fue exitosa
+  }
+  
+  return result;
 }
 
 // ===== Función para activar/desactivar paciente =====
 export async function togglePacienteStatus(rut: string, estado: boolean) {
+  // 1. Cambiar el estado del paciente (operación principal)
   const response = await fetch(`${RUTA_PACIENTE}/${rut}`, {
     method: 'PATCH',
     headers: {
@@ -613,5 +709,56 @@ export async function togglePacienteStatus(rut: string, estado: boolean) {
     credentials: "include",
     body: JSON.stringify({ estado }),
   });
+  
+  const result = await handleResponse(response);
+  
+  // 2. Crear historial del cambio de estado (no crítico)
+  try {
+    const accion = estado ? 'activado' : 'desactivado';
+    await createPacienteHistorial(rut, `Usuario ${accion}`, true);
+  } catch (historialError) {
+    console.warn('No se pudo guardar el historial del cambio de estado:', historialError);
+    // No lanzar error, la operación principal ya fue exitosa
+  }
+  
+  return result;
+}
+
+// ===== Función para obtener historial de pacientes =====
+export async function getPacienteHistorial(params?: { 
+  page?: number; 
+  page_size?: number; 
+  rut_paciente?: string; 
+}) {
+  const queryParams = new URLSearchParams();
+  
+  if (params?.page) queryParams.append('page', params.page.toString());
+  if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+  if (params?.rut_paciente) queryParams.append('rut_paciente', params.rut_paciente);
+  
+  const url = `${RUTA_PACIENTE_HISTORIAL}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+  });
+  
   return handleResponse(response);
+}
+
+// ===== Función para obtener total de pacientes =====
+export async function getTotalPacientes() {
+  const response = await fetch(`${RUTA_PACIENTE}?page=1&page_size=1`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+  });
+  
+  const result = await handleResponse(response) as { total?: number };
+  return result.total || 0;
 }
