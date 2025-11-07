@@ -41,22 +41,54 @@ def create(db: Session, data: CuidadorCreate):
     return obj
 
 def update(db: Session, rut_cuidador: str, data: CuidadorUpdate):
+    print(f"SERVICE UPDATE - RUT: {rut_cuidador}")
+    
     obj = get(db, rut_cuidador)
-    if not obj: return None
+    if not obj: 
+        print("SERVICE UPDATE - Objeto no encontrado")
+        return None
+    
     upd = data.model_dump(exclude_none=True)
+    print(f"SERVICE UPDATE - Datos a actualizar: {upd}")
+    
+    # Si no hay cambios, retornar el objeto actual
+    if not upd:
+        print("SERVICE UPDATE - No hay datos para actualizar")
+        return obj
 
     if "email" in upd and isinstance(upd["email"], str):
         upd["email"] = upd["email"].strip().lower()
+        print(f"SERVICE UPDATE - Email normalizado: {upd['email']}")
 
     if "contrasena" in upd:
         if upd["contrasena"]:
             upd["contrasena"] = hash_password(upd["contrasena"])
+            print("SERVICE UPDATE - Contraseña hasheada")
         else:
             upd.pop("contrasena", None)
+            print("SERVICE UPDATE - Contraseña vacía removida")
 
+    # Aplicar cambios solo si hay diferencias
+    changes_made = False
     for k, v in upd.items():
-        setattr(obj, k, v)
-    db.commit(); db.refresh(obj)
+        current_value = getattr(obj, k, None)
+        print(f"SERVICE UPDATE - Campo {k}: actual='{current_value}', nuevo='{v}'")
+        if current_value != v:
+            setattr(obj, k, v)
+            changes_made = True
+            print(f"SERVICE UPDATE - Campo {k} actualizado")
+    
+    print(f"SERVICE UPDATE - Cambios realizados: {changes_made}")
+    
+    # Solo hacer commit si hubo cambios reales
+    if changes_made:
+        print("SERVICE UPDATE - Haciendo commit...")
+        db.commit()
+        db.refresh(obj)
+        print("SERVICE UPDATE - Commit exitoso")
+    else:
+        print("SERVICE UPDATE - No se requiere commit")
+    
     return obj
 
 def set_estado(db: Session, rut_cuidador: str, habilitar: bool) -> bool:

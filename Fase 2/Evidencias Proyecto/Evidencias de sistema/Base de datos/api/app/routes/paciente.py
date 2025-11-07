@@ -4,6 +4,7 @@ from app.db import get_db
 from app.schemas.common import Page
 from app.schemas.paciente import PacienteCreate, PacienteUpdate, PacienteOut, PacienteSetEstado
 from app.services import paciente as svc
+from app.models.paciente import Paciente
 
 router = APIRouter(prefix="/paciente", tags=["paciente"])
 
@@ -23,10 +24,29 @@ def list_paciente(page: int = 1, page_size: int = 20,
                              primer_apellido=primer_apellido, segundo_apellido=segundo_apellido)
     return Page(items=items, total=total, page=page, page_size=page_size)
 
+@router.get("/email/{email}", response_model=PacienteOut)
+def find_paciente_by_email(email: str, only_active: bool = Query(True), db: Session = Depends(get_db)):
+    """Buscar paciente por email"""
+    obj = svc.find_by_email(db, email, only_active)
+    if not obj: 
+        raise HTTPException(404, "Paciente no encontrado")
+    return obj
+
 @router.get("/{rut_paciente}", response_model=PacienteOut)
-def get_paciente(rut_paciente: str, db: Session = Depends(get_db)):
-    obj = svc.get(db, rut_paciente)
-    if not obj: raise HTTPException(404, "Not found")
+def get_paciente(rut_paciente: str, only_active: bool = Query(True), db: Session = Depends(get_db)):
+    """Buscar paciente por RUT"""
+    if only_active:
+        # Buscar solo pacientes activos
+        obj = db.query(Paciente).filter(
+            Paciente.rut_paciente == rut_paciente,
+            Paciente.estado == True
+        ).first()
+    else:
+        # Buscar cualquier paciente (activo o inactivo)
+        obj = svc.get(db, rut_paciente)
+    
+    if not obj: 
+        raise HTTPException(404, "Paciente no encontrado")
     return obj
 
 @router.post("", response_model=PacienteOut, status_code=status.HTTP_201_CREATED)

@@ -13,21 +13,28 @@ import {
   DialogTrigger,
 } from "../ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Search, Filter, Users as UsersIcon, UserPlus, Edit, Trash2 } from "lucide-react";
+import { Search, Filter, Users as UsersIcon, UserPlus, Edit, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "../ui/badge";
-import { systemUsers } from "../../data/adminMock";
+import { Label } from "../ui/label";
+import { Checkbox } from "../ui/checkbox";
 
 import {
   createMedico,
+  listMedicos,
+  updateMedico,
+  toggleMedicoStatus,
   type EquipoMedicoCreatePayload,
   toNiceMessage as niceMedicoMsg,
 } from "../../services/equipoMedico";
+
+import { listCuidadores, updateCuidador, toggleCuidadorStatus } from "../../services/cuidador";
+import { listPacientes, updatePaciente, togglePacienteStatus } from "../../services/paciente";
 
 // Modal de alerta (archivo que te pasé antes)
 import { ErrorAlertModal } from "../common/ErrorAlertModal";
 
 // 👇 servicios para dropdowns
-import { listComunas, type ComunaOut as ComunaRow } from "../../services/comuna";
+import { listComunas } from "../../services/comuna";
 import { listCesfam, type CesfamOut as CesfamRow } from "../../services/cesfam";
 
 /* ==========================================================
@@ -61,75 +68,6 @@ function formatRutPrettyFromPlain(plain: string): string {
   const cuerpo = v.slice(0, -1).replace(/\B(?=(\d{3})+(?!\d))/g, ".");
   const dv = v.slice(-1);
   return cuerpo ? `${cuerpo}-${dv}` : dv;
-}
-
-/* =========================
-   DROPDOWN: Comuna (Select)
-========================= */
-function ComunaDropdown({
-  value,
-  onChange,
-  label = "Comuna",
-  placeholder = "Selecciona comuna…",
-}: {
-  value?: number | string;
-  onChange: (id: number) => void;
-  label?: string;
-  placeholder?: string;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [items, setItems] = useState<ComunaRow[]>([]);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setErr(null);
-        const resp = await listComunas({ page: 1, page_size: 5000 });
-        if (!mounted) return;
-        if (!resp.ok) {
-          setErr(resp.message || "No se pudieron cargar las comunas");
-        } else {
-          setItems(resp.data.items || []);
-        }
-      } catch (e: any) {
-        if (mounted) setErr(e?.message || "No se pudieron cargar las comunas");
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const selected = items.find((c) => String(c.id_comuna) === String(value));
-
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-medium">{label}</label>
-      <Select
-        value={value != null ? String(value) : ""}
-        onValueChange={(v) => onChange(Number(v))}
-        disabled={loading || !!err}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={placeholder} />
-        </SelectTrigger>
-        <SelectContent className="max-h-72">
-          {items.map((c) => (
-            <SelectItem key={c.id_comuna} value={String(c.id_comuna)}>
-              {c.nombre_comuna ?? `Comuna #${c.id_comuna}`}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {selected && <p className="text-xs text-muted-foreground">Seleccionada: {selected.nombre_comuna}</p>}
-      {err && <p className="text-xs text-red-600">{err}</p>}
-    </div>
-  );
 }
 
 /* =========================
@@ -214,7 +152,7 @@ function CesfamDropdown({
       <label className="text-sm font-medium">{label}</label>
       <Select
         value={value != null ? String(value) : ""}
-        onValueChange={(v) => onChange(Number(v))}
+        onValueChange={(v: string) => onChange(Number(v))}
         disabled={loading || !!err}
       >
         <SelectTrigger>
@@ -264,6 +202,24 @@ type NewUserState = {
   especialidad: string;
 };
 
+// Tipo unificado para mostrar usuarios del sistema
+type UnifiedUser = {
+  id: string;
+  rut: string;
+  name: string;
+  email: string;
+  role: "admin" | "doctor" | "caregiver" | "patient";
+  status: "active" | "inactive";
+  phone?: string;
+  address?: string;
+  specialty?: string;
+  cesfam?: string;
+  comuna?: string;
+  // Campos del contacto de emergencia (solo para pacientes)
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+};
+
 const getStatusColor = (status: string): RoleVariant => (status === "active" ? "outline" : "secondary");
 const getRoleColor = (role: string): RoleVariant => {
   switch (role) {
@@ -271,11 +227,20 @@ const getRoleColor = (role: string): RoleVariant => {
       return "destructive";
     case "doctor":
       return "default";
+    case "caregiver":
+      return "secondary";
+    case "patient":
+      return "outline";
     default:
       return "outline";
   }
 };
-const roleLabel = (role: string) => ({ admin: "Administrador", doctor: "Médico" } as any)[role] ?? role;
+const roleLabel = (role: string) => ({ 
+  admin: "Administrador", 
+  doctor: "Médico", 
+  caregiver: "Cuidador", 
+  patient: "Paciente" 
+} as any)[role] ?? role;
 const statusLabel = (status: string) =>
   ({ active: "Activo", inactive: "Inactivo", blocked: "Bloqueado" } as any)[status] ?? status;
 
@@ -285,8 +250,16 @@ const statusLabel = (status: string) =>
 export default function AdminUsers() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filterRole, setFilterRole] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all"); // Nuevo filtro para estado
   const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [users, setUsers] = useState<UnifiedUser[]>([]);
+  
+  // Estado de paginación
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const usersPerPage = 10;
 
   // Modal de error
   const [errOpen, setErrOpen] = useState(false);
@@ -308,12 +281,197 @@ export default function AdminUsers() {
     especialidad: "",
   });
 
-  const filteredUsers = systemUsers.filter((u) => {
-    const q = searchTerm.toLowerCase();
-    const matchesSearch = u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
-    const matchesRole = filterRole === "all" || u.role === filterRole;
-    return matchesSearch && matchesRole;
+  // Estado para almacenar todos los usuarios
+  const [allUsers, setAllUsers] = useState<UnifiedUser[]>([]);
+
+  // Estados para el modal de edición
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UnifiedUser | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    primerNombre: "",
+    segundoNombre: "",
+    primerApellido: "",
+    segundoApellido: "",
+    email: "",
+    telefono: "",
+    direccion: "",
+    especialidad: "",
+    isAdmin: false, // Para el toggle de administrador
+    // Campos del contacto de emergencia (solo para pacientes)
+    contactoNombre: "",
+    contactoTelefono: "",
   });
+
+  // Cargar todos los usuarios del sistema
+  const loadAllSystemUsers = async (estadoFilter?: boolean) => {
+    try {
+      setLoadingUsers(true);
+      
+      // Limpiar datos anteriores inmediatamente para evitar mostrar datos incorrectos
+      setAllUsers([]);
+      setUsers([]);
+      setTotalUsers(0);
+      
+      const allUsersArray: UnifiedUser[] = [];
+
+      // Determinar parámetros de consulta según el filtro
+      const queryParams: any = { page: 1, page_size: 1000 };
+      if (estadoFilter !== undefined) {
+        queryParams.estado = estadoFilter;
+      }
+
+      console.log('Cargando usuarios con parámetros:', queryParams);
+
+      // 1. Cargar médicos y administradores
+      try {
+        const medicosResponse = await listMedicos(queryParams);
+        const medicos = medicosResponse.items || [];
+        
+        console.log(`Médicos encontrados: ${medicos.length}`);
+        console.log('Estados de médicos:', medicos.map(m => ({ rut: m.rut_medico, estado: m.estado })));
+        
+        medicos.forEach((medico: any) => {
+          allUsersArray.push({
+            id: medico.rut_medico,
+            rut: medico.rut_medico,
+            name: `${medico.primer_nombre_medico} ${medico.segundo_nombre_medico || ''} ${medico.primer_apellido_medico} ${medico.segundo_apellido_medico || ''}`.trim(),
+            email: medico.email || 'Sin email',
+            role: medico.is_admin ? "admin" : "doctor",
+            status: medico.estado ? "active" : "inactive",
+            phone: medico.telefono ? String(medico.telefono) : undefined,
+            address: medico.direccion || undefined,
+            specialty: medico.especialidad || undefined,
+          });
+        });
+      } catch (error) {
+        console.warn("Error cargando médicos:", error);
+      }
+
+      // 2. Cargar cuidadores
+      try {
+        const cuidadoresResponse = await listCuidadores(queryParams);
+        const cuidadores = cuidadoresResponse.items || [];
+        
+        cuidadores.forEach((cuidador: any) => {
+          allUsersArray.push({
+            id: cuidador.rut_cuidador,
+            rut: cuidador.rut_cuidador,
+            name: `${cuidador.primer_nombre_cuidador} ${cuidador.segundo_nombre_cuidador || ''} ${cuidador.primer_apellido_cuidador} ${cuidador.segundo_apellido_cuidador || ''}`.trim(),
+            email: cuidador.email || 'Sin email',
+            role: "caregiver",
+            status: cuidador.estado ? "active" : "inactive",
+            phone: cuidador.telefono ? String(cuidador.telefono) : undefined,
+            address: cuidador.direccion || undefined,
+          });
+        });
+      } catch (error) {
+        console.warn("Error cargando cuidadores:", error);
+      }
+
+      // 3. Cargar pacientes
+      try {
+        const pacientesResponse = await listPacientes(queryParams);
+        const pacientes = pacientesResponse.items || [];
+        
+        pacientes.forEach((paciente: any) => {
+          allUsersArray.push({
+            id: paciente.rut_paciente,
+            rut: paciente.rut_paciente,
+            name: `${paciente.primer_nombre_paciente} ${paciente.segundo_nombre_paciente || ''} ${paciente.primer_apellido_paciente} ${paciente.segundo_apellido_paciente || ''}`.trim(),
+            email: paciente.email || 'Sin email',
+            role: "patient",
+            status: paciente.estado ? "active" : "inactive",
+            phone: paciente.telefono ? String(paciente.telefono) : undefined,
+            address: paciente.direccion || undefined,
+            emergencyContactName: paciente.nombre_contacto || '',
+            emergencyContactPhone: paciente.telefono_contacto ? String(paciente.telefono_contacto) : '',
+          });
+        });
+      } catch (error) {
+        console.warn("Error cargando pacientes:", error);
+      }
+
+      setAllUsers(allUsersArray);
+      setTotalUsers(allUsersArray.length);
+      
+      // Log detallado de usuarios por estado
+      const activeUsers = allUsersArray.filter(u => u.status === 'active');
+      const inactiveUsers = allUsersArray.filter(u => u.status === 'inactive');
+      
+      console.log(`✅ Cargados ${allUsersArray.length} usuarios totales del sistema`);
+      console.log(`🟢 Activos: ${activeUsers.length}, 🔴 Inactivos: ${inactiveUsers.length}`);
+      console.log('Usuarios inactivos:', inactiveUsers.map(u => ({ rut: u.rut, name: u.name, role: u.role, status: u.status })));
+      
+    } catch (error) {
+      console.error("❌ Error general cargando usuarios:", error);
+      showError("Error cargando usuarios del sistema", "Error de conexión");
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  // Cargar usuarios del sistema con paginación
+  const loadSystemUsers = async (page = 1) => {
+    setCurrentPage(page);
+    
+    // Aplicar filtros a todos los usuarios
+    const filtered = allUsers.filter((u) => {
+      const q = searchTerm.toLowerCase();
+      const matchesSearch = u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.rut.includes(q);
+      const matchesRole = filterRole === "all" || u.role === filterRole;
+      
+      // Solo aplicar filtro de estado cuando es "all" (sin filtro en backend)
+      // Para otros casos, confiar en que el backend ya filtró correctamente
+      const matchesStatus = filterStatus === "all" ? true : u.status === filterStatus;
+      
+      return matchesSearch && matchesRole && matchesStatus;
+    });
+
+    // Aplicar paginación
+    const startIndex = (page - 1) * usersPerPage;
+    const endIndex = startIndex + usersPerPage;
+    const paginatedUsers = filtered.slice(startIndex, endIndex);
+
+    setUsers(paginatedUsers);
+    setTotalUsers(filtered.length);
+  };
+
+  // Cargar todos los usuarios al montar el componente
+  useEffect(() => {
+    loadAllSystemUsers();
+  }, []);
+
+  // Recargar datos del backend cuando cambie el filtro de estado
+  useEffect(() => {
+    let estadoParam: boolean | undefined;
+    
+    if (filterStatus === "active") {
+      estadoParam = true;
+    } else if (filterStatus === "inactive") {
+      estadoParam = false;
+    }
+    // Si filterStatus === "all", estadoParam queda undefined
+    
+    console.log(`Filtro de estado cambió a: ${filterStatus}, recargando con estado: ${estadoParam}`);
+    loadAllSystemUsers(estadoParam);
+  }, [filterStatus]);
+
+  // Aplicar paginación cuando cambien los datos, filtros o página
+  useEffect(() => {
+    if (allUsers.length > 0) {
+      loadSystemUsers(currentPage);
+    }
+  }, [allUsers, searchTerm, filterRole, currentPage]); // Removido filterStatus ya que se maneja arriba
+
+  // Resetear a página 1 cuando cambien los filtros
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [searchTerm, filterRole, filterStatus]);
+
+  // Eliminar el filtro local ya que se hace en loadSystemUsers
+  const filteredUsers = users;
 
   const resetForm = () => {
     setNewUser({
@@ -340,6 +498,268 @@ export default function AdminUsers() {
     setErrTitle(title);
     setErrMsg(message);
     setErrOpen(true);
+  };
+
+  // Función para abrir el modal de edición
+  const handleEditUser = (user: UnifiedUser) => {
+    setEditingUser(user);
+    
+    // Separar nombres y apellidos del usuario
+    const nameParts = user.name.split(' ');
+    const primerNombre = nameParts[0] || '';
+    const segundoNombre = nameParts[1] || '';
+    const primerApellido = nameParts[2] || '';
+    const segundoApellido = nameParts[3] || '';
+    
+    // Separar nombre del contacto de emergencia si existe
+    const emergencyContactName = user.emergencyContactName || '';
+    
+    setEditFormData({
+      primerNombre: primerNombre,
+      segundoNombre: segundoNombre,
+      primerApellido: primerApellido,
+      segundoApellido: segundoApellido,
+      email: user.email,
+      telefono: user.phone || '',
+      direccion: user.address || '',
+      especialidad: user.specialty || '',
+      isAdmin: user.role === 'admin', // Establecer si es admin basado en el rol actual
+      // Datos del contacto de emergencia simplificados
+      contactoNombre: emergencyContactName,
+      contactoTelefono: user.emergencyContactPhone || '',
+    });
+    setIsEditModalOpen(true);
+  };
+
+  // Función para cerrar el modal de edición
+  const handleCloseEditModal = () => {
+    setIsEditModalOpen(false);
+    setEditingUser(null);
+    setEditFormData({
+      primerNombre: "",
+      segundoNombre: "",
+      primerApellido: "",
+      segundoApellido: "",
+      email: "",
+      telefono: "",
+      direccion: "",
+      especialidad: "",
+      isAdmin: false,
+      contactoNombre: "",
+      contactoTelefono: "",
+    });
+  };
+
+  // Helper para obtener el parámetro de estado según el filtro actual
+  const getCurrentEstadoFilter = (): boolean | undefined => {
+    if (filterStatus === "active") return true;
+    if (filterStatus === "inactive") return false;
+    return undefined; // "all"
+  };
+
+  // Función para guardar los cambios
+  const handleSaveEdit = async () => {
+    if (!editingUser) return;
+
+    try {
+      setLoading(true);
+
+      // Construir el payload según el tipo de usuario
+      let payload: any = {};
+
+      // Campos obligatorios siempre (aunque estén vacíos, enviarlos)
+      payload.primer_nombre = editFormData.primerNombre || '';
+      payload.primer_apellido = editFormData.primerApellido || '';
+      
+      // Campos opcionales solo si tienen valor
+      if (editFormData.segundoNombre?.trim()) {
+        payload.segundo_nombre = editFormData.segundoNombre.trim();
+      }
+      if (editFormData.segundoApellido?.trim()) {
+        payload.segundo_apellido = editFormData.segundoApellido.trim();
+      }
+      if (editFormData.telefono?.trim()) {
+        payload.telefono = editFormData.telefono.trim();
+      }
+      if (editFormData.direccion?.trim()) {
+        payload.direccion = editFormData.direccion.trim();
+      }
+
+      // Agregar campos específicos según el tipo de usuario
+      if (editingUser.role === 'doctor' || editingUser.role === 'admin') {
+        payload.especialidad = editFormData.especialidad || '';
+        payload.is_admin = editFormData.isAdmin; // Incluir el campo is_admin
+        console.log('Payload para médico:', payload);
+        await updateMedico(editingUser.rut, payload);
+      } 
+      else if (editingUser.role === 'caregiver') {
+        // Para cuidadores, usar nombres de campos específicos
+        const cuidadorPayload: any = {};
+        cuidadorPayload.primer_nombre_cuidador = editFormData.primerNombre || '';
+        cuidadorPayload.primer_apellido_cuidador = editFormData.primerApellido || '';
+        if (editFormData.segundoNombre?.trim()) {
+          cuidadorPayload.segundo_nombre_cuidador = editFormData.segundoNombre.trim();
+        }
+        if (editFormData.segundoApellido?.trim()) {
+          cuidadorPayload.segundo_apellido_cuidador = editFormData.segundoApellido.trim();
+        }
+        if (editFormData.telefono?.trim()) {
+          cuidadorPayload.telefono = editFormData.telefono.trim();
+        }
+        if (editFormData.direccion?.trim()) {
+          cuidadorPayload.direccion = editFormData.direccion.trim();
+        }
+        console.log('Payload para cuidador:', cuidadorPayload);
+        await updateCuidador(editingUser.rut, cuidadorPayload);
+      }
+      else if (editingUser.role === 'patient') {
+        // Para pacientes, usar nombres de campos específicos
+        const pacientePayload: any = {};
+        pacientePayload.primer_nombre_paciente = editFormData.primerNombre || '';
+        pacientePayload.primer_apellido_paciente = editFormData.primerApellido || '';
+        if (editFormData.segundoNombre?.trim()) {
+          pacientePayload.segundo_nombre_paciente = editFormData.segundoNombre.trim();
+        }
+        if (editFormData.segundoApellido?.trim()) {
+          pacientePayload.segundo_apellido_paciente = editFormData.segundoApellido.trim();
+        }
+        if (editFormData.telefono?.trim()) {
+          pacientePayload.telefono = editFormData.telefono.trim();
+        }
+        if (editFormData.direccion?.trim()) {
+          pacientePayload.direccion = editFormData.direccion.trim();
+        }
+        // Datos del contacto de emergencia
+        pacientePayload.nombre_contacto = editFormData.contactoNombre || '';
+        pacientePayload.telefono_contacto = editFormData.contactoTelefono || '';
+        console.log('Payload para paciente:', pacientePayload);
+        await updatePaciente(editingUser.rut, pacientePayload);
+      }
+
+      // Recargar la lista de usuarios después de la actualización
+      console.log('Recargando lista de usuarios desde la API...');
+      
+      // Pequeño delay para asegurar que el backend haya terminado
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Forzar recarga completa desde la API
+      setUsers([]);
+      setTotalUsers(0);
+      
+      // Recargar todos los usuarios desde la API respetando el filtro actual
+      await loadAllSystemUsers(getCurrentEstadoFilter());
+      
+      console.log('Lista de usuarios recargada exitosamente desde la API');
+      
+      // Cerrar el modal
+      handleCloseEditModal();
+
+      // Mostrar mensaje de éxito
+      console.log('Usuario actualizado exitosamente');
+
+    } catch (error) {
+      console.error('Error al actualizar usuario:', error);
+      showError(error instanceof Error ? error.message : 'Error al actualizar usuario');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para activar/desactivar médico o administrador
+  const handleToggleMedicoStatus = async (rut: string, currentStatus: string) => {
+    try {
+      setLoading(true);
+      
+      // Invertir el estado actual
+      const newStatus = currentStatus === 'active';
+      
+      console.log(`Cambiando estado de médico ${rut} a: ${!newStatus ? 'activo' : 'inactivo'}`);
+      
+      await toggleMedicoStatus(rut, !newStatus);
+      
+      // Recargar la lista después del cambio respetando el filtro actual
+      console.log('Recargando lista después del cambio de estado...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await loadAllSystemUsers(getCurrentEstadoFilter());
+      
+      console.log('Estado del médico actualizado exitosamente');
+      
+    } catch (error) {
+      console.error('Error al cambiar estado del médico:', error);
+      showError(error instanceof Error ? error.message : 'Error al cambiar estado del médico');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para activar/desactivar cuidador
+  const handleToggleCuidadorStatus = async (rut: string, currentStatus: string) => {
+    try {
+      setLoading(true);
+      
+      const newStatus = currentStatus === 'active';
+      
+      console.log(`Cambiando estado de cuidador ${rut} a: ${!newStatus ? 'activo' : 'inactivo'}`);
+      
+      await toggleCuidadorStatus(rut, !newStatus);
+      
+      // Recargar la lista después del cambio respetando el filtro actual
+      console.log('Recargando lista después del cambio de estado...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await loadAllSystemUsers(getCurrentEstadoFilter());
+      
+      console.log('Estado del cuidador actualizado exitosamente');
+      
+    } catch (error) {
+      console.error('Error al cambiar estado del cuidador:', error);
+      showError(error instanceof Error ? error.message : 'Error al cambiar estado del cuidador');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función para activar/desactivar paciente
+  const handleTogglePacienteStatus = async (rut: string, currentStatus: string) => {
+    try {
+      setLoading(true);
+      
+      const newStatus = currentStatus === 'active';
+      
+      console.log(`Cambiando estado de paciente ${rut} a: ${!newStatus ? 'activo' : 'inactivo'}`);
+      
+      await togglePacienteStatus(rut, !newStatus);
+      
+      // Recargar la lista después del cambio respetando el filtro actual
+      console.log('Recargando lista después del cambio de estado...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await loadAllSystemUsers(getCurrentEstadoFilter());
+      
+      console.log('Estado del paciente actualizado exitosamente');
+      
+    } catch (error) {
+      console.error('Error al cambiar estado del paciente:', error);
+      showError(error instanceof Error ? error.message : 'Error al cambiar estado del paciente');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Función unificada para activar/desactivar cualquier tipo de usuario
+  const handleToggleUserStatus = async (user: UnifiedUser) => {
+    switch (user.role) {
+      case 'doctor':
+      case 'admin':
+        await handleToggleMedicoStatus(user.rut, user.status);
+        break;
+      case 'caregiver':
+        await handleToggleCuidadorStatus(user.rut, user.status);
+        break;
+      case 'patient':
+        await handleTogglePacienteStatus(user.rut, user.status);
+        break;
+      default:
+        console.error('Tipo de usuario no reconocido:', user.role);
+    }
   };
 
   const handleCreateMedico = async () => {
@@ -407,16 +827,25 @@ export default function AdminUsers() {
       const result = await createMedico(payload);
       if (!result.ok) {
         setLoading(false);
-        const msg = result.details ? niceMedicoMsg(result.details) : result.message;
-        return showError(msg || "Error creando el médico.", "No se pudo crear");
+        // Priorizar mensaje específico del servicio sobre transformaciones genéricas
+        const errorMessage = result.message || (result.details ? niceMedicoMsg(result.details) : "Error creando el médico.");
+        return showError(errorMessage, "No se pudo crear");
       }
 
+      // Éxito: cerrar modal y resetear formulario
       setIsCreateUserOpen(false);
       resetForm();
-    } catch (e: any) {
-      showError(e?.message || "Error inesperado al crear usuario.", "Error inesperado");
-    } finally {
       setLoading(false);
+      
+      // Recargar todos los usuarios
+      await loadAllSystemUsers();
+      
+      // Opcionalmente mostrar mensaje de éxito (puedes agregar un toast aquí)
+      console.log("✅ Médico/administrador creado exitosamente");
+      
+    } catch (e: any) {
+      setLoading(false);
+      showError(e?.message || "Error inesperado al crear usuario.", "Error inesperado");
     }
   };
 
@@ -646,43 +1075,307 @@ export default function AdminUsers() {
               <SelectValue placeholder="Filtrar por rol" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos los roles</SelectItem>
+              <SelectItem value="all">Todos los usuarios</SelectItem>
               <SelectItem value="admin">Administradores</SelectItem>
               <SelectItem value="doctor">Médicos</SelectItem>
+              <SelectItem value="caregiver">Cuidadores</SelectItem>
+              <SelectItem value="patient">Pacientes</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={filterStatus} onValueChange={(value: string) => setFilterStatus(value)}>
+            <SelectTrigger className="w-[180px]">
+              <Filter className="h-4 w-4 mr-2" />
+              <SelectValue placeholder="Filtrar por estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos los estados</SelectItem>
+              <SelectItem value="active">Solo Activos</SelectItem>
+              <SelectItem value="inactive">Solo Inactivos</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-3">
-          {filteredUsers.map((user) => (
-            <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-              <div className="flex items-center space-x-4">
-                <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
-                  <UsersIcon className="h-5 w-5 text-gray-600" />
-                </div>
-                <div>
-                  <h4 className="font-medium">{user.name}</h4>
-                  <p className="text-sm text-gray-600">{user.email}</p>
-                  <p className="text-xs text-gray-500">Último acceso: {user.lastLogin}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-3">
-                <Badge variant={getRoleColor(user.role)}>{roleLabel(user.role)}</Badge>
-                <Badge variant={getStatusColor(user.status)}>{statusLabel(user.status)}</Badge>
-                <div className="flex space-x-1">
-                  <Button variant="outline" size="sm" aria-label="Editar usuario">
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" aria-label="Eliminar usuario">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
+          {loadingUsers ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">Cargando usuarios del sistema...</p>
             </div>
-          ))}
+          ) : filteredUsers.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500">No se encontraron usuarios</p>
+            </div>
+          ) : (
+            filteredUsers.map((user) => (
+              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center space-x-4">
+                  <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
+                    <UsersIcon className="h-5 w-5 text-gray-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium">{user.name}</h4>
+                    <p className="text-sm text-gray-600">{user.email}</p>
+                    <p className="text-xs text-gray-500">RUT: {user.rut}</p>
+                    {user.specialty && <p className="text-xs text-gray-400">Especialidad: {user.specialty}</p>}
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <Badge variant={getRoleColor(user.role)}>{roleLabel(user.role)}</Badge>
+                  <Badge variant={getStatusColor(user.status)}>{statusLabel(user.status)}</Badge>
+                  <div className="flex space-x-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      aria-label="Editar usuario"
+                      onClick={() => handleEditUser(user)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    
+                    {/* Botón para activar/desactivar para TODOS los tipos de usuario */}
+                    <Button 
+                      variant={user.status === 'active' ? 'destructive' : 'default'} 
+                      size="sm" 
+                      aria-label={user.status === 'active' ? 'Desactivar usuario' : 'Activar usuario'}
+                      onClick={() => handleToggleUserStatus(user)}
+                      disabled={loading}
+                    >
+                      {user.status === 'active' ? 'Desactivar' : 'Activar'}
+                    </Button>
+                    
+                    <Button variant="outline" size="sm" aria-label="Eliminar usuario">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
+
+        {/* Controles de paginación */}
+        {!loadingUsers && totalUsers > usersPerPage && (
+          <div className="flex items-center justify-between mt-6 pt-4 border-t">
+            <div className="text-sm text-gray-600">
+              Página {currentPage} - Mostrando {users.length} de {totalUsers} usuarios
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <div className="flex items-center space-x-1">
+                {currentPage > 2 && (
+                  <>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(1)}>1</Button>
+                    {currentPage > 3 && <span className="text-gray-400">...</span>}
+                  </>
+                )}
+                {currentPage > 1 && (
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(currentPage - 1)}>
+                    {currentPage - 1}
+                  </Button>
+                )}
+                <Button variant="default" size="sm" disabled>
+                  {currentPage}
+                </Button>
+                {Math.ceil(totalUsers / usersPerPage) > currentPage && (
+                  <Button variant="outline" size="sm" onClick={() => setCurrentPage(currentPage + 1)}>
+                    {currentPage + 1}
+                  </Button>
+                )}
+                {Math.ceil(totalUsers / usersPerPage) > currentPage + 1 && (
+                  <>
+                    {Math.ceil(totalUsers / usersPerPage) > currentPage + 2 && <span className="text-gray-400">...</span>}
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(Math.ceil(totalUsers / usersPerPage))}>
+                      {Math.ceil(totalUsers / usersPerPage)}
+                    </Button>
+                  </>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage >= Math.ceil(totalUsers / usersPerPage)}
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
+
+      {/* Modal de edición de usuario */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent 
+          className="p-0 flex flex-col"
+          style={{ 
+            width: '95vw', 
+            maxWidth: '800px', 
+            height: '80vh', 
+            maxHeight: '90vh' 
+          }}
+        >
+          <DialogHeader className="flex-shrink-0 p-3 pb-2">
+            <DialogTitle className="text-lg">Editar Usuario</DialogTitle>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto px-3 sm:px-4 min-h-0">
+            <div className="space-y-3 py-2">{editingUser && (
+              <>
+                <div className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="h-12 w-12 bg-gray-200 rounded-full flex items-center justify-center">
+                    <UsersIcon className="h-6 w-6 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium">{editingUser.name}</p>
+                    <p className="text-sm text-gray-600">RUT: {editingUser.rut}</p>
+                    <Badge variant={getRoleColor(editingUser.role)} className="text-xs">
+                      {roleLabel(editingUser.role)}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-primer-nombre">Primer Nombre</Label>
+                    <Input
+                      id="edit-primer-nombre"
+                      value={editFormData.primerNombre}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, primerNombre: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-segundo-nombre">Segundo Nombre</Label>
+                    <Input
+                      id="edit-segundo-nombre"
+                      value={editFormData.segundoNombre}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, segundoNombre: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-primer-apellido">Primer Apellido</Label>
+                    <Input
+                      id="edit-primer-apellido"
+                      value={editFormData.primerApellido}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, primerApellido: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-segundo-apellido">Segundo Apellido</Label>
+                    <Input
+                      id="edit-segundo-apellido"
+                      value={editFormData.segundoApellido}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, segundoApellido: e.target.value }))}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editFormData.email}
+                    readOnly
+                    className="bg-gray-50 cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-500">El email no se puede modificar</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-telefono">Teléfono</Label>
+                  <Input
+                    id="edit-telefono"
+                    value={editFormData.telefono}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, telefono: e.target.value }))}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="edit-direccion">Dirección</Label>
+                  <Input
+                    id="edit-direccion"
+                    value={editFormData.direccion}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, direccion: e.target.value }))}
+                  />
+                </div>
+
+                {(editingUser.role === 'doctor' || editingUser.role === 'admin') && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-especialidad">Especialidad</Label>
+                      <Input
+                        id="edit-especialidad"
+                        value={editFormData.especialidad}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, especialidad: e.target.value }))}
+                      />
+                    </div>
+                    
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="edit-is-admin"
+                        checked={editFormData.isAdmin}
+                        onCheckedChange={(checked: boolean) => setEditFormData(prev => ({ ...prev, isAdmin: !!checked }))}
+                      />
+                      <Label htmlFor="edit-is-admin" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        ¿Es Administrador?
+                      </Label>
+                    </div>
+                  </>
+                )}
+
+                {editingUser.role === 'patient' && (
+                  <>
+                    <div className="border-t pt-4 mt-4">
+                      <h4 className="font-medium text-sm text-gray-700 mb-3">Contacto de Emergencia</h4>
+                      
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-contacto-nombre">Nombre Completo</Label>
+                          <Input
+                            id="edit-contacto-nombre"
+                            value={editFormData.contactoNombre}
+                            onChange={(e) => setEditFormData(prev => ({ ...prev, contactoNombre: e.target.value }))}
+                            placeholder="Nombre completo del contacto de emergencia"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="edit-contacto-telefono">Teléfono</Label>
+                          <Input
+                            id="edit-contacto-telefono"
+                            value={editFormData.contactoTelefono}
+                            onChange={(e) => setEditFormData(prev => ({ ...prev, contactoTelefono: e.target.value }))}
+                            placeholder="Teléfono del contacto de emergencia"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+            </div>
+          </div>
+
+          <DialogFooter className="flex-shrink-0 p-3 pt-2 border-t bg-white">
+            <Button variant="outline" onClick={handleCloseEditModal} disabled={loading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveEdit} disabled={loading}>
+              {loading ? 'Guardando...' : 'Guardar Cambios'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

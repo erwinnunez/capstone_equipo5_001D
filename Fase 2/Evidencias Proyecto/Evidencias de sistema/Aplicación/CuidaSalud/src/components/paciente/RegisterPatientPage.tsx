@@ -211,8 +211,9 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
       setLoading(true);
       const resp = await createPaciente(payload);
       if (!resp.ok) {
-        const msg = resp.details ? nicePacMsg(resp.details) : resp.message;
-        return showError(msg || "No se pudo registrar al paciente.");
+        // Priorizar el mensaje personalizado del servicio
+        const msg = resp.message || (resp.details ? nicePacMsg(resp.details) : "No se pudo registrar al paciente.");
+        return showError(msg);
       }
       onSuccess();
     } catch (e: any) {

@@ -18,6 +18,88 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
+// Función para verificar si existe un paciente por RUT
+const checkPacienteByRut = async (rut: string): Promise<boolean> => {
+  try {
+    // Suprimimos logs de 404 temporalmente ya que es comportamiento esperado
+    const originalConsoleError = console.error;
+    console.error = () => {}; // Silenciar errores de consola durante esta verificación
+    
+    const response = await fetch(`${RUTA_PACIENTE}/${rut}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    // Restaurar console.error
+    console.error = originalConsoleError;
+    
+    // Si responde 200, el paciente existe
+    if (response.ok) {
+      return true;
+    }
+    
+    // Si responde 404, el paciente no existe (comportamiento esperado)
+    if (response.status === 404) {
+      return false;
+    }
+    
+    // Otros errores
+    throw new Error(`Error al verificar RUT: ${response.status}`);
+  } catch (error) {
+    // Restaurar console.error por si acaso
+    console.error = console.error || (() => {});
+    
+    // Si hay error de conexión, lo re-lanzamos
+    if (error instanceof TypeError) {
+      throw new Error('Error de conexión al verificar RUT');
+    }
+    throw error;
+  }
+};
+
+// Función para verificar si existe un paciente por email
+const checkPacienteByEmail = async (email: string): Promise<boolean> => {
+  try {
+    // Suprimimos logs de 404 temporalmente ya que es comportamiento esperado
+    const originalConsoleError = console.error;
+    console.error = () => {}; // Silenciar errores de consola durante esta verificación
+    
+    const response = await fetch(`${RUTA_PACIENTE}/email/${encodeURIComponent(email)}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    // Restaurar console.error
+    console.error = originalConsoleError;
+    
+    // Si responde 200, el paciente existe
+    if (response.ok) {
+      return true;
+    }
+    
+    // Si responde 404, el paciente no existe (comportamiento esperado)
+    if (response.status === 404) {
+      return false;
+    }
+    
+    // Otros errores
+    throw new Error(`Error al verificar email: ${response.status}`);
+  } catch (error) {
+    // Restaurar console.error por si acaso
+    console.error = console.error || (() => {});
+    
+    // Si hay error de conexión, lo re-lanzamos
+    if (error instanceof TypeError) {
+      throw new Error('Error de conexión al verificar email');
+    }
+    throw error;
+  }
+};
+
 /* =========================================================
    ===============  REGISTRO DE PACIENTE  ==================
    ========================================================= */
@@ -102,33 +184,126 @@ export function toNiceMessage(err: any): string {
   return "Error de validación";
 }
 
-async function handleJson<T>(res: Response): Promise<ApiResult<T>> {
-  const text = await res.text();
-  let json: any = null;
-  try { json = text ? JSON.parse(text) : null; } catch {}
-  if (!res.ok) {
-    if (res.status === 422 && json?.detail) {
-      return { ok: false, status: 422, message: toNiceMessage(json), details: json };
-    }
-    let msg = `HTTP ${res.status}`;
-    if (json?.detail) msg = typeof json.detail === "string" ? json.detail : JSON.stringify(json.detail);
-    return { ok: false, status: res.status, message: msg, details: json ?? text };
-  }
-  return { ok: true, data: (json ?? ({} as T)) as T };
-}
+import { 
+  createGamificacionPerfilSafe, 
+  type GamificacionPerfilCreate 
+} from './gamificacion';
 
 // Crear Paciente
 export async function createPaciente(payload: PacienteCreatePayload): Promise<ApiResult<any>> {
-  console.log(payload)
-  const res = await fetch(RUTA_PACIENTE, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(payload),
-  });
-  console.log(payload)
-  return handleJson<any>(res);
+  console.log("Creando paciente:", payload);
   
+  try {
+    // 1. Verificar si ya existe un paciente con ese RUT
+    console.log("🔍 Verificando RUT:", payload.rut_paciente);
+    const rutExists = await checkPacienteByRut(payload.rut_paciente);
+    if (rutExists) {
+      return {
+        ok: false,
+        status: 409,
+        message: "Ya existe un paciente registrado con este RUT",
+        details: null
+      };
+    }
+    
+    // 2. Verificar si ya existe un paciente con ese email
+    console.log("📧 Verificando email:", payload.email);
+    const emailExists = await checkPacienteByEmail(payload.email);
+    if (emailExists) {
+      return {
+        ok: false,
+        status: 409,
+        message: "El correo electrónico ya está registrado en el sistema",
+        details: null
+      };
+    }
+    
+    console.log("✅ RUT y email disponibles, procediendo a crear paciente");
+    
+    // 3. Crear el paciente (ahora sabemos que no hay duplicados)
+    const res = await fetch(RUTA_PACIENTE, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    
+    // Manejar errores del servidor
+    if (!res.ok) {
+      let errorMessage = "Error al crear el paciente";
+      
+      try {
+        const errorData = await res.json();
+        errorMessage = errorData.detail || errorData.message || `Error ${res.status}`;
+      } catch {
+        errorMessage = `Error ${res.status}: ${res.statusText}`;
+      }
+      
+      return {
+        ok: false,
+        status: res.status,
+        message: errorMessage,
+        details: null
+      };
+    }
+    
+    const result = await res.json();
+    const successResult = { ok: true, data: result, status: res.status, message: "Paciente creado exitosamente" };
+
+    // 4. Si el paciente se creó exitosamente, intentar crear su perfil de gamificación
+    if (successResult.ok) {
+      // Crear fecha en formato "YYYY-MM-DD HH:MM:SS.ssssss"
+      const now = new Date();
+      const fechaFormateada = now.getFullYear() + '-' + 
+        String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(now.getDate()).padStart(2, '0') + ' ' + 
+        String(now.getHours()).padStart(2, '0') + ':' + 
+        String(now.getMinutes()).padStart(2, '0') + ':' + 
+        String(now.getSeconds()).padStart(2, '0') + '.' + 
+        String(now.getMilliseconds() * 1000).padStart(6, '0');
+      
+      const gamificacionPayload: GamificacionPerfilCreate = {
+        rut_paciente: payload.rut_paciente,
+        puntos: 0,
+        racha_dias: 0,
+        ultima_actividad: fechaFormateada
+      };
+      
+      const gamificacionResult = await createGamificacionPerfilSafe(gamificacionPayload);
+      
+      if (gamificacionResult.success) {
+        console.log("✅ Perfil de gamificación creado para paciente:", payload.rut_paciente);
+      } else {
+        console.warn("⚠️ No se pudo crear el perfil de gamificación (no crítico):", {
+          paciente: payload.rut_paciente,
+          error: gamificacionResult.error,
+          info: "El paciente fue creado exitosamente. La gamificación se puede configurar manualmente más tarde."
+        });
+      }
+    }
+    
+    return successResult;
+  } catch (error: any) {
+    console.error("❌ Error al crear paciente:", error);
+    
+    // Manejar errores de conexión/CORS
+    let errorMessage = "Error de conexión con el servidor";
+    
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      errorMessage = "No se puede conectar con el servidor. Verifique su conexión a internet.";
+    } else if (error.message?.includes('CORS')) {
+      errorMessage = "Error de configuración del servidor (CORS)";
+    } else {
+      errorMessage = error.message || "Error desconocido al crear paciente";
+    }
+    
+    return {
+      ok: false,
+      status: 0,
+      message: errorMessage,
+      details: error
+    };
+  }
 }
 
 /* =========================================================
@@ -144,13 +319,102 @@ export async function getPacientes<T = PacienteOut[]>(): Promise<T> {
   return handleResponse(resp);
 }
 
-export async function getPacienteByRut<T = PacienteOut>(rut_paciente: string): Promise<T> {
-  const resp = await fetch(`${RUTA_PACIENTE}/${rut_paciente}`, {
+// Nueva función para listado con paginación y filtros
+export async function listPacientes(params: {
+  page?: number;
+  page_size?: number;
+  id_cesfam?: number;
+  id_comuna?: number;
+  estado?: boolean;
+  primer_nombre?: string;
+  segundo_nombre?: string;
+  primer_apellido?: string;
+  segundo_apellido?: string;
+}): Promise<Page<PacienteOut>> {
+  const qs = buildQuery({
+    page: params.page ?? 1,
+    page_size: params.page_size ?? 20,
+    id_cesfam: params.id_cesfam,
+    id_comuna: params.id_comuna,
+    estado: params.estado,
+    primer_nombre: params.primer_nombre,
+    segundo_nombre: params.segundo_nombre,
+    primer_apellido: params.primer_apellido,
+    segundo_apellido: params.segundo_apellido,
+  });
+
+  const resp = await fetch(`${RUTA_PACIENTE}?${qs}`, {
     method: "GET",
     headers: { "content-type": "application/json" },
     credentials: "include",
   });
-  return handleResponse(resp);
+  return handleResponse<Page<PacienteOut>>(resp);
+}
+
+export async function getPacienteByRut(rut_paciente: string): Promise<ApiResult<PacienteOut>> {
+  try {
+    const response = await fetch(`${RUTA_PACIENTE}/${rut_paciente}`, {
+      method: "GET",
+      headers: { "content-type": "application/json" },
+      credentials: "include",
+    });
+    
+    // Si encuentra el paciente
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        ok: true,
+        data: data
+      };
+    }
+    
+    // Si no encuentra el paciente (404)
+    if (response.status === 404) {
+      return {
+        ok: false,
+        status: 404,
+        message: "Paciente no encontrado",
+        details: null
+      };
+    }
+    
+    // Otros errores del servidor
+    let errorMessage = "Error al buscar paciente";
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.detail || errorData.message || `Error ${response.status}`;
+    } catch {
+      errorMessage = `Error ${response.status}: ${response.statusText}`;
+    }
+    
+    return {
+      ok: false,
+      status: response.status,
+      message: errorMessage,
+      details: null
+    };
+    
+  } catch (error: any) {
+    console.error("❌ Error al buscar paciente por RUT:", error);
+    
+    // Manejar errores de conexión/CORS
+    let errorMessage = "Error de conexión con el servidor";
+    
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      errorMessage = "No se puede conectar con el servidor. Verifique su conexión a internet.";
+    } else if (error.message?.includes('CORS')) {
+      errorMessage = "Error de configuración del servidor (CORS)";
+    } else {
+      errorMessage = error.message || "Error desconocido al buscar paciente";
+    }
+    
+    return {
+      ok: false,
+      status: 0,
+      message: errorMessage,
+      details: error
+    };
+  }
 }
 
 // Alias opcional, por si prefieres importar esto
@@ -324,4 +588,30 @@ export async function listAlertasMediciones(params?: {
     page: params?.page ?? 1,
     page_size: params?.page_size ?? 50,
   });
+}
+
+// ===== Función para actualizar paciente =====
+export async function updatePaciente(rut: string, payload: any) {
+  const response = await fetch(`${RUTA_PACIENTE}/${rut}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+  return handleResponse(response);
+}
+
+// ===== Función para activar/desactivar paciente =====
+export async function togglePacienteStatus(rut: string, estado: boolean) {
+  const response = await fetch(`${RUTA_PACIENTE}/${rut}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: "include",
+    body: JSON.stringify({ estado }),
+  });
+  return handleResponse(response);
 }

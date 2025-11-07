@@ -26,10 +26,23 @@ def list_medicos(page: int = 1, page_size: int = 20,
                              is_admin=is_admin)
     return Page(items=items, total=total, page=page, page_size=page_size)
 
+@router.get("/email/{email}", response_model=EquipoMedicoOut)
+def find_medico_by_email(email: str, 
+                        only_active: bool = Query(True),
+                        only_admin: bool | None = Query(None),
+                        db: Session = Depends(get_db)):
+    """Buscar equipo médico por email"""
+    obj = svc.find_by_email(db, email, only_active, only_admin)
+    if not obj: 
+        raise HTTPException(404, "Equipo médico no encontrado")
+    return obj
+
 @router.get("/{rut_medico}", response_model=EquipoMedicoOut)
 def get_medico(rut_medico: str, db: Session = Depends(get_db)):
+    """Buscar equipo médico por RUT"""
     obj = svc.get(db, rut_medico)
-    if not obj: raise HTTPException(404, "Not found")
+    if not obj: 
+        raise HTTPException(404, "Equipo médico no encontrado")
     return obj
 
 @router.post("", response_model=EquipoMedicoOut, status_code=status.HTTP_201_CREATED)
@@ -39,17 +52,20 @@ def create_medico(payload: EquipoMedicoCreate, db: Session = Depends(get_db)):
 @router.patch("/{rut_medico}", response_model=EquipoMedicoOut)
 def update_medico(rut_medico: str, payload: EquipoMedicoUpdate, db: Session = Depends(get_db)):
     obj = svc.update(db, rut_medico, payload)
-    if not obj: raise HTTPException(404, "Not found")
+    if not obj: 
+        raise HTTPException(404, "Equipo médico no encontrado")
     return obj
 
 @router.post("/{rut_medico}/estado")
 def set_estado_medico(rut_medico: str, payload: EquipoMedicoSetEstado, db: Session = Depends(get_db)):
     ok = svc.set_estado(db, rut_medico, payload.habilitar)
-    if not ok: raise HTTPException(404, "Not found")
+    if not ok: 
+        raise HTTPException(404, "Equipo médico no encontrado")
     return {"message": "OK", "habilitado": payload.habilitar}
 
 @router.delete("/{rut_medico}")
 def delete_medico(rut_medico: str, db: Session = Depends(get_db)):
     ok = svc.delete(db, rut_medico)
-    if not ok: raise HTTPException(404, "Not found")
+    if not ok: 
+        raise HTTPException(404, "Equipo médico no encontrado")
     return {"message": "Disabled"}

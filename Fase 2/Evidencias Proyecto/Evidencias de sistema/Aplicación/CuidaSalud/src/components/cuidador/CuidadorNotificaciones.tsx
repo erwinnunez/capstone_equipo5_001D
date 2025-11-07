@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
-import { Activity, Bell, AlertTriangle, TrendingUp, TrendingDown, Clock, User } from "lucide-react";
+import { Activity, Bell, AlertTriangle, TrendingDown, Clock, User } from "lucide-react";
 import { listPacienteCuidador } from "../../services/pacienteCuidador";
 import { listarMediciones } from "../../services/medicion";
 

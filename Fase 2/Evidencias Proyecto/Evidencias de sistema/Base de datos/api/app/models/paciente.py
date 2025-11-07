@@ -22,7 +22,7 @@ class Paciente(Base):
 
     direccion = Column(String, nullable=False)
     telefono = Column(Integer, nullable=False)
-    email = Column(String, nullable=False)
+    email = Column(String, nullable=False, unique=True)
     contrasena = Column(String, nullable=False)
 
     tipo_paciente = Column(String, nullable=False)

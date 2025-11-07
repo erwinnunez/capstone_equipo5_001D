@@ -21,6 +21,13 @@ async function handleResponse<T>(response: Response): Promise<T> {
    TIPOS
    ========================================================= */
 
+export interface GamificacionPerfilCreate {
+  rut_paciente: string;
+  puntos: number;
+  racha_dias: number;
+  ultima_actividad: string; // DateTime as ISO string
+}
+
 export interface GamificacionPerfilOut {
   rut_paciente: string;
   puntos: number;
@@ -57,6 +64,51 @@ export interface Page<T> {
 /* =========================================================
    FUNCIONES
    ========================================================= */
+
+/**
+ * Crea un nuevo perfil de gamificación para un paciente de forma segura
+ * No lanza errores, solo reporta el resultado
+ */
+export async function createGamificacionPerfilSafe(payload: GamificacionPerfilCreate): Promise<{ success: boolean; error?: string }> {
+  try {
+    await createGamificacionPerfil(payload);
+    return { success: true };
+  } catch (error: any) {
+    return { 
+      success: false, 
+      error: error.message || 'Error desconocido al crear perfil de gamificación'
+    };
+  }
+}
+
+/**
+ * Crea un nuevo perfil de gamificación para un paciente
+ */
+export async function createGamificacionPerfil(payload: GamificacionPerfilCreate): Promise<GamificacionPerfilOut> {
+  try {
+    const response = await fetch(RUTA_GAMIFICACION, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+      body: JSON.stringify(payload),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText || 'Error del servidor'}`);
+    }
+    
+    return await response.json();
+  } catch (error: any) {
+    // Mejorar el mensaje de error para debugging
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error(`Error de conexión con el servicio de gamificación: ${error.message}`);
+    }
+    throw error;
+  }
+}
 
 /**
  * Obtiene el perfil de gamificación de un paciente específico
