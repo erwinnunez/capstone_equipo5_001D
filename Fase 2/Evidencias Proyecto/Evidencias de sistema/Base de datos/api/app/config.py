@@ -8,6 +8,18 @@ class Settings(BaseSettings):
     POSTGRES_PORT: int = 5432
     POSTGRES_DB: str
 
+    # Email configuration - estas variables vendrán del .env
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str
+    SMTP_PASSWORD: str
+    SMTP_TLS: bool = True
+    SMTP_SSL: bool = False
+    
+    # Email settings
+    EMAILS_FROM_EMAIL: str
+    EMAILS_FROM_NAME: str = "Sistema de Salud CESFAM"
+
     @property
     def database_url(self) -> str:
         return (

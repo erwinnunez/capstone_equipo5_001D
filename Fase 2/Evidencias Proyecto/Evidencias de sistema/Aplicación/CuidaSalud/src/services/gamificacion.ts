@@ -3,7 +3,9 @@
 const API_HOST = import.meta.env.VITE_API_HOST ?? "http://127.0.0.1:8000";
 
 const RUTA_GAMIFICACION = `${API_HOST}/gamificacion-perfil`;
-const RUTA_MEDICION_ALERTAS = `${API_HOST}/medicion/alertas`;
+
+// Import para obtener TODAS las mediciones, no solo alertas
+import { listarMediciones } from './medicion';
 
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
@@ -143,25 +145,24 @@ export async function getWeeklyMeasurementProgress(rutPaciente: string): Promise
     sunday.setDate(monday.getDate() + 6);
     sunday.setHours(23, 59, 59, 999);
 
-    // Obtener mediciones de la semana actual
-    const response = await fetch(`${RUTA_MEDICION_ALERTAS}?` + new URLSearchParams({
-      rut_paciente: rutPaciente,
-      desde: monday.toISOString(),
-      hasta: sunday.toISOString(),
-      page: "1",
-      page_size: "100"
-    }), {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    // Obtener TODAS las mediciones de la semana actual
+    const result = await listarMediciones(1, 200);
     
-    const result = await handleResponse<Page<MedicionOut>>(response);
+    if (!result.ok) {
+      console.warn("Error obteniendo mediciones semanales:", result.message);
+      return { weeklyProgress: 0, weeklyGoal: 7 };
+    }
+
+    // Filtrar por paciente y rango de fechas
+    const medicionesFiltradas = result.data.items.filter(medicion => 
+      medicion.rut_paciente === rutPaciente &&
+      new Date(medicion.fecha_registro) >= monday &&
+      new Date(medicion.fecha_registro) <= sunday
+    );
     
     // Contar mediciones únicas por día (evitar duplicados del mismo día)
     const measurementDays = new Set<string>();
-    result.items.forEach(medicion => {
+    medicionesFiltradas.forEach(medicion => {
       const date = new Date(medicion.fecha_registro);
       const dayKey = date.toISOString().split('T')[0]; // YYYY-MM-DD
       measurementDays.add(dayKey);
@@ -206,25 +207,24 @@ export async function getRecentMeasurementsForChart(
     const endDate = new Date(today);
     endDate.setHours(23, 59, 59, 999);
 
-    // Obtener mediciones (usando endpoint de alertas que permite filtrar por paciente)
-    const response = await fetch(`${RUTA_MEDICION_ALERTAS}?` + new URLSearchParams({
-      rut_paciente: rutPaciente,
-      desde: startDate.toISOString(),
-      hasta: endDate.toISOString(),
-      page: "1",
-      page_size: "100"
-    }), {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    // Obtener TODAS las mediciones (no solo las de alerta)
+    const result = await listarMediciones(1, 200); // Obtener más registros para filtrar por fecha
     
-    const result = await handleResponse<Page<MedicionOut>>(response);
+    if (!result.ok) {
+      console.warn("Error obteniendo mediciones:", result.message);
+      return [];
+    }
+
+    // Filtrar por paciente y rango de fechas
+    const medicionesFiltradas = result.data.items.filter(medicion => 
+      medicion.rut_paciente === rutPaciente &&
+      new Date(medicion.fecha_registro) >= startDate &&
+      new Date(medicion.fecha_registro) <= endDate
+    );
     
     // Obtener detalles de cada medición
     const measurementsWithDetails = await Promise.all(
-      result.items.map(async (medicion) => {
+      medicionesFiltradas.map(async (medicion: MedicionOut) => {
         try {
           const detallesResponse = await fetch(`${API_HOST}/medicion-detalle?` + new URLSearchParams({
             id_medicion: String(medicion.id_medicion),
@@ -261,7 +261,7 @@ export async function getRecentMeasurementsForChart(
       [key: string]: any;
     }> = [];
     
-    measurementsWithDetails.forEach(medicion => {
+    measurementsWithDetails.forEach((medicion: any) => {
       const dateKey = new Date(medicion.fecha_registro).toISOString().split('T')[0]; // YYYY-MM-DD
       const timestamp = medicion.fecha_registro; // Timestamp completo para ordenar
       
@@ -406,6 +406,19 @@ export async function updateUltimaActividad(rutPaciente: string): Promise<{ succ
 
     await response.json(); // Consumir la respuesta
     console.log(`✅ [updateUltimaActividad] Última actividad actualizada exitosamente para paciente ${rutPaciente}`);
+    
+    // Evaluar insignias después de actualizar actividad
+    try {
+      const { evaluarYOtorgarInsignias } = await import('./insignia');
+      const insigniasResult = await evaluarYOtorgarInsignias(rutPaciente);
+      
+      if (insigniasResult.success && insigniasResult.insigniasOtorgadas.length > 0) {
+        console.log(`🏆 [updateUltimaActividad] ${insigniasResult.insigniasOtorgadas.length} nuevas insignias otorgadas a ${rutPaciente}`);
+      }
+    } catch (insigniasError) {
+      console.warn(`⚠️ [updateUltimaActividad] Error en evaluación de insignias para ${rutPaciente}:`, insigniasError);
+    }
+    
     return { success: true };
     
   } catch (error) {
@@ -557,6 +570,21 @@ export async function procesarGamificacionMedicion(rutPaciente: string): Promise
     
     if (updateResult.success) {
       console.log(`✅ [procesarGamificacionMedicion] Gamificación actualizada para ${rutPaciente}: +20 puntos, racha ${nuevaRacha}`);
+      
+      // Evaluar y otorgar insignias automáticamente
+      try {
+        const { evaluarYOtorgarInsignias } = await import('./insignia');
+        const insigniasResult = await evaluarYOtorgarInsignias(rutPaciente);
+        
+        if (insigniasResult.success && insigniasResult.insigniasOtorgadas.length > 0) {
+          console.log(`🏆 [procesarGamificacionMedicion] ${insigniasResult.insigniasOtorgadas.length} nuevas insignias otorgadas a ${rutPaciente}`);
+        } else if (!insigniasResult.success) {
+          console.warn(`⚠️ [procesarGamificacionMedicion] Error evaluando insignias para ${rutPaciente}:`, insigniasResult.error);
+        }
+      } catch (insigniasError) {
+        console.warn(`⚠️ [procesarGamificacionMedicion] Error en evaluación de insignias para ${rutPaciente}:`, insigniasError);
+      }
+      
       return { 
         success: true, 
         puntosGanados: 20, 

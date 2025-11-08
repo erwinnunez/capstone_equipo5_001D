@@ -11,9 +11,11 @@ import type { MedicionCreatePayload, Severidad } from '../../services/paciente';
 import { listParametrosClinicos, type ParametroClinicoOut } from '../../services/parametroClinico';
 import { getRangosIndexByParametro, type RangoPacienteOut } from '../../services/rangoPaciente';
 import { getGamificacionPerfil, getWeeklyMeasurementProgress, getRecentMeasurementsForChart, procesarGamificacionMedicion, type GamificacionPerfilOut } from '../../services/gamificacion';
+import { validarTodasLasMediciones, generarResumenErrores, type ErrorValidacion } from '../../services/validacionMediciones';
+import MedicionValidationModal from '../common/MedicionValidationModal';
 
 interface Props {
-  rutPaciente?: number;
+  rutPaciente?: string;
 }
 
 export default function PatientMeasurements({ rutPaciente }: Props) {
@@ -57,6 +59,11 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
   }>>([]);
   const [loadingChart, setLoadingChart] = useState(false);
 
+  // Estados para validación de mediciones
+  const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ErrorValidacion[]>([]);
+  const [pendingSave, setPendingSave] = useState(false);
+
   // Carga parámetros clínicos
   useEffect(() => {
     (async () => {
@@ -80,7 +87,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       try {
         setLoadingRangos(true);
         setRangosError(null);
-        const idx = await getRangosIndexByParametro(String(rutPaciente));
+        const idx = await getRangosIndexByParametro(rutPaciente);
         setRangos(idx);
       } catch (e: any) {
         setRangosError(e?.message ?? 'No se pudieron cargar los rangos del paciente');
@@ -102,9 +109,9 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
         
         // Cargar gamificación, progreso semanal y datos de gráfica en paralelo
         const [perfil, progreso, chartData] = await Promise.all([
-          getGamificacionPerfil(String(rutPaciente)),
-          getWeeklyMeasurementProgress(String(rutPaciente)),
-          getRecentMeasurementsForChart(String(rutPaciente), 7)
+          getGamificacionPerfil(rutPaciente),
+          getWeeklyMeasurementProgress(rutPaciente),
+          getRecentMeasurementsForChart(rutPaciente, 7)
         ]);
         
         setGamificacion(perfil);
@@ -220,6 +227,38 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
     const ox = parseNumber(newMeasurement.oxygen);
     const t  = parseNumber(newMeasurement.temperature);
 
+    // VALIDACIÓN MÉDICA ANTES DE PROCESAR
+    const erroresValidacion = validarTodasLasMediciones({
+      glucosa: bg,
+      presionSistolica: sys,
+      presionDiastolica: dia,
+      saturacionOxigeno: ox,
+      temperatura: t
+    });
+
+    // Si hay errores de validación, mostrar modal
+    if (erroresValidacion.length > 0) {
+      setValidationErrors(erroresValidacion);
+      setValidationModalOpen(true);
+      setPendingSave(true);
+      return;
+    }
+
+    // Si no hay errores, proceder con el guardado
+    await realizarGuardadoMedicion();
+  };
+
+  // Función auxiliar para realizar el guardado real
+  const realizarGuardadoMedicion = async () => {
+    if (!rutPaciente) return;
+    if (!validate()) return;
+
+    const sys = parseNumber(newMeasurement.bloodPressureSys);
+    const dia = parseNumber(newMeasurement.bloodPressureDia);
+    const bg = parseNumber(newMeasurement.bloodSugar);
+    const ox = parseNumber(newMeasurement.oxygen);
+    const t  = parseNumber(newMeasurement.temperature);
+
     // RANGOS
     const rBG  = pickRanges(P.GLUCOSA, 70, 140, 60, 250);
     const rSYS = pickRanges(P.PRESION_SIS, 90, 140, 70, 200);
@@ -241,7 +280,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
     const nowIso = new Date().toISOString();
 
     const baseMedicion: MedicionCreatePayload = {
-      rut_paciente: String(rutPaciente),
+      rut_paciente: rutPaciente,
       fecha_registro: nowIso,
       origen: 'WEB',
       registrado_por: 'SELF',
@@ -341,10 +380,9 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       await createMedicionWithDetails({ medicion: baseMedicion, detalles });
       
       // 2. Procesar gamificación para el paciente
-      const rutPacienteStr = rutPaciente?.toString() || '';
-      if (rutPacienteStr) {
+      if (rutPaciente) {
         try {
-          const resultadoGamificacion = await procesarGamificacionMedicion(rutPacienteStr);
+          const resultadoGamificacion = await procesarGamificacionMedicion(rutPaciente);
           if (resultadoGamificacion.success && resultadoGamificacion.puntosGanados && resultadoGamificacion.puntosGanados > 0) {
             console.log(`🎮 Gamificación: +${resultadoGamificacion.puntosGanados} puntos, racha ${resultadoGamificacion.nuevaRacha} días`);
             alert(`¡Medición registrada exitosamente!\n🎮 ¡Ganaste ${resultadoGamificacion.puntosGanados} puntos! Tu racha actual: ${resultadoGamificacion.nuevaRacha} días.`);
@@ -377,14 +415,44 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       alert(e?.message ?? 'No se pudo registrar la medición.');
     } finally {
       setSubmitting(false);
+      setPendingSave(false);
     }
   };
+
+  // Funciones para manejar el modal de validación
+  const handleValidationContinue = async () => {
+    if (pendingSave) {
+      await realizarGuardadoMedicion();
+    }
+  };
+
+  const handleValidationCancel = () => {
+    setPendingSave(false);
+  };
+
+  // Generar resumen de errores para el modal
+  const resumenErrores = validationErrors.length > 0 ? generarResumenErrores(validationErrors) : null;
 
   const helper = (name: keyof typeof errors) =>
     errors[name] ? <p className="text-xs text-red-600 mt-1">{errors[name]}</p> : null;
 
   return (
     <div className="space-y-6">
+      {/* Modal de validación de mediciones */}
+      {resumenErrores && (
+        <MedicionValidationModal
+          open={validationModalOpen}
+          onOpenChange={setValidationModalOpen}
+          errores={validationErrors}
+          onContinue={resumenErrores.puedeGuardar ? handleValidationContinue : undefined}
+          onCancel={handleValidationCancel}
+          titulo={resumenErrores.titulo}
+          mensaje={resumenErrores.mensaje}
+          puedeGuardar={resumenErrores.puedeGuardar}
+          tipoAlerta={resumenErrores.tipoAlerta}
+        />
+      )}
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Add New Measurement */}
         <Card>

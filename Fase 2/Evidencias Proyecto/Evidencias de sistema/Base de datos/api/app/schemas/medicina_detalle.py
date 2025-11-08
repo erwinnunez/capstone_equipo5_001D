@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 class MedicinaDetalleCreate(BaseModel):
     id_medicina: int = Field(..., ge=1, description="ID de la medicina registrada")
-    rut_paciente: int = Field(..., ge=1, description="RUT del paciente asociado")
+    rut_paciente: str = Field(..., description="RUT del paciente asociado")
     dosis: str = Field(..., min_length=1, max_length=100, example="1 tableta cada 8 horas")
     instrucciones_toma: str | None = Field(
         default=None,
@@ -44,7 +44,7 @@ class MedicinaDetalleCreate(BaseModel):
 
 class MedicinaDetalleUpdate(BaseModel):
     id_medicina: int | None = Field(None, ge=1)
-    rut_paciente: int | None = Field(None, ge=1)
+    rut_paciente: str | None = Field(None)
     dosis: str | None = Field(None, min_length=1, max_length=50)
     instrucciones_toma: str | None = Field(None, min_length=5, max_length=255)
     fecha_inicio: datetime | None = None
@@ -71,7 +71,7 @@ class MedicinaDetalleUpdate(BaseModel):
 class MedicinaDetalleOut(BaseModel):
     id_detalle: int
     id_medicina: int
-    rut_paciente: int
+    rut_paciente: str
     dosis: str
     instrucciones_toma: str
     fecha_inicio: datetime

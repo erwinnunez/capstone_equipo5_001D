@@ -13,6 +13,8 @@ import { getRangosIndexByParametro, type RangoPacienteOut } from '../../services
 import { listarMediciones, type MedicionOut } from '../../services/medicion';
 import { usePacienteCuidador } from '../../hooks/usePacienteCuidador';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
+import { validarTodasLasMediciones, generarResumenErrores, type ErrorValidacion } from '../../services/validacionMediciones';
+import MedicionValidationModal from '../common/MedicionValidationModal';
 
 export default function CuidadorDataEntry() {
   // Hook para obtener pacientes asignados
@@ -49,6 +51,11 @@ export default function CuidadorDataEntry() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Estados para validación de mediciones
+  const [validationModalOpen, setValidationModalOpen] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ErrorValidacion[]>([]);
+  const [pendingSave, setPendingSave] = useState(false);
 
   const [loadingParams, setLoadingParams] = useState(true);
   const [params, setParams] = useState<ParametroClinicoOut[]>([]);
@@ -221,6 +228,38 @@ export default function CuidadorDataEntry() {
     const ox = parseNumber(newMeasurement.oxygen);
     const t  = parseNumber(newMeasurement.temperature);
 
+    // VALIDACIÓN MÉDICA ANTES DE PROCESAR
+    const erroresValidacion = validarTodasLasMediciones({
+      glucosa: bg,
+      presionSistolica: sys,
+      presionDiastolica: dia,
+      saturacionOxigeno: ox,
+      temperatura: t
+    });
+
+    // Si hay errores de validación, mostrar modal
+    if (erroresValidacion.length > 0) {
+      setValidationErrors(erroresValidacion);
+      setValidationModalOpen(true);
+      setPendingSave(true);
+      return;
+    }
+
+    // Si no hay errores, proceder con el guardado
+    await realizarGuardadoMedicionCuidador();
+  };
+
+  // Función auxiliar para realizar el guardado real (cuidador)
+  const realizarGuardadoMedicionCuidador = async () => {
+    if (!selectedPatientRut) return;
+    if (!validate()) return;
+
+    const sys = parseNumber(newMeasurement.bloodPressureSys);
+    const dia = parseNumber(newMeasurement.bloodPressureDia);
+    const bg = parseNumber(newMeasurement.bloodSugar);
+    const ox = parseNumber(newMeasurement.oxygen);
+    const t  = parseNumber(newMeasurement.temperature);
+
     // RANGOS
     const rBG  = pickRanges(P.GLUCOSA, 70, 140, 60, 250);
     const rSYS = pickRanges(P.PRESION_SIS, 90, 140, 70, 200);
@@ -375,8 +414,23 @@ export default function CuidadorDataEntry() {
       alert(e?.message ?? 'No se pudo registrar la medición.');
     } finally {
       setSubmitting(false);
+      setPendingSave(false);
     }
   };
+
+  // Funciones para manejar el modal de validación (cuidador)
+  const handleValidationContinueCuidador = async () => {
+    if (pendingSave) {
+      await realizarGuardadoMedicionCuidador();
+    }
+  };
+
+  const handleValidationCancelCuidador = () => {
+    setPendingSave(false);
+  };
+
+  // Generar resumen de errores para el modal
+  const resumenErrores = validationErrors.length > 0 ? generarResumenErrores(validationErrors) : null;
 
   const helper = (name: keyof typeof errors) =>
     errors[name] ? <p className="text-xs text-red-600 mt-1">{errors[name]}</p> : null;
@@ -412,6 +466,21 @@ export default function CuidadorDataEntry() {
 
   return (
     <div className="space-y-6">
+      {/* Modal de validación de mediciones */}
+      {resumenErrores && (
+        <MedicionValidationModal
+          open={validationModalOpen}
+          onOpenChange={setValidationModalOpen}
+          errores={validationErrors}
+          onContinue={resumenErrores.puedeGuardar ? handleValidationContinueCuidador : undefined}
+          onCancel={handleValidationCancelCuidador}
+          titulo={resumenErrores.titulo}
+          mensaje={resumenErrores.mensaje}
+          puedeGuardar={resumenErrores.puedeGuardar}
+          tipoAlerta={resumenErrores.tipoAlerta}
+        />
+      )}
+      
       {/* Sección de filtros y búsqueda de mediciones */}
       <Card>
         <CardHeader>

@@ -191,6 +191,7 @@ import {
   createGamificacionPerfilSafe, 
   type GamificacionPerfilCreate 
 } from './gamificacion';
+import { enviarEmailBienvenida } from './email';
 
 // Crear Paciente
 export async function createPaciente(payload: PacienteCreatePayload): Promise<ApiResult<any>> {
@@ -234,11 +235,31 @@ export async function createPaciente(payload: PacienteCreatePayload): Promise<Ap
     // Manejar errores del servidor
     if (!res.ok) {
       let errorMessage = "Error al crear el paciente";
+      let errorDetails = null;
       
       try {
         const errorData = await res.json();
-        errorMessage = errorData.detail || errorData.message || `Error ${res.status}`;
-      } catch {
+        console.error("Error del servidor:", errorData);
+        
+        // Manejar diferentes formatos de error
+        if (errorData.detail) {
+          if (Array.isArray(errorData.detail)) {
+            // Error de validación con detalles
+            errorMessage = errorData.detail.map((d: any) => {
+              const loc = Array.isArray(d.loc) ? d.loc.join(".") : String(d.loc ?? "");
+              return loc ? `${loc}: ${d.msg}` : d.msg;
+            }).join(" | ");
+            errorDetails = errorData.detail;
+          } else if (typeof errorData.detail === 'string') {
+            errorMessage = errorData.detail;
+          } else {
+            errorMessage = JSON.stringify(errorData.detail);
+          }
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        }
+      } catch (parseError) {
+        console.error("Error parsing error response:", parseError);
         errorMessage = `Error ${res.status}: ${res.statusText}`;
       }
       
@@ -246,7 +267,7 @@ export async function createPaciente(payload: PacienteCreatePayload): Promise<Ap
         ok: false,
         status: res.status,
         message: errorMessage,
-        details: null
+        details: errorDetails
       };
     }
     
@@ -281,6 +302,25 @@ export async function createPaciente(payload: PacienteCreatePayload): Promise<Ap
           paciente: payload.rut_paciente,
           error: gamificacionResult.error,
           info: "El paciente fue creado exitosamente. La gamificación se puede configurar manualmente más tarde."
+        });
+      }
+
+      // 5. Enviar email de bienvenida al paciente
+      try {
+        console.log("📧 Enviando email de bienvenida a paciente:", payload.email);
+        const emailData = {
+          to: payload.email,
+          patient_name: `${payload.primer_nombre_paciente} ${payload.primer_apellido_paciente}`,
+          rut: payload.rut_paciente,
+          temporary_password: "Su contraseña inicial" // O generar una temporal si es necesario
+        };
+        await enviarEmailBienvenida(emailData);
+        console.log("✅ Email de bienvenida enviado exitosamente a:", payload.email);
+      } catch (emailError) {
+        console.warn("⚠️ No se pudo enviar email de bienvenida (no crítico):", {
+          email: payload.email,
+          error: emailError,
+          info: "El paciente fue registrado exitosamente. El email se puede enviar manualmente."
         });
       }
     }

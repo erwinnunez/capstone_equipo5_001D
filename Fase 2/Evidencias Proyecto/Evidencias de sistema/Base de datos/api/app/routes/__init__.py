@@ -33,6 +33,7 @@ from .descarga_reporte import router as descarga_reporte_router
 from .medicina import router as medicina_router
 from .medicina_detalle import router as medicina_detalle_router
 from .auth import router as auth_router
+from .email import router as email_router
 
 ALL_ROUTERS = [
     region_router,
@@ -60,4 +61,5 @@ ALL_ROUTERS = [
     medicina_detalle_router,
     medicina_router,
     auth_router,
+    email_router,
 ]

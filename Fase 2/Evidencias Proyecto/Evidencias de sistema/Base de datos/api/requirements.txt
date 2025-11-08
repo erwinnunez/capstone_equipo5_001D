@@ -34,3 +34,13 @@ uvicorn==0.35.0
 #uvloop==0.21.0
 watchfiles==1.1.0
 websockets==15.0.1
+
+# Email dependencies
+email-validator==2.3.0
+aiosmtplib==5.0.0
+jinja2==3.1.6
+
+# Password hashing
+passlib==1.7.4
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2

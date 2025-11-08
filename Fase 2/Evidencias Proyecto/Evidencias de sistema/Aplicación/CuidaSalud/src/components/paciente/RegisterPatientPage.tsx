@@ -66,8 +66,12 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
   // ---- Modal de error (un error a la vez, como en Admin)
   const [errorOpen, setErrorOpen] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const showError = (msg: string) => {
-    setErrorMsg(msg);
+  const showError = (msg: string | any) => {
+    // Asegurar que siempre sea string
+    const errorMessage = typeof msg === 'string' ? msg : 
+                        (msg?.message ? String(msg.message) : 
+                         JSON.stringify(msg));
+    setErrorMsg(errorMessage);
     setErrorOpen(true);
   };
 
@@ -212,12 +216,25 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
       const resp = await createPaciente(payload);
       if (!resp.ok) {
         // Priorizar el mensaje personalizado del servicio
-        const msg = resp.message || (resp.details ? nicePacMsg(resp.details) : "No se pudo registrar al paciente.");
+        let msg = resp.message || "No se pudo registrar al paciente.";
+        if (resp.details) {
+          try {
+            const detailMsg = nicePacMsg(resp.details);
+            if (typeof detailMsg === 'string' && detailMsg.trim()) {
+              msg = detailMsg;
+            }
+          } catch (e) {
+            console.error('Error procesando detalles:', e);
+            // Usar mensaje base si falla el procesamiento
+          }
+        }
         return showError(msg);
       }
       onSuccess();
     } catch (e: any) {
-      showError(e?.message || "Error inesperado registrando paciente.");
+      const errorMsg = e?.message || "Error inesperado registrando paciente.";
+      console.error('Error creando paciente:', e);
+      showError(typeof errorMsg === 'string' ? errorMsg : "Error inesperado registrando paciente.");
     } finally {
       setLoading(false);
     }

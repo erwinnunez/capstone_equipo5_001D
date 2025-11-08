@@ -2,6 +2,8 @@
 // Servicio de Cuidador: crear (registro)
 // Compatible con schema CuidadorCreate del backend
 
+import { enviarEmailBienvenida } from './email';
+
 const API_HOST = "http://127.0.0.1:8000";
 const RUTA_CUIDADOR = `${API_HOST}/cuidador`;
 const RUTA_CUIDADOR_HISTORIAL = `${API_HOST}/cuidador-historial`;
@@ -179,10 +181,33 @@ export async function createCuidador(payload: CuidadorCreatePayload): Promise<Ap
     }
     
     const result = await res.json();
-    return {
-      ok: true,
+    const successResult = {
+      ok: true as const,
       data: result
     };
+
+    // Enviar email de bienvenida al cuidador
+    if (successResult.ok) {
+      try {
+        console.log("📧 Enviando email de bienvenida a cuidador:", payload.email);
+        const emailData = {
+          to: payload.email,
+          patient_name: `${payload.primer_nombre_cuidador} ${payload.primer_apellido_cuidador}`,
+          rut: payload.rut_cuidador,
+          temporary_password: "Su contraseña inicial" // O generar una temporal si es necesario
+        };
+        await enviarEmailBienvenida(emailData);
+        console.log("✅ Email de bienvenida enviado exitosamente a cuidador:", payload.email);
+      } catch (emailError) {
+        console.warn("⚠️ No se pudo enviar email de bienvenida a cuidador (no crítico):", {
+          email: payload.email,
+          error: emailError,
+          info: "El cuidador fue registrado exitosamente. El email se puede enviar manualmente."
+        });
+      }
+    }
+
+    return successResult;
     
   } catch (error: any) {
     console.error("❌ Error al crear cuidador:", error);

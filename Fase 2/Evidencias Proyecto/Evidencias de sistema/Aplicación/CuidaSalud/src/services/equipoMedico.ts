@@ -1,6 +1,8 @@
 // src/services/equipoMedico.ts
 // Servicio para crear médicos (incluye is_admin)
 
+import { enviarEmailBienvenida } from './email';
+
 const API_HOST = "http://127.0.0.1:8000";
 const RUTA_EQUIPO_MEDICO = `${API_HOST}/equipo-medico`;
 const RUTA_MEDICO_HISTORIAL = `${API_HOST}/medico-historial`;
@@ -195,10 +197,33 @@ export async function createMedico(
     }
     
     const result = await res.json();
-    return {
-      ok: true,
+    const successResult = {
+      ok: true as const,
       data: result
     };
+
+    // Enviar email de bienvenida al médico/administrador
+    if (successResult.ok) {
+      try {
+        console.log("📧 Enviando email de bienvenida a médico:", payload.email);
+        const emailData = {
+          to: payload.email,
+          patient_name: `${payload.primer_nombre_medico} ${payload.primer_apellido_medico}`,
+          rut: payload.rut_medico,
+          temporary_password: "Su contraseña inicial" // O generar una temporal si es necesario
+        };
+        await enviarEmailBienvenida(emailData);
+        console.log("✅ Email de bienvenida enviado exitosamente a médico:", payload.email);
+      } catch (emailError) {
+        console.warn("⚠️ No se pudo enviar email de bienvenida a médico (no crítico):", {
+          email: payload.email,
+          error: emailError,
+          info: "El médico fue registrado exitosamente. El email se puede enviar manualmente."
+        });
+      }
+    }
+
+    return successResult;
     
   } catch (error: any) {
     console.error("❌ Error al crear médico/administrador:", error);

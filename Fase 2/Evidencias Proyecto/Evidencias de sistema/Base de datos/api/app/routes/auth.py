@@ -23,7 +23,7 @@ class FrontUser(BaseModel):
     name: str
     role: str
     email: EmailStr
-    rut_paciente: int | None = None
+    rut_paciente: str | None = None
 
 class LoginOut(BaseModel):
     user: FrontUser
