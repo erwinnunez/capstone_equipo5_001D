@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
-import { Users, Search, Filter, ChevronLeft, ChevronRight, Activity } from 'lucide-react';
+import { Users, Search, Filter, ChevronLeft, ChevronRight, Activity, Download, Calendar } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -8,10 +8,14 @@ import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ScrollArea } from '../ui/scroll-area';
 import { Separator } from '../ui/separator';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { getPacientes } from '../../services/paciente.ts';
-import { listarMedicionesConAlerta, MedicionOut, listMedicionDetalles, MedicionDetalleOut } from '../../services/medicion.ts';
-import { listComunas, ComunaOut } from '../../services/comuna.ts';
-import { listCesfam, CesfamOut } from '../../services/cesfam.ts';
+import { listarMedicionesConAlerta, listMedicionDetalles, listarMediciones } from '../../services/medicion.ts';
+import type { MedicionOut, MedicionDetalleOut } from '../../services/medicion.ts';
+import { listComunas } from '../../services/comuna.ts';
+import type { ComunaOut } from '../../services/comuna.ts';
+import { listCesfam } from '../../services/cesfam.ts';
+import type { CesfamOut } from '../../services/cesfam.ts';
 
 // ---------- TIPOS ----------
 type PacienteOut = {
@@ -55,14 +59,14 @@ type pacienteDialog = {
 };
 
 // ---------- MODAL DE DETALLE ----------
-function InputDato({ label, value }: { label: string, value: string }) {
-  return (
-    <div className="min-w-[160px]">
-      <label className="text-xs font-medium text-gray-600 mb-0.5 block">{label}</label>
-      <Input value={value} readOnly className="rounded px-3 py-1 h-8 text-sm bg-gray-50" />
-    </div>
-  );
-}
+// function InputDato({ label, value }: { label: string, value: string }) {
+//   return (
+//     <div className="min-w-[160px]">
+//       <label className="text-xs font-medium text-gray-600 mb-0.5 block">{label}</label>
+//       <Input value={value} readOnly className="rounded px-3 py-1 h-8 text-sm bg-gray-50" />
+//     </div>
+//   );
+// }
 
 export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesfams, children }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,7 +77,7 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
   const [alertasLoading, setAlertasLoading] = useState(false);
   const [alertasError, setAlertasError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalAlertas, setTotalAlertas] = useState(0);
+  // const [totalAlertas, setTotalAlertas] = useState(0);
   const pageSize = 5;
 
   // MODAL DETALLE DE ALERTA INDIVIDUAL
@@ -81,6 +85,13 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
   const [alertaSeleccionada, setAlertaSeleccionada] = useState<MedicionOut | null>(null);
   const [loadingDetalles, setLoadingDetalles] = useState(false);
   const [detalles, setDetalles] = useState<MedicionDetalleOut[]>([]);
+
+  // MODAL PROGRESO DEL PACIENTE
+  const [progresoModalOpen, setProgresoModalOpen] = useState(false);
+  const [medicionesProgreso, setMedicionesProgreso] = useState<any[]>([]);
+  const [loadingProgreso, setLoadingProgreso] = useState(false);
+  const [fechaDesde, setFechaDesde] = useState('');
+  const [fechaHasta, setFechaHasta] = useState('');
 
   useEffect(() => {
     if (detalleAlertaOpen && alertaSeleccionada) {
@@ -100,8 +111,139 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
     }
   }, [detalleAlertaOpen, alertaSeleccionada]);
 
-  const handleVerProgreso = () => {
-    alert('Ver progreso del paciente no implementado aún.');
+  const handleVerProgreso = async () => {
+    // Configurar fechas por defecto para últimos 30 días
+    const hoy = new Date();
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hoy.getDate() - 30);
+    
+    const fechaHastaDefault = hoy.toISOString().split('T')[0];
+    const fechaDesdeDefault = hace30Dias.toISOString().split('T')[0];
+    
+    setFechaDesde(fechaDesdeDefault);
+    setFechaHasta(fechaHastaDefault);
+    
+    setProgresoModalOpen(true);
+    await cargarMedicionesProgreso(fechaDesdeDefault, fechaHastaDefault);
+  };
+
+  const cargarMedicionesProgreso = async (desde?: string, hasta?: string) => {
+    setLoadingProgreso(true);
+    try {
+      // Obtener todas las mediciones del paciente (con y sin alertas)
+      const res = await listarMediciones(1, 100);
+      
+      if (res.ok) {
+        // Filtrar por paciente
+        let medicionesFiltradas = res.data.items.filter(m => 
+          String(m.rut_paciente) === String(paciente.rut_paciente)
+        );
+        
+        // Filtrar por fechas si se proporcionan
+        if (desde) {
+          medicionesFiltradas = medicionesFiltradas.filter(m => 
+            new Date(m.fecha_registro) >= new Date(desde)
+          );
+        }
+        
+        if (hasta) {
+          medicionesFiltradas = medicionesFiltradas.filter(m => 
+            new Date(m.fecha_registro) <= new Date(hasta)
+          );
+        }
+
+        // Procesar datos para el gráfico
+        const datosGrafico = await procesarMedicionesParaGrafico(medicionesFiltradas);
+        setMedicionesProgreso(datosGrafico);
+      }
+    } catch (error) {
+      console.error('Error cargando mediciones:', error);
+    }
+    setLoadingProgreso(false);
+  };
+
+  const procesarMedicionesParaGrafico = async (mediciones: MedicionOut[]) => {
+    const datosAgrupados: Record<string, any> = {};
+
+    for (const medicion of mediciones) {
+      const fecha = new Date(medicion.fecha_registro).toLocaleDateString();
+      
+      if (!datosAgrupados[fecha]) {
+        datosAgrupados[fecha] = {
+          date: fecha,
+          bloodSugar: null,
+          bloodPressureSys: null,
+          bloodPressureDia: null,
+          oxygen: null,
+          temperature: null
+        };
+      }
+
+      // Obtener detalles de la medición
+      const detallesRes = await listMedicionDetalles({ id_medicion: medicion.id_medicion });
+      if (detallesRes.ok) {
+        detallesRes.data.items.forEach((detalle: MedicionDetalleOut) => {
+          switch (detalle.id_parametro) {
+            case 1: // Glucosa
+              datosAgrupados[fecha].bloodSugar = detalle.valor_num;
+              break;
+            case 2: // Presión Sistólica
+              datosAgrupados[fecha].bloodPressureSys = detalle.valor_num;
+              break;
+            case 3: // Presión Diastólica
+              datosAgrupados[fecha].bloodPressureDia = detalle.valor_num;
+              break;
+            case 4: // Saturación O2
+              datosAgrupados[fecha].oxygen = detalle.valor_num;
+              break;
+            case 5: // Temperatura
+              datosAgrupados[fecha].temperature = detalle.valor_num;
+              break;
+          }
+        });
+      }
+    }
+
+    return Object.values(datosAgrupados).sort((a: any, b: any) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+  };
+
+  const descargarMediciones = () => {
+    // Crear CSV con las mediciones filtradas
+    const headers = ['Fecha', 'Glucosa (mg/dL)', 'Presion Sistolica (mmHg)', 'Presion Diastolica (mmHg)', 'Saturacion O2 (%)', 'Temperatura (°C)'];
+    
+    // Agregar BOM para UTF-8 y mejorar compatibilidad con Excel
+    const BOM = '\uFEFF';
+    
+    const csvRows = [
+      headers.join(';'), // Usar punto y coma como separador para Excel
+      ...medicionesProgreso.map((row: any) => 
+        [
+          row.date || '',
+          row.bloodSugar || '',
+          row.bloodPressureSys || '',
+          row.bloodPressureDia || '',
+          row.oxygen || '',
+          row.temperature || ''
+        ].join(';')
+      )
+    ];
+    
+    const csvContent = BOM + csvRows.join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `mediciones_${paciente.primer_nombre_paciente}_${paciente.primer_apellido_paciente}_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    
+    // Limpiar el URL del objeto
+    URL.revokeObjectURL(link.href);
+  };
+
+  const aplicarFiltroFechas = () => {
+    cargarMedicionesProgreso(fechaDesde, fechaHasta);
   };
 
   const handleVerAlertas = async () => {
@@ -118,11 +260,11 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
     setAlertasLoading(false);
     if (res.ok) {
       setAlertas(res.data.items);
-      setTotalAlertas(res.data.total);
+      // setTotalAlertas(res.data.total); // No usado actualmente
     } else {
       setAlertasError(res.message);
       setAlertas([]);
-      setTotalAlertas(0);
+      // setTotalAlertas(0); // No usado actualmente
     }
   };
 
@@ -163,7 +305,7 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
     </div>
   );
 
-  const totalPages = Math.ceil(totalAlertas / pageSize);
+  // const totalPages = Math.ceil(alertas.length / pageSize); // No usado actualmente
 
   return (
     <>
@@ -172,68 +314,134 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
         <DialogTrigger asChild>
           {children}
         </DialogTrigger>
-        <DialogContent className="max-h-[85vh] w-[90vw] max-w-4xl overflow-auto p-6 bg-white rounded-md shadow-lg">
+        <DialogContent className="max-h-[85vh] w-[90vw] max-w-4xl overflow-auto p-6 bg-white rounded-xl shadow-lg">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold mb-2">
-              {paciente.primer_nombre_paciente} {paciente.segundo_nombre_paciente}{' '}
-              {paciente.primer_apellido_paciente} {paciente.segundo_apellido_paciente}
-            </DialogTitle>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-black font-semibold text-sm">
+                {paciente.primer_nombre_paciente.charAt(0)}{paciente.primer_apellido_paciente.charAt(0)}
+              </div>
+              <div>
+                <DialogTitle className="text-2xl font-bold text-gray-800">
+                  {paciente.primer_nombre_paciente} {paciente.segundo_nombre_paciente}{' '}
+                  {paciente.primer_apellido_paciente} {paciente.segundo_apellido_paciente}
+                </DialogTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant={paciente.estado ? "default" : "secondary"} className="text-xs">
+                    {paciente.estado ? 'Activo' : 'Inactivo'}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs">
+                    {paciente.tipo_paciente}
+                  </Badge>
+                </div>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="flex flex-col space-y-8 px-2">
+          
+          <div className="flex flex-col space-y-6 px-2">
             {/* Datos personales */}
             <section>
-              <h3 className="text-lg font-semibold text-primary flex items-center mb-2 border-b pb-1">
+              <h3 className="text-lg font-semibold text-blue-600 flex items-center mb-3 border-b border-blue-200 pb-1">
+                <Users className="w-5 h-5 mr-2" />
                 Datos personales
               </h3>
-              <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                <InputDato label="RUT" value={String(paciente.rut_paciente)} />
-                <InputDato label="Comuna" value={nombreComuna(paciente.id_comuna)} />
-                <InputDato label="Cesfam" value={nombreCesfam(paciente.id_cesfam)} />
-                <InputDato label="Edad" value={String(calculateAge(paciente.fecha_nacimiento))} />
-                <InputDato label="Sexo" value={paciente.sexo ? 'Masculino' : 'Femenino'} />
-                <InputDato label="Tipo de Sangre" value={paciente.tipo_de_sangre} />
-                <InputDato label="Seguro" value={paciente.seguro} />
-                <div className="col-span-2">
-                  <InputDato label="Dirección" value={paciente.direccion} />
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">RUT</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm font-mono">{paciente.rut_paciente}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Comuna</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm">{nombreComuna(paciente.id_comuna)}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">CESFAM</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm">{nombreCesfam(paciente.id_cesfam)}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Edad</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm">{calculateAge(paciente.fecha_nacimiento)} años</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Sexo</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm">{paciente.sexo ? 'Masculino' : 'Femenino'}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Tipo de Sangre</label>
+                  <div className="p-2 bg-red-50 rounded-md border border-red-200 text-sm font-semibold text-red-700">{paciente.tipo_de_sangre}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Seguro</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm">{paciente.seguro || 'Ninguno'}</div>
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <label className="text-sm font-medium text-gray-600">Dirección</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm">{paciente.direccion}</div>
                 </div>
               </div>
             </section>
-            <hr className="my-2 border-gray-200" />
+
             {/* Contacto y estado */}
             <section>
-              <h3 className="text-lg font-semibold text-primary flex items-center mb-2 border-b pb-1">
+              <h3 className="text-lg font-semibold text-green-600 flex items-center mb-3 border-b border-green-200 pb-1">
+                <Activity className="w-5 h-5 mr-2" />
                 Contacto y estado
               </h3>
-              <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                <InputDato label="Teléfono" value={String(paciente.telefono)} />
-                <InputDato label="Email" value={paciente.email} />
-                <InputDato label="Tipo Paciente" value={paciente.tipo_paciente} />
-                <InputDato label="Enfermedades" value={paciente.enfermedades} />
-                <InputDato label="Contacto" value={paciente.nombre_contacto} />
-                <InputDato label="Teléfono Contacto" value={String(paciente.telefono_contacto)} />
-                <InputDato label="Estado" value={paciente.estado ? 'Activo' : 'Inactivo'} />
-                <InputDato label="Activo Cesfam" value={paciente.activo_cesfam ? 'Sí' : 'No'} />
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Teléfono</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm font-mono">{paciente.telefono}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Email</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm text-blue-600">{paciente.email}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Enfermedades</label>
+                  <div className="p-2 bg-orange-50 rounded-md border border-orange-200 text-sm">{paciente.enfermedades || 'Ninguna'}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Activo CESFAM</label>
+                  <Badge variant={paciente.activo_cesfam ? "default" : "secondary"}>
+                    {paciente.activo_cesfam ? 'Sí' : 'No'}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Contacto de Emergencia</label>
+                  <div className="p-2 bg-yellow-50 rounded-md border border-yellow-200 text-sm">{paciente.nombre_contacto}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Teléfono Emergencia</label>
+                  <div className="p-2 bg-yellow-50 rounded-md border border-yellow-200 text-sm font-mono">{paciente.telefono_contacto}</div>
+                </div>
               </div>
             </section>
-            <hr className="my-2 border-gray-200" />
+
             {/* Fechas */}
             <section>
-              <h3 className="text-lg font-semibold text-primary flex items-center mb-2 border-b pb-1">
-                Vigencia
+              <h3 className="text-lg font-semibold text-purple-600 flex items-center mb-3 border-b border-purple-200 pb-1">
+                📅 Vigencia
               </h3>
-              <div className="grid grid-cols-2 gap-x-12 gap-y-4">
-                <InputDato label="Inicio Cesfam" value={new Date(paciente.fecha_inicio_cesfam).toLocaleDateString()} />
-                <InputDato label="Fin Cesfam" value={paciente.fecha_fin_cesfam ? new Date(paciente.fecha_fin_cesfam).toLocaleDateString() : '-'} />
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Inicio CESFAM</label>
+                  <div className="p-2 bg-green-50 rounded-md border border-green-200 text-sm">{new Date(paciente.fecha_inicio_cesfam).toLocaleDateString('es-ES')}</div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-sm font-medium text-gray-600">Fin CESFAM</label>
+                  <div className="p-2 bg-gray-50 rounded-md border text-sm">{paciente.fecha_fin_cesfam ? new Date(paciente.fecha_fin_cesfam).toLocaleDateString('es-ES') : 'Sin fecha de fin'}</div>
+                </div>
               </div>
             </section>
           </div>
-          <div className="flex justify-between items-center gap-2 mt-8">
+
+          <div className="flex justify-between items-center gap-3 mt-6 pt-4 border-t border-gray-200">
             <div className="flex gap-2">
-              <Button variant="secondary" onClick={handleVerProgreso}>
+              <Button variant="outline" onClick={handleVerProgreso} className="bg-blue-600 hover:bg-blue-700 text-black border border-blue-700">
+                <Activity className="w-4 h-4 mr-2" />
                 Ver progreso
               </Button>
-              <Button variant="secondary" onClick={handleVerAlertas}>
-                Ver alertas
+              <Button variant="outline" onClick={handleVerAlertas} className="border-orange-300 text-orange-600 hover:bg-orange-50">
+                🚨 Ver alertas
               </Button>
             </div>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -281,27 +489,33 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
                   </div>
                   {/* PAGINADOR */}
                   <div className="flex justify-between items-center mt-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Anterior
-                    </Button>
+                    {currentPage > 1 ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Anterior
+                      </Button>
+                    ) : (
+                      <div></div>
+                    )}
                     <span className="text-sm text-gray-600">
-                      Página {currentPage} de {totalPages} ({totalAlertas} alertas)
+                      Página {currentPage} ({alertas.length} alertas en esta página)
                     </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handlePageChange(currentPage + 1)}
-                      disabled={currentPage >= totalPages}
-                    >
-                      Siguiente
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
+                    {alertas.length === pageSize ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                      >
+                        Siguiente
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    ) : (
+                      <div></div>
+                    )}
                   </div>
                 </>
               )}
@@ -397,6 +611,190 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
           </div>
           <div className="flex justify-end gap-2 px-6 py-3 border-t bg-white">
             <Button variant="outline" onClick={() => setDetalleAlertaOpen(false)}>
+              Cerrar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL DE PROGRESO DEL PACIENTE */}
+      <Dialog open={progresoModalOpen} onOpenChange={setProgresoModalOpen}>
+        <DialogContent className="max-h-[80vh] w-[90vw] max-w-5xl overflow-y-auto p-6 bg-white rounded-lg shadow-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold mb-4 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-blue-600" />
+              Progreso de {paciente.primer_nombre_paciente} {paciente.primer_apellido_paciente}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Filtros de fecha */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Filtros y Descarga</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 block mb-1">Fecha desde</label>
+                    <Input
+                      type="date"
+                      value={fechaDesde}
+                      onChange={(e) => setFechaDesde(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-600 block mb-1">Fecha hasta</label>
+                    <Input
+                      type="date"
+                      value={fechaHasta}
+                      onChange={(e) => setFechaHasta(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Button onClick={aplicarFiltroFechas} disabled={loadingProgreso} className="w-full">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Aplicar Filtro
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    <Button variant="outline" onClick={descargarMediciones} disabled={medicionesProgreso.length === 0} className="w-full">
+                      <Download className="w-4 h-4 mr-2" />
+                      Descargar CSV
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Gráfico de mediciones */}
+            {loadingProgreso ? (
+              <div className="text-center py-8">
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <p className="mt-2 text-gray-600">Cargando mediciones...</p>
+              </div>
+            ) : medicionesProgreso.length > 0 ? (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">Tendencia de Mediciones</CardTitle>
+                  <CardDescription className="text-sm">
+                    Evolución de los parámetros vitales en el tiempo
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div style={{ width: '100%', height: 300 }}>
+                    <ResponsiveContainer>
+                      <LineChart data={medicionesProgreso}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="date" 
+                          tick={{ fontSize: 11 }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={60}
+                        />
+                        <YAxis tick={{ fontSize: 11 }} />
+                        <Tooltip 
+                          labelFormatter={(value) => `Fecha: ${value}`}
+                          formatter={(value: any, name: string) => {
+                            if (value === null) return ['Sin datos', name];
+                            const labels: { [key: string]: string } = {
+                              bloodSugar: 'Glucosa (mg/dL)',
+                              bloodPressureSys: 'P. Sistólica (mmHg)',
+                              bloodPressureDia: 'P. Diastólica (mmHg)',
+                              oxygen: 'Sat. O2 (%)',
+                              temperature: 'Temperatura (°C)'
+                            };
+                            return [value, labels[name] || name];
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="bloodSugar" 
+                          stroke="#3b82f6" 
+                          strokeWidth={2}
+                          connectNulls={false}
+                          name="bloodSugar"
+                          dot={{ fill: '#3b82f6', strokeWidth: 2, r: 3 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="bloodPressureSys" 
+                          stroke="#ef4444" 
+                          strokeWidth={2}
+                          connectNulls={false}
+                          name="bloodPressureSys"
+                          dot={{ fill: '#ef4444', strokeWidth: 2, r: 3 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="bloodPressureDia" 
+                          stroke="#f97316" 
+                          strokeWidth={2}
+                          connectNulls={false}
+                          name="bloodPressureDia"
+                          dot={{ fill: '#f97316', strokeWidth: 2, r: 3 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="oxygen" 
+                          stroke="#10b981" 
+                          strokeWidth={2}
+                          connectNulls={false}
+                          name="oxygen"
+                          dot={{ fill: '#10b981', strokeWidth: 2, r: 3 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="temperature" 
+                          stroke="#8b5cf6" 
+                          strokeWidth={2}
+                          connectNulls={false}
+                          name="temperature"
+                          dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 3 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                  
+                  {/* Leyenda */}
+                  <div className="flex flex-wrap gap-3 mt-3 justify-center text-xs">
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-blue-500 rounded"></div>
+                      <span>Glucosa (mg/dL)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-red-500 rounded"></div>
+                      <span>P. Sistólica (mmHg)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-orange-500 rounded"></div>
+                      <span>P. Diastólica (mmHg)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-green-500 rounded"></div>
+                      <span>Saturación O2 (%)</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <div className="w-3 h-3 bg-purple-500 rounded"></div>
+                      <span>Temperatura (°C)</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="text-center py-6 text-gray-500">
+                <Activity className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm">No se encontraron mediciones para mostrar</p>
+                <p className="text-xs">Ajuste los filtros de fecha para ver más datos</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end mt-4 pt-4 border-t border-gray-200">
+            <Button variant="outline" onClick={() => setProgresoModalOpen(false)}>
               Cerrar
             </Button>
           </div>

@@ -3,13 +3,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Separator } from "../ui/separator";
 import { ScrollArea } from "../ui/scroll-area";
 import {
   AlertTriangle, Clock, User, Phone, Calendar, Activity, Heart, Stethoscope,
   CheckCircle, XCircle, PlayCircle, Bell, BellRing, Eye, UserCheck, AlertCircle,
-  MapPin, Shield, Droplet, Loader2
+  MapPin, Shield, Droplet, Loader2, Search
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -270,6 +271,7 @@ export default function MedicalDashboard() {
   const [medicosByRut, setMedicosByRut] = useState<Record<string, string>>({});
 
   const [filter, setFilter] = useState<"todas" | "nuevas" | "proceso" | "críticas">("todas");
+  const [filtroNombre, setFiltroNombre] = useState<string>("");
   const latestIdsRef = useRef<Set<string>>(new Set());
 
   // obtenemos rut + source (para debug)
@@ -413,7 +415,7 @@ export default function MedicalDashboard() {
         }
         if (!patientsByRut.has(rut)) {
           try {
-            const ficha = await getPacienteByRut<any>(String(rut));
+            const ficha = await getPacienteByRut(String(rut));
             if (!cancelled) {
               setPatientsByRut(prev => {
                 const copy = new Map(prev);
@@ -435,16 +437,44 @@ export default function MedicalDashboard() {
 
   /* Filtro */
   const filteredAlerts = useMemo(() => {
-    return alerts.filter(a => {
-      if (a.status === "resuelta" || a.status === "ignorada") return false;
-      switch (filter) {
-        case "nuevas": return a.status === "nueva";
-        case "proceso": return a.status === "en_proceso";
-        case "críticas": return a.priority === "crítica";
-        default: return true;
-      }
-    });
-  }, [alerts, filter]);
+    try {
+      return alerts.filter(a => {
+        if (a.status === "resuelta" || a.status === "ignorada") return false;
+        
+        // Filtro por estado
+        let passStatusFilter = false;
+        switch (filter) {
+          case "nuevas": passStatusFilter = a.status === "nueva"; break;
+          case "proceso": passStatusFilter = a.status === "en_proceso"; break;
+          case "críticas": passStatusFilter = a.priority === "crítica"; break;
+          default: passStatusFilter = true;
+        }
+        
+        if (!passStatusFilter) return false;
+        
+        // Filtro por nombre de paciente
+        if (filtroNombre && filtroNombre.trim() && patientsByRut) {
+          try {
+            const patient = patientsByRut.get(a.patientId);
+            const patientName = patient?.name?.toLowerCase() || a.patientId.toLowerCase();
+            const searchTerm = filtroNombre.toLowerCase().trim();
+            
+            if (!patientName.includes(searchTerm)) {
+              return false;
+            }
+          } catch (error) {
+            console.warn('Error filtering patient by name:', error);
+            return true; // En caso de error, mostrar la alerta
+          }
+        }
+        
+        return true;
+      });
+    } catch (error) {
+      console.error('Error in filteredAlerts:', error);
+      return alerts; // Retornar todas las alertas en caso de error
+    }
+  }, [alerts, filter, filtroNombre, patientsByRut]);
 
   /* Guards & acciones */
   const isTakenByOther = (a: AlertUI) => !!a.assignedTo && medicoRut != null && a.assignedTo !== String(medicoRut);
@@ -608,6 +638,26 @@ export default function MedicalDashboard() {
                 <Button variant={filter === "proceso" ? "default" : "outline"} size="sm" onClick={() => setFilter("proceso")}>En Proceso</Button>
               </div>
             </div>
+            {/* Filtro por nombre de paciente */}
+            <div className="flex items-center gap-2 mt-3">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nombre de paciente..."
+                value={filtroNombre}
+                onChange={(e) => setFiltroNombre(e.target.value)}
+                className="max-w-sm"
+              />
+              {filtroNombre && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setFiltroNombre("")}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Limpiar
+                </Button>
+              )}
+            </div>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[calc(100vh-320px)] md:h-[600px]">
@@ -645,7 +695,7 @@ export default function MedicalDashboard() {
                             <Button
                               size="sm"
                               disabled={takeDisabled}
-                              onClick={(e) => {
+                              onClick={(e: React.MouseEvent) => {
                                 e.stopPropagation();
                                 setSelected(a);
                                 setOpen(true); // abre modal, no desaparece el botón
@@ -677,7 +727,7 @@ export default function MedicalDashboard() {
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogContent
             className="w-auto sm:max-w-[980px] lg:max-w-[1120px] p-0 overflow-hidden"
-            onOpenAutoFocus={(e) => e.preventDefault()}
+            onOpenAutoFocus={(e: Event) => e.preventDefault()}
           >
             {/* Header */}
             <DialogHeader className="px-6 pt-5 pb-3 bg-muted/30 border-b">
