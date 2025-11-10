@@ -1,8 +1,15 @@
 # app/services/cuidador.py
 from sqlalchemy.orm import Session
+import asyncio
+import logging
+
 from app.models.cuidador import Cuidador
 from app.schemas.cuidador import CuidadorCreate, CuidadorUpdate
 from app.core.security import hash_password  # 🔐 usa core
+from app.services.email import email_service
+from app.schemas.email import WelcomeEmail
+
+logger = logging.getLogger(__name__)
 
 def list_(db: Session, skip: int, limit: int,
           estado: bool | None = True,
@@ -33,11 +40,67 @@ def get(db: Session, rut_cuidador: str):
 
 def create(db: Session, data: CuidadorCreate):
     payload = data.model_dump()
+    raw_password = payload.get("contrasena")
+    if not raw_password:
+        raise ValueError("contrasena es requerida")
+    
     if payload.get("email"):
         payload["email"] = payload["email"].strip().lower()
-    payload["contrasena"] = hash_password(payload["contrasena"])
+    
+    # Hash password for storage
+    payload["contrasena"] = hash_password(raw_password)
+    
+    # Create caregiver in database
     obj = Cuidador(**payload)
     db.add(obj); db.commit(); db.refresh(obj)
+    
+    # Send welcome email if email is provided
+    if obj.email:
+        try:
+            # Get caregiver name for email
+            primer_nombre = obj.primer_nombre_cuidador or ""
+            segundo_nombre = obj.segundo_nombre_cuidador or ""
+            primer_apellido = obj.primer_apellido_cuidador or ""
+            segundo_apellido = obj.segundo_apellido_cuidador or ""
+            
+            full_name = f"{primer_nombre} {segundo_nombre} {primer_apellido} {segundo_apellido}".strip()
+            full_name = " ".join(full_name.split())  # Clean multiple spaces
+            
+            # Create welcome email data
+            welcome_data = WelcomeEmail(
+                to=obj.email,
+                patient_name=full_name,
+                rut=obj.rut_cuidador,
+                temporary_password=raw_password  # Send the original password
+            )
+            
+            # Send email asynchronously
+            async def send_welcome():
+                try:
+                    result = await email_service.send_welcome_email(welcome_data)
+                    if result["success"]:
+                        logger.info(f"Welcome email sent successfully to {obj.email}")
+                    else:
+                        logger.error(f"Failed to send welcome email to {obj.email}: {result['message']}")
+                except Exception as e:
+                    logger.error(f"Exception sending welcome email to {obj.email}: {str(e)}")
+            
+            # Schedule the email to be sent
+            try:
+                asyncio.create_task(send_welcome())
+                logger.info(f"Welcome email scheduled for {obj.email}")
+            except RuntimeError:
+                # If no event loop is running, run in a new one
+                try:
+                    asyncio.run(send_welcome())
+                    logger.info(f"Welcome email sent synchronously to {obj.email}")
+                except Exception as e:
+                    logger.error(f"Failed to send welcome email: {str(e)}")
+                    
+        except Exception as e:
+            # Log error but don't fail caregiver creation
+            logger.error(f"Error preparing welcome email for {obj.email}: {str(e)}")
+    
     return obj
 
 def update(db: Session, rut_cuidador: str, data: CuidadorUpdate):

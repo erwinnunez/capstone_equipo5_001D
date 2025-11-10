@@ -340,6 +340,24 @@ export async function createMedicoHistorial(rutMedico: string, cambio: string, r
 
 // ===== Función para actualizar médico =====
 export async function updateMedico(rut: string, payload: any) {
+  // 0. Obtener datos actuales del médico para comparar
+  let datosOriginales: any = {};
+  try {
+    const responseActual = await fetch(`${RUTA_EQUIPO_MEDICO}/${rut}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: "include",
+    });
+    
+    if (responseActual.ok) {
+      datosOriginales = await responseActual.json();
+    }
+  } catch (error) {
+    console.warn('No se pudieron obtener datos originales para comparación:', error);
+  }
+
   // 1. Actualizar el médico (operación principal)
   const response = await fetch(`${RUTA_EQUIPO_MEDICO}/${rut}`, {
     method: 'PATCH',
@@ -353,50 +371,110 @@ export async function updateMedico(rut: string, payload: any) {
   
   // 2. Crear historial del cambio (no crítico)
   try {
-    const camposModificados = Object.keys(payload);
-    let descripcion = '';
+    // Comparar valores originales con los nuevos para encontrar cambios reales
+    const cambiosReales: { [key: string]: { anterior: any, nuevo: any } } = {};
     
-    // Crear descripción más detallada para médicos
+    for (const [campo, nuevoValor] of Object.entries(payload)) {
+      const valorAnterior = datosOriginales[campo];
+      
+      // Normalizar valores para comparación (convertir a string y manejar nulls/undefined)
+      const valorAnteriorNormalizado = valorAnterior === null || valorAnterior === undefined ? '' : String(valorAnterior).trim();
+      const valorNuevoNormalizado = nuevoValor === null || nuevoValor === undefined ? '' : String(nuevoValor).trim();
+      
+      // Solo considerar como cambio si los valores normalizados son realmente diferentes
+      if (valorAnteriorNormalizado !== valorNuevoNormalizado) {
+        cambiosReales[campo] = {
+          anterior: valorAnteriorNormalizado || 'Sin valor',
+          nuevo: valorNuevoNormalizado || 'Sin valor'
+        };
+      }
+    }
+    
+    // Si no hay cambios reales, no crear historial
+    if (Object.keys(cambiosReales).length === 0) {
+      console.log('No se detectaron cambios reales en los datos del médico');
+      return result;
+    }
+    
+    // Categorizar los campos que realmente cambiaron
+    const camposModificados = Object.keys(cambiosReales);
     const tiposDeCampos = {
       nombres: camposModificados.filter(campo => 
-        campo.includes('nombre') || campo.includes('apellido')
+        campo.includes('primer_nombre') || campo.includes('segundo_nombre') || 
+        campo.includes('primer_apellido') || campo.includes('segundo_apellido')
       ),
       contacto: camposModificados.filter(campo => 
-        campo.includes('telefono') || campo.includes('direccion') || campo.includes('email')
+        campo === 'telefono' || campo === 'direccion' || campo === 'email'
       ),
       especialidad: camposModificados.filter(campo => 
-        campo.includes('especialidad')
+        campo === 'especialidad'
       ),
       admin: camposModificados.filter(campo => 
-        campo.includes('is_admin')
+        campo === 'is_admin'
       ),
       otros: camposModificados.filter(campo => 
         !campo.includes('nombre') && !campo.includes('apellido') && 
-        !campo.includes('telefono') && !campo.includes('direccion') && !campo.includes('email') &&
-        !campo.includes('especialidad') && !campo.includes('is_admin')
+        campo !== 'telefono' && campo !== 'direccion' && campo !== 'email' &&
+        campo !== 'especialidad' && campo !== 'is_admin'
       )
     };
     
-    const partes = [];
-    if (tiposDeCampos.nombres.length > 0) partes.push('nombres');
-    if (tiposDeCampos.contacto.length > 0) partes.push('datos de contacto');
-    if (tiposDeCampos.especialidad.length > 0) partes.push('especialidad');
-    if (tiposDeCampos.admin.length > 0) partes.push('permisos de administrador');
-    if (tiposDeCampos.otros.length > 0) partes.push('otros datos');
+    // Generar descripción detallada con valores anteriores y nuevos
+    let descripcion = '';
+    const detallesCambios: string[] = [];
     
-    if (partes.length === 1) {
-      descripcion = `Actualización de ${partes[0]}`;
-    } else if (partes.length === 2) {
-      descripcion = `Actualización de ${partes.join(' y ')}`;
-    } else {
-      descripcion = `Actualización de ${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+    // Procesar cada tipo de campo
+    if (tiposDeCampos.nombres.length > 0) {
+      const cambiosNombres = tiposDeCampos.nombres.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo.replace('_', ' ').replace('primer', 'Primer').replace('segundo', 'Segundo').replace('apellido', 'apellido');
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Nombres: ${cambiosNombres.join(', ')}`);
     }
     
-    // Asegurar que no exceda 200 caracteres
-    if (descripcion.length > 200) {
-      descripcion = descripcion.substring(0, 197) + '...';
+    if (tiposDeCampos.contacto.length > 0) {
+      const cambiosContacto = tiposDeCampos.contacto.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo === 'telefono' ? 'Teléfono' : campo === 'direccion' ? 'Dirección' : 'Email';
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Contacto: ${cambiosContacto.join(', ')}`);
     }
     
+    if (tiposDeCampos.especialidad.length > 0) {
+      const cambiosEspecialidad = tiposDeCampos.especialidad.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        return `Especialidad: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(cambiosEspecialidad.join(', '));
+    }
+    
+    if (tiposDeCampos.admin.length > 0) {
+      const cambiosAdmin = tiposDeCampos.admin.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const estadoAnterior = anterior ? 'Sí' : 'No';
+        const estadoNuevo = nuevo ? 'Sí' : 'No';
+        return `Es administrador: "${estadoAnterior}" → "${estadoNuevo}"`;
+      });
+      detallesCambios.push(`Permisos: ${cambiosAdmin.join(', ')}`);
+    }
+    
+    if (tiposDeCampos.otros.length > 0) {
+      const cambiosOtros = tiposDeCampos.otros.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        return `${campo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Otros: ${cambiosOtros.join(', ')}`);
+    }
+    
+    descripcion = `Actualización: ${detallesCambios.join(' | ')}`;
+
+    // Asegurar que no exceda 500 caracteres
+    if (descripcion.length > 500) {
+      descripcion = descripcion.substring(0, 497) + '...';
+    }
+
     await createMedicoHistorial(rut, descripcion, true);
   } catch (historialError) {
     console.warn('No se pudo guardar el historial del médico:', historialError);

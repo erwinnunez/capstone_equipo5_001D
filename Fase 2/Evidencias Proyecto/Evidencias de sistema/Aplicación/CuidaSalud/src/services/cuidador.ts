@@ -2,8 +2,6 @@
 // Servicio de Cuidador: crear (registro)
 // Compatible con schema CuidadorCreate del backend
 
-import { enviarEmailBienvenida } from './email';
-
 const API_HOST = "http://127.0.0.1:8000";
 const RUTA_CUIDADOR = `${API_HOST}/cuidador`;
 const RUTA_CUIDADOR_HISTORIAL = `${API_HOST}/cuidador-historial`;
@@ -186,27 +184,6 @@ export async function createCuidador(payload: CuidadorCreatePayload): Promise<Ap
       data: result
     };
 
-    // Enviar email de bienvenida al cuidador
-    if (successResult.ok) {
-      try {
-        console.log("📧 Enviando email de bienvenida a cuidador:", payload.email);
-        const emailData = {
-          to: payload.email,
-          patient_name: `${payload.primer_nombre_cuidador} ${payload.primer_apellido_cuidador}`,
-          rut: payload.rut_cuidador,
-          temporary_password: "Su contraseña inicial" // O generar una temporal si es necesario
-        };
-        await enviarEmailBienvenida(emailData);
-        console.log("✅ Email de bienvenida enviado exitosamente a cuidador:", payload.email);
-      } catch (emailError) {
-        console.warn("⚠️ No se pudo enviar email de bienvenida a cuidador (no crítico):", {
-          email: payload.email,
-          error: emailError,
-          info: "El cuidador fue registrado exitosamente. El email se puede enviar manualmente."
-        });
-      }
-    }
-
     return successResult;
     
   } catch (error: any) {
@@ -320,6 +297,24 @@ export async function createCuidadorHistorial(rutCuidador: string, cambio: strin
 
 // ===== Función para actualizar cuidador =====
 export async function updateCuidador(rut: string, payload: any) {
+  // 0. Obtener datos actuales del cuidador para comparar
+  let datosOriginales: any = {};
+  try {
+    const responseActual = await fetch(`${RUTA_CUIDADOR}/${rut}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: "include",
+    });
+    
+    if (responseActual.ok) {
+      datosOriginales = await responseActual.json();
+    }
+  } catch (error) {
+    console.warn('No se pudieron obtener datos originales para comparación:', error);
+  }
+
   try {
     // 1. Actualizar el cuidador
     const response = await fetch(`${RUTA_CUIDADOR}/${rut}`, {
@@ -333,41 +328,98 @@ export async function updateCuidador(rut: string, payload: any) {
     const result = await handleResponse(response);
     
     // 2. Crear historial del cambio
-    const camposModificados = Object.keys(payload);
-    let descripcion = '';
+    // Comparar valores originales con los nuevos para encontrar cambios reales
+    const cambiosReales: { [key: string]: { anterior: any, nuevo: any } } = {};
     
-    // Crear descripción más detallada
+    for (const [campo, nuevoValor] of Object.entries(payload)) {
+      const valorAnterior = datosOriginales[campo];
+      
+      // Normalizar valores para comparación (convertir a string y manejar nulls/undefined)
+      const valorAnteriorNormalizado = valorAnterior === null || valorAnterior === undefined ? '' : String(valorAnterior).trim();
+      const valorNuevoNormalizado = nuevoValor === null || nuevoValor === undefined ? '' : String(nuevoValor).trim();
+      
+      // Solo considerar como cambio si los valores normalizados son realmente diferentes
+      if (valorAnteriorNormalizado !== valorNuevoNormalizado) {
+        cambiosReales[campo] = {
+          anterior: valorAnteriorNormalizado || 'Sin valor',
+          nuevo: valorNuevoNormalizado || 'Sin valor'
+        };
+      }
+    }
+    
+    // Si no hay cambios reales, no crear historial
+    if (Object.keys(cambiosReales).length === 0) {
+      console.log('No se detectaron cambios reales en los datos del cuidador');
+      return result;
+    }
+    
+    // Categorizar los campos que realmente cambiaron
+    const camposModificados = Object.keys(cambiosReales);
     const tiposDeAcampos = {
       nombres: camposModificados.filter(campo => 
-        campo.includes('nombre') || campo.includes('apellido')
+        campo.includes('primer_nombre') || campo.includes('segundo_nombre') || 
+        campo.includes('primer_apellido') || campo.includes('segundo_apellido')
       ),
       contacto: camposModificados.filter(campo => 
-        campo.includes('telefono') || campo.includes('direccion') || campo.includes('email')
+        campo === 'telefono' || campo === 'direccion' || campo === 'email'
+      ),
+      emergencia: camposModificados.filter(campo => 
+        campo.includes('nombre_contacto_emergencia') || campo.includes('telefono_contacto_emergencia')
       ),
       otros: camposModificados.filter(campo => 
         !campo.includes('nombre') && !campo.includes('apellido') && 
-        !campo.includes('telefono') && !campo.includes('direccion') && !campo.includes('email')
+        campo !== 'telefono' && campo !== 'direccion' && campo !== 'email' &&
+        !campo.includes('contacto_emergencia')
       )
     };
     
-    const partes = [];
-    if (tiposDeAcampos.nombres.length > 0) partes.push('nombres');
-    if (tiposDeAcampos.contacto.length > 0) partes.push('datos de contacto');
-    if (tiposDeAcampos.otros.length > 0) partes.push('otros datos');
+    // Generar descripción detallada con valores anteriores y nuevos
+    let descripcion = '';
+    const detallesCambios: string[] = [];
     
-    if (partes.length === 1) {
-      descripcion = `Actualización de ${partes[0]}`;
-    } else if (partes.length === 2) {
-      descripcion = `Actualización de ${partes.join(' y ')}`;
-    } else {
-      descripcion = `Actualización de ${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+    // Procesar cada tipo de campo
+    if (tiposDeAcampos.nombres.length > 0) {
+      const cambiosNombres = tiposDeAcampos.nombres.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo.replace('_', ' ').replace('primer', 'Primer').replace('segundo', 'Segundo').replace('apellido', 'apellido');
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Nombres: ${cambiosNombres.join(', ')}`);
     }
     
-    // Asegurar que no exceda 200 caracteres
-    if (descripcion.length > 200) {
-      descripcion = descripcion.substring(0, 197) + '...';
+    if (tiposDeAcampos.contacto.length > 0) {
+      const cambiosContacto = tiposDeAcampos.contacto.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo === 'telefono' ? 'Teléfono' : campo === 'direccion' ? 'Dirección' : 'Email';
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Contacto: ${cambiosContacto.join(', ')}`);
     }
     
+    if (tiposDeAcampos.emergencia.length > 0) {
+      const cambiosEmergencia = tiposDeAcampos.emergencia.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo.includes('nombre') ? 'Nombre contacto emergencia' : 'Teléfono contacto emergencia';
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Emergencia: ${cambiosEmergencia.join(', ')}`);
+    }
+    
+    if (tiposDeAcampos.otros.length > 0) {
+      const cambiosOtros = tiposDeAcampos.otros.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        return `${campo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Otros: ${cambiosOtros.join(', ')}`);
+    }
+    
+    descripcion = `Actualización: ${detallesCambios.join(' | ')}`;
+
+    // Asegurar que no exceda 500 caracteres
+    if (descripcion.length > 500) {
+      descripcion = descripcion.substring(0, 497) + '...';
+    }
+
     await createCuidadorHistorial(rut, descripcion, true);
     
     return result;

@@ -27,8 +27,23 @@ import {
   toNiceMessage as niceMedicoMsg,
 } from "../../services/equipoMedico";
 
-import { listCuidadores, updateCuidador, toggleCuidadorStatus } from "../../services/cuidador";
-import { listPacientes, updatePaciente, togglePacienteStatus } from "../../services/paciente";
+import { 
+  listCuidadores, 
+  updateCuidador, 
+  toggleCuidadorStatus,
+  createCuidador,
+  type CuidadorCreatePayload,
+  toNiceMessage as niceCuidadorMsg,
+} from "../../services/cuidador";
+
+import { 
+  listPacientes, 
+  updatePaciente, 
+  togglePacienteStatus,
+  createPaciente,
+  type PacienteCreatePayload,
+  toNiceMessage as nicePacienteMsg,
+} from "../../services/paciente";
 
 // Modal de alerta (archivo que te pasé antes)
 import { ErrorAlertModal } from "../common/ErrorAlertModal";
@@ -182,24 +197,135 @@ function CesfamDropdown({
   );
 }
 
+/* =========================
+   DROPDOWN: COMUNA (Select)
+========================= */
+function ComunaDropdown({
+  value,
+  onChange,
+  label = "Comuna",
+  placeholder = "Selecciona Comuna…",
+}: {
+  value?: number | string;
+  onChange: (id: number) => void;
+  label?: string;
+  placeholder?: string;
+}) {
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [items, setItems] = useState<any[]>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setErr(null);
+
+        const resp = await listComunas({
+          page: 1,
+          page_size: 5000,
+        });
+
+        if (mounted && resp.ok) {
+          setItems(resp.data.items || []);
+        } else if (mounted && !resp.ok) {
+          setErr(resp.message || "Error cargando comunas");
+        }
+      } catch (e: any) {
+        if (mounted) {
+          setErr(e?.message ?? "Error cargando comunas");
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const selected = items.find((c) => String(c.id_comuna) === String(value));
+
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium">{label}</label>
+      <Select
+        value={value != null ? String(value) : ""}
+        onValueChange={(v: string) => onChange(Number(v))}
+        disabled={loading || !!err}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+
+        <SelectContent className="max-h-72">
+          {items.map((c) => (
+            <SelectItem key={c.id_comuna} value={String(c.id_comuna)}>
+              {c.nombre_comuna ?? `Comuna #${c.id_comuna}`}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {selected && (
+        <p className="text-xs text-muted-foreground">
+          Seleccionado: {selected.nombre_comuna}
+        </p>
+      )}
+      {err && <p className="text-xs text-red-600">{err}</p>}
+    </div>
+  );
+}
+
 /* =======================
    Tipos y estado local
 ======================= */
 type RoleVariant = "default" | "secondary" | "destructive" | "outline";
 
 type NewUserState = {
-  role: "" | "doctor" | "admin";
+  role: "" | "doctor" | "admin" | "paciente" | "cuidador";
+  
+  // Campos para médicos/admins
   rut_medico: string; // <-- RUT plano (0-9 y K)
   id_cesfam: string; // id (value) del CesfamDropdown
   primer_nombre_medico: string;
   segundo_nombre_medico: string;
   primer_apellido_medico: string;
   segundo_apellido_medico: string;
+  especialidad: string;
+  
+  // Campos compartidos
   email: string;
   contrasenia: string;
   telefono: string; // solo dígitos
   direccion: string;
-  especialidad: string;
+  
+  // Campos para pacientes
+  rut_paciente: string;
+  id_comuna: string;
+  primer_nombre_paciente: string;
+  segundo_nombre_paciente: string;
+  primer_apellido_paciente: string;
+  segundo_apellido_paciente: string;
+  fecha_nacimiento: string;
+  sexo_paciente: string; // "masculino" | "femenino"
+  tipo_de_sangre: string;
+  enfermedades: string;
+  seguro: string;
+  tipo_paciente: string;
+  nombre_contacto: string;
+  telefono_contacto: string;
+  fecha_inicio_cesfam: string;
+  
+  // Campos para cuidadores
+  rut_cuidador: string;
+  primer_nombre_cuidador: string;
+  segundo_nombre_cuidador: string;
+  primer_apellido_cuidador: string;
+  segundo_apellido_cuidador: string;
+  sexo_cuidador: string; // "masculino" | "femenino"
 };
 
 // Tipo unificado para mostrar usuarios del sistema
@@ -268,17 +394,46 @@ export default function AdminUsers() {
 
   const [newUser, setNewUser] = useState<NewUserState>({
     role: "",
+    
+    // Campos para médicos/admins
     rut_medico: "",
     id_cesfam: "",
     primer_nombre_medico: "",
     segundo_nombre_medico: "",
     primer_apellido_medico: "",
     segundo_apellido_medico: "",
+    especialidad: "",
+    
+    // Campos compartidos
     email: "",
     contrasenia: "",
     telefono: "",
     direccion: "",
-    especialidad: "",
+    
+    // Campos para pacientes
+    rut_paciente: "",
+    id_comuna: "",
+    primer_nombre_paciente: "",
+    segundo_nombre_paciente: "",
+    primer_apellido_paciente: "",
+    segundo_apellido_paciente: "",
+    fecha_nacimiento: "",
+    sexo_paciente: "",
+    tipo_de_sangre: "",
+    enfermedades: "",
+    seguro: "",
+    tipo_paciente: "",
+    nombre_contacto: "",
+    telefono_contacto: "",
+    fecha_inicio_cesfam: "",
+    
+    // Campos para cuidadores
+    rut_cuidador: "",
+    primer_nombre_cuidador: "",
+    segundo_nombre_cuidador: "",
+    primer_apellido_cuidador: "",
+    segundo_apellido_cuidador: "",
+    sexo_cuidador: "",
   });
 
   // Estado para almacenar todos los usuarios
@@ -476,17 +631,46 @@ export default function AdminUsers() {
   const resetForm = () => {
     setNewUser({
       role: "",
+      
+      // Campos para médicos/admins
       rut_medico: "",
       id_cesfam: "",
       primer_nombre_medico: "",
       segundo_nombre_medico: "",
       primer_apellido_medico: "",
       segundo_apellido_medico: "",
+      especialidad: "",
+      
+      // Campos compartidos
       email: "",
       contrasenia: "",
       telefono: "",
       direccion: "",
-      especialidad: "",
+      
+      // Campos para pacientes
+      rut_paciente: "",
+      id_comuna: "",
+      primer_nombre_paciente: "",
+      segundo_nombre_paciente: "",
+      primer_apellido_paciente: "",
+      segundo_apellido_paciente: "",
+      fecha_nacimiento: "",
+      sexo_paciente: "",
+      tipo_de_sangre: "",
+      enfermedades: "",
+      seguro: "",
+      tipo_paciente: "",
+      nombre_contacto: "",
+      telefono_contacto: "",
+      fecha_inicio_cesfam: "",
+      
+      // Campos para cuidadores
+      rut_cuidador: "",
+      primer_nombre_cuidador: "",
+      segundo_nombre_cuidador: "",
+      primer_apellido_cuidador: "",
+      segundo_apellido_cuidador: "",
+      sexo_cuidador: "",
     });
   };
 
@@ -780,63 +964,112 @@ export default function AdminUsers() {
   };
 
   const handleCreateMedico = async () => {
+    // Validación de rol
     if (!newUser.role || (newUser.role !== "doctor" && newUser.role !== "admin")) {
       return showError("Debes seleccionar Médico o Administrador.");
     }
+
     try {
       setLoading(true);
 
-      const rutPlano = newUser.rut_medico.toUpperCase();
-
+      // Validación de RUT
+      const rutPlano = newUser.rut_medico.trim().toUpperCase();
+      if (!rutPlano) {
+        setLoading(false);
+        return showError("El RUT es obligatorio.");
+      }
       if (!isValidPlainRut(rutPlano)) {
         setLoading(false);
         return showError("RUT del médico inválido. Debe tener 8-9 caracteres y DV 0-9/K.");
       }
-      if (!newUser.id_cesfam) {
+
+      // Validación de CESFAM
+      if (!newUser.id_cesfam || newUser.id_cesfam.trim() === "") {
         setLoading(false);
         return showError("Debes seleccionar un CESFAM.");
       }
-      if (!newUser.primer_nombre_medico || !newUser.primer_apellido_medico) {
+
+      // Validación de nombres y apellidos
+      const primerNombre = newUser.primer_nombre_medico.trim();
+      const primerApellido = newUser.primer_apellido_medico.trim();
+      const segundoApellido = newUser.segundo_apellido_medico.trim();
+
+      if (!primerNombre || primerNombre.length < 2) {
         setLoading(false);
-        return showError("Completa nombres y apellidos.");
+        return showError("El primer nombre es obligatorio y debe tener al menos 2 caracteres.");
       }
-      if (!newUser.email) {
+      if (!primerApellido || primerApellido.length < 2) {
+        setLoading(false);
+        return showError("El primer apellido es obligatorio y debe tener al menos 2 caracteres.");
+      }
+      if (!segundoApellido || segundoApellido.length < 2) {
+        setLoading(false);
+        return showError("El segundo apellido es obligatorio y debe tener al menos 2 caracteres.");
+      }
+
+      // Validación de email
+      const email = newUser.email.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email) {
+        setLoading(false);
+        return showError("El email es obligatorio.");
+      }
+      if (!emailRegex.test(email)) {
         setLoading(false);
         return showError("Debes indicar un email válido.");
       }
-      if (!newUser.contrasenia) {
+
+      // Validación de contraseña
+      const contrasenia = newUser.contrasenia.trim();
+      if (!contrasenia) {
         setLoading(false);
-        return showError("Debes indicar una contraseña.");
+        return showError("La contraseña es obligatoria.");
       }
-      if (!newUser.telefono || newUser.telefono.length !== 9) {
+      if (contrasenia.length < 6) {
         setLoading(false);
-        return showError("El teléfono debe tener 9 dígitos.");
-      }
-      if (!newUser.direccion) {
-        setLoading(false);
-        return showError("Debes indicar la dirección.");
-      }
-      if (!newUser.especialidad) {
-        setLoading(false);
-        return showError("Debes indicar la especialidad.");
+        return showError("La contraseña debe tener al menos 6 caracteres.");
       }
 
+      // Validación de teléfono
+      const telefono = newUser.telefono.trim();
+      if (!telefono) {
+        setLoading(false);
+        return showError("El teléfono es obligatorio.");
+      }
+      if (telefono.length !== 9 || !/^\d{9}$/.test(telefono)) {
+        setLoading(false);
+        return showError("El teléfono debe tener exactamente 9 dígitos.");
+      }
+
+      // Validación de dirección
+      const direccion = newUser.direccion.trim();
+      if (!direccion || direccion.length < 5) {
+        setLoading(false);
+        return showError("La dirección es obligatoria y debe tener al menos 5 caracteres.");
+      }
+
+      // Validación de especialidad
+      const especialidad = newUser.especialidad.trim();
+      if (!especialidad || especialidad.length < 3) {
+        setLoading(false);
+        return showError("La especialidad es obligatoria y debe tener al menos 3 caracteres.");
+      }
+
+      // Si llegamos aquí, todos los campos están validados correctamente
       const payload: EquipoMedicoCreatePayload = {
         // 🔴 Enviamos el RUT como STRING con posible K
         rut_medico: rutPlano,
         id_cesfam: Number(newUser.id_cesfam),
-        primer_nombre_medico: newUser.primer_nombre_medico.trim(),
-        segundo_nombre_medico: newUser.segundo_nombre_medico.trim()
-          ? newUser.segundo_nombre_medico.trim()
-          : null,
-        primer_apellido_medico: newUser.primer_apellido_medico.trim(),
-        segundo_apellido_medico: newUser.segundo_apellido_medico.trim(),
-        email: newUser.email.trim(),
-        contrasenia: newUser.contrasenia,
-        telefono: Number(onlyDigits(newUser.telefono)),
-        direccion: newUser.direccion.trim(),
+        primer_nombre_medico: primerNombre,
+        segundo_nombre_medico: newUser.segundo_nombre_medico.trim() || null,
+        primer_apellido_medico: primerApellido,
+        segundo_apellido_medico: segundoApellido,
+        email: email,
+        contrasenia: contrasenia,
+        telefono: Number(onlyDigits(telefono)),
+        direccion: direccion,
         rol: "medico",
-        especialidad: newUser.especialidad.trim(),
+        especialidad: especialidad,
         estado: true, // siempre true
         is_admin: newUser.role === "admin", // si el rol seleccionado es admin
       };
@@ -863,6 +1096,256 @@ export default function AdminUsers() {
     } catch (e: any) {
       setLoading(false);
       showError(e?.message || "Error inesperado al crear usuario.", "Error inesperado");
+    }
+  };
+
+  const handleCreatePaciente = async () => {
+    try {
+      setLoading(true);
+      
+      // Validaciones específicas para paciente
+      const rutPacientePlano = cleanRutPlain(newUser.rut_paciente);
+      if (!rutPacientePlano || !isValidPlainRut(rutPacientePlano)) {
+        setLoading(false);
+        return showError("El RUT del paciente es obligatorio y debe tener un formato válido (ej: 12345678-9).");
+      }
+
+      // Validación de comuna
+      if (!newUser.id_comuna || newUser.id_comuna.trim() === "") {
+        setLoading(false);
+        return showError("La comuna es obligatoria.");
+      }
+
+      // Validación de nombres
+      const primerNombre = newUser.primer_nombre_paciente.trim();
+      if (!primerNombre || primerNombre.length < 2) {
+        setLoading(false);
+        return showError("El primer nombre es obligatorio y debe tener al menos 2 caracteres.");
+      }
+
+      const primerApellido = newUser.primer_apellido_paciente.trim();
+      if (!primerApellido || primerApellido.length < 2) {
+        setLoading(false);
+        return showError("El primer apellido es obligatorio y debe tener al menos 2 caracteres.");
+      }
+
+      // Validación de fecha de nacimiento
+      if (!newUser.fecha_nacimiento) {
+        setLoading(false);
+        return showError("La fecha de nacimiento es obligatoria.");
+      }
+
+      // Validación de sexo
+      if (!newUser.sexo_paciente) {
+        setLoading(false);
+        return showError("El sexo es obligatorio.");
+      }
+
+      // Validación de tipo de sangre
+      if (!newUser.tipo_de_sangre || newUser.tipo_de_sangre.trim() === "") {
+        setLoading(false);
+        return showError("El tipo de sangre es obligatorio.");
+      }
+
+      // Validación de email
+      const email = newUser.email.trim();
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        setLoading(false);
+        return showError("El email es obligatorio y debe tener un formato válido.");
+      }
+
+      // Validación de contraseña
+      const contrasena = newUser.contrasenia.trim();
+      if (!contrasena || contrasena.length < 6) {
+        setLoading(false);
+        return showError("La contraseña es obligatoria y debe tener al menos 6 caracteres.");
+      }
+
+      // Validación de teléfono
+      const telefono = newUser.telefono.trim();
+      if (!telefono || telefono.length !== 9 || !/^\d{9}$/.test(telefono)) {
+        setLoading(false);
+        return showError("El teléfono debe tener exactamente 9 dígitos.");
+      }
+
+      // Validación de dirección
+      const direccion = newUser.direccion.trim();
+      if (!direccion || direccion.length < 5) {
+        setLoading(false);
+        return showError("La dirección es obligatoria y debe tener al menos 5 caracteres.");
+      }
+
+      // Validación de contacto de emergencia
+      const nombreContacto = newUser.nombre_contacto.trim();
+      if (!nombreContacto || nombreContacto.length < 2) {
+        setLoading(false);
+        return showError("El nombre del contacto de emergencia es obligatorio.");
+      }
+
+      const telefonoContacto = newUser.telefono_contacto.trim();
+      if (!telefonoContacto || telefonoContacto.length !== 9 || !/^\d{9}$/.test(telefonoContacto)) {
+        setLoading(false);
+        return showError("El teléfono del contacto debe tener exactamente 9 dígitos.");
+      }
+
+      // Validación de CESFAM y fecha inicio
+      if (!newUser.id_cesfam || newUser.id_cesfam.trim() === "") {
+        setLoading(false);
+        return showError("El CESFAM es obligatorio.");
+      }
+
+      if (!newUser.fecha_inicio_cesfam) {
+        setLoading(false);
+        return showError("La fecha de inicio en el CESFAM es obligatoria.");
+      }
+
+      const payload: PacienteCreatePayload = {
+        rut_paciente: rutPacientePlano,
+        id_comuna: Number(newUser.id_comuna),
+        primer_nombre_paciente: primerNombre,
+        segundo_nombre_paciente: newUser.segundo_nombre_paciente.trim() || "",
+        primer_apellido_paciente: primerApellido,
+        segundo_apellido_paciente: newUser.segundo_apellido_paciente.trim() || "",
+        fecha_nacimiento: newUser.fecha_nacimiento,
+        sexo: newUser.sexo_paciente === "masculino" ? true : false,
+        tipo_de_sangre: newUser.tipo_de_sangre.trim(),
+        enfermedades: newUser.enfermedades.trim() || null,
+        seguro: newUser.seguro.trim() || null,
+        direccion: direccion,
+        telefono: Number(telefono),
+        email: email,
+        contrasena: contrasena,
+        tipo_paciente: newUser.tipo_paciente || "ambulatorio",
+        nombre_contacto: nombreContacto,
+        telefono_contacto: Number(telefonoContacto),
+        estado: true,
+        id_cesfam: Number(newUser.id_cesfam),
+        fecha_inicio_cesfam: newUser.fecha_inicio_cesfam,
+        activo_cesfam: true,
+      };
+
+      const result = await createPaciente(payload);
+      if (!result.ok) {
+        setLoading(false);
+        const errorMessage = result.message || (result.details ? nicePacienteMsg(result.details) : "Error creando el paciente.");
+        return showError(errorMessage, "No se pudo crear");
+      }
+
+      // Éxito
+      setIsCreateUserOpen(false);
+      resetForm();
+      setLoading(false);
+      await loadAllSystemUsers();
+      console.log("✅ Paciente creado exitosamente");
+      
+    } catch (e: any) {
+      setLoading(false);
+      showError(e?.message || "Error inesperado al crear paciente.", "Error inesperado");
+    }
+  };
+
+  const handleCreateCuidador = async () => {
+    try {
+      setLoading(true);
+      
+      // Validaciones específicas para cuidador
+      const rutCuidadorPlano = cleanRutPlain(newUser.rut_cuidador);
+      if (!rutCuidadorPlano || !isValidPlainRut(rutCuidadorPlano)) {
+        setLoading(false);
+        return showError("El RUT del cuidador es obligatorio y debe tener un formato válido (ej: 12345678-9).");
+      }
+
+      // Validación de nombres
+      const primerNombre = newUser.primer_nombre_cuidador.trim();
+      if (!primerNombre || primerNombre.length < 2) {
+        setLoading(false);
+        return showError("El primer nombre es obligatorio y debe tener al menos 2 caracteres.");
+      }
+
+      const primerApellido = newUser.primer_apellido_cuidador.trim();
+      if (!primerApellido || primerApellido.length < 2) {
+        setLoading(false);
+        return showError("El primer apellido es obligatorio y debe tener al menos 2 caracteres.");
+      }
+
+      // Validación de sexo
+      if (!newUser.sexo_cuidador) {
+        setLoading(false);
+        return showError("El sexo es obligatorio.");
+      }
+
+      // Validación de email
+      const email = newUser.email.trim();
+      if (!email || !/\S+@\S+\.\S+/.test(email)) {
+        setLoading(false);
+        return showError("El email es obligatorio y debe tener un formato válido.");
+      }
+
+      // Validación de contraseña
+      const contrasena = newUser.contrasenia.trim();
+      if (!contrasena || contrasena.length < 6) {
+        setLoading(false);
+        return showError("La contraseña es obligatoria y debe tener al menos 6 caracteres.");
+      }
+
+      // Validación de teléfono
+      const telefono = newUser.telefono.trim();
+      if (!telefono || telefono.length !== 9 || !/^\d{9}$/.test(telefono)) {
+        setLoading(false);
+        return showError("El teléfono debe tener exactamente 9 dígitos.");
+      }
+
+      // Validación de dirección
+      const direccion = newUser.direccion.trim();
+      if (!direccion || direccion.length < 5) {
+        setLoading(false);
+        return showError("La dirección es obligatoria y debe tener al menos 5 caracteres.");
+      }
+
+      const payload: CuidadorCreatePayload = {
+        rut_cuidador: rutCuidadorPlano,
+        primer_nombre_cuidador: primerNombre,
+        segundo_nombre_cuidador: newUser.segundo_nombre_cuidador.trim() || "",
+        primer_apellido_cuidador: primerApellido,
+        segundo_apellido_cuidador: newUser.segundo_apellido_cuidador.trim() || "",
+        sexo: newUser.sexo_cuidador === "masculino" ? true : false,
+        direccion: direccion,
+        telefono: Number(telefono),
+        email: email,
+        contrasena: contrasena,
+        estado: true,
+      };
+
+      const result = await createCuidador(payload);
+      if (!result.ok) {
+        setLoading(false);
+        const errorMessage = result.message || (result.details ? niceCuidadorMsg(result.details) : "Error creando el cuidador.");
+        return showError(errorMessage, "No se pudo crear");
+      }
+
+      // Éxito
+      setIsCreateUserOpen(false);
+      resetForm();
+      setLoading(false);
+      await loadAllSystemUsers();
+      console.log("✅ Cuidador creado exitosamente");
+      
+    } catch (e: any) {
+      setLoading(false);
+      showError(e?.message || "Error inesperado al crear cuidador.", "Error inesperado");
+    }
+  };
+
+  // Función unificada para manejar la creación según el tipo de usuario
+  const handleCreateUser = () => {
+    if (newUser.role === "doctor" || newUser.role === "admin") {
+      return handleCreateMedico();
+    } else if (newUser.role === "paciente") {
+      return handleCreatePaciente();
+    } else if (newUser.role === "cuidador") {
+      return handleCreateCuidador();
+    } else {
+      showError("Selecciona un rol válido antes de crear el usuario.");
     }
   };
 
@@ -922,6 +1405,8 @@ export default function AdminUsers() {
                       <SelectContent>
                         <SelectItem value="doctor">Médico</SelectItem>
                         <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="paciente">Paciente</SelectItem>
+                        <SelectItem value="cuidador">Cuidador</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1045,6 +1530,321 @@ export default function AdminUsers() {
                       </div>
                     </div>
                   )}
+
+                  {/* Formulario para PACIENTES */}
+                  {newUser.role === "paciente" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* RUT Paciente */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">RUT paciente</label>
+                        <Input
+                          inputMode="text"
+                          placeholder="12.345.678-9"
+                          value={formatRutPrettyFromPlain(newUser.rut_paciente)}
+                          onChange={(e) =>
+                            setNewUser({
+                              ...newUser,
+                              rut_paciente: cleanRutPlain(e.target.value),
+                            })
+                          }
+                          maxLength={12}
+                        />
+                      </div>
+
+                      {/* Comuna */}
+                      <div className="space-y-2">
+                        <ComunaDropdown
+                          value={newUser.id_comuna ? Number(newUser.id_comuna) : undefined}
+                          onChange={(id) => setNewUser((prev) => ({ ...prev, id_comuna: String(id) }))}
+                          label="Comuna"
+                        />
+                      </div>
+
+                      {/* Nombres del paciente */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Primer nombre</label>
+                        <Input
+                          value={newUser.primer_nombre_paciente}
+                          onChange={(e) => setNewUser({ ...newUser, primer_nombre_paciente: e.target.value })}
+                          placeholder="María"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Segundo nombre (opcional)</label>
+                        <Input
+                          value={newUser.segundo_nombre_paciente}
+                          onChange={(e) => setNewUser({ ...newUser, segundo_nombre_paciente: e.target.value })}
+                          placeholder="José"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Primer apellido</label>
+                        <Input
+                          value={newUser.primer_apellido_paciente}
+                          onChange={(e) => setNewUser({ ...newUser, primer_apellido_paciente: e.target.value })}
+                          placeholder="González"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Segundo apellido</label>
+                        <Input
+                          value={newUser.segundo_apellido_paciente}
+                          onChange={(e) => setNewUser({ ...newUser, segundo_apellido_paciente: e.target.value })}
+                          placeholder="Pérez"
+                        />
+                      </div>
+
+                      {/* Fecha de nacimiento */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Fecha de nacimiento *</label>
+                        <Input
+                          type="date"
+                          value={newUser.fecha_nacimiento}
+                          onChange={(e) => setNewUser({ ...newUser, fecha_nacimiento: e.target.value })}
+                          required
+                        />
+                      </div>
+
+                      {/* Sexo */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Sexo</label>
+                        <Select value={newUser.sexo_paciente} onValueChange={(value: string) => setNewUser({ ...newUser, sexo_paciente: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona el sexo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="masculino">Masculino</SelectItem>
+                            <SelectItem value="femenino">Femenino</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Tipo de sangre */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Tipo de sangre</label>
+                        <Select value={newUser.tipo_de_sangre} onValueChange={(value: string) => setNewUser({ ...newUser, tipo_de_sangre: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona tipo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="O+">O+</SelectItem>
+                            <SelectItem value="O-">O-</SelectItem>
+                            <SelectItem value="A+">A+</SelectItem>
+                            <SelectItem value="A-">A-</SelectItem>
+                            <SelectItem value="B+">B+</SelectItem>
+                            <SelectItem value="B-">B-</SelectItem>
+                            <SelectItem value="AB+">AB+</SelectItem>
+                            <SelectItem value="AB-">AB-</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Email y contraseña */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Correo electrónico</label>
+                        <Input
+                          type="email"
+                          value={newUser.email}
+                          onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                          placeholder="maria@correo.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Contraseña</label>
+                        <Input
+                          type="password"
+                          value={newUser.contrasenia}
+                          onChange={(e) => setNewUser({ ...newUser, contrasenia: e.target.value })}
+                          placeholder="Mínimo 6 caracteres"
+                        />
+                      </div>
+
+                      {/* Teléfono y dirección */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Teléfono (9 dígitos)</label>
+                        <Input
+                          inputMode="numeric"
+                          value={newUser.telefono}
+                          onChange={(e) => setNewUser({ ...newUser, telefono: onlyDigits(e.target.value).slice(0, 9) })}
+                          placeholder="987654321"
+                          maxLength={9}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Dirección</label>
+                        <Input
+                          value={newUser.direccion}
+                          onChange={(e) => setNewUser({ ...newUser, direccion: e.target.value })}
+                          placeholder="Avenida Libertador 123"
+                        />
+                      </div>
+
+                      {/* Datos médicos opcionales */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Enfermedades (opcional)</label>
+                        <Input
+                          value={newUser.enfermedades}
+                          onChange={(e) => setNewUser({ ...newUser, enfermedades: e.target.value })}
+                          placeholder="Diabetes, Hipertensión"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Seguro médico (opcional)</label>
+                        <Input
+                          value={newUser.seguro}
+                          onChange={(e) => setNewUser({ ...newUser, seguro: e.target.value })}
+                          placeholder="FONASA, ISAPRE"
+                        />
+                      </div>
+
+                      {/* Contacto de emergencia */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Nombre contacto emergencia</label>
+                        <Input
+                          value={newUser.nombre_contacto}
+                          onChange={(e) => setNewUser({ ...newUser, nombre_contacto: e.target.value })}
+                          placeholder="Pedro González"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Teléfono contacto (9 dígitos)</label>
+                        <Input
+                          inputMode="numeric"
+                          value={newUser.telefono_contacto}
+                          onChange={(e) => setNewUser({ ...newUser, telefono_contacto: onlyDigits(e.target.value).slice(0, 9) })}
+                          placeholder="987654321"
+                          maxLength={9}
+                        />
+                      </div>
+
+                      {/* CESFAM y fecha de inicio */}
+                      <div className="space-y-2">
+                        <CesfamDropdown
+                          value={newUser.id_cesfam ? Number(newUser.id_cesfam) : undefined}
+                          onChange={(id) => setNewUser((prev) => ({ ...prev, id_cesfam: String(id) }))}
+                          label="CESFAM"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Fecha inicio CESFAM</label>
+                        <Input
+                          type="date"
+                          value={newUser.fecha_inicio_cesfam}
+                          onChange={(e) => setNewUser({ ...newUser, fecha_inicio_cesfam: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Formulario para CUIDADORES */}
+                  {newUser.role === "cuidador" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* RUT Cuidador */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">RUT cuidador</label>
+                        <Input
+                          inputMode="text"
+                          placeholder="12.345.678-9"
+                          value={formatRutPrettyFromPlain(newUser.rut_cuidador)}
+                          onChange={(e) =>
+                            setNewUser({
+                              ...newUser,
+                              rut_cuidador: cleanRutPlain(e.target.value),
+                            })
+                          }
+                          maxLength={12}
+                        />
+                      </div>
+
+                      {/* Nombres del cuidador */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Primer nombre</label>
+                        <Input
+                          value={newUser.primer_nombre_cuidador}
+                          onChange={(e) => setNewUser({ ...newUser, primer_nombre_cuidador: e.target.value })}
+                          placeholder="Ana"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Segundo nombre (opcional)</label>
+                        <Input
+                          value={newUser.segundo_nombre_cuidador}
+                          onChange={(e) => setNewUser({ ...newUser, segundo_nombre_cuidador: e.target.value })}
+                          placeholder="María"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Primer apellido</label>
+                        <Input
+                          value={newUser.primer_apellido_cuidador}
+                          onChange={(e) => setNewUser({ ...newUser, primer_apellido_cuidador: e.target.value })}
+                          placeholder="López"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Segundo apellido</label>
+                        <Input
+                          value={newUser.segundo_apellido_cuidador}
+                          onChange={(e) => setNewUser({ ...newUser, segundo_apellido_cuidador: e.target.value })}
+                          placeholder="Silva"
+                        />
+                      </div>
+
+                      {/* Sexo */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Sexo</label>
+                        <Select value={newUser.sexo_cuidador} onValueChange={(value: string) => setNewUser({ ...newUser, sexo_cuidador: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona el sexo" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="masculino">Masculino</SelectItem>
+                            <SelectItem value="femenino">Femenino</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Email y contraseña */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Correo electrónico</label>
+                        <Input
+                          type="email"
+                          value={newUser.email}
+                          onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                          placeholder="ana@correo.com"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Contraseña</label>
+                        <Input
+                          type="password"
+                          value={newUser.contrasenia}
+                          onChange={(e) => setNewUser({ ...newUser, contrasenia: e.target.value })}
+                          placeholder="Mínimo 6 caracteres"
+                        />
+                      </div>
+
+                      {/* Teléfono y dirección */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Teléfono (9 dígitos)</label>
+                        <Input
+                          inputMode="numeric"
+                          value={newUser.telefono}
+                          onChange={(e) => setNewUser({ ...newUser, telefono: onlyDigits(e.target.value).slice(0, 9) })}
+                          placeholder="987654321"
+                          maxLength={9}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Dirección</label>
+                        <Input
+                          value={newUser.direccion}
+                          onChange={(e) => setNewUser({ ...newUser, direccion: e.target.value })}
+                          placeholder="Calle Flores 456"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1060,8 +1860,16 @@ export default function AdminUsers() {
                     Cancelar
                   </Button>
                   {(newUser.role === "doctor" || newUser.role === "admin") ? (
-                    <Button onClick={handleCreateMedico} disabled={loading}>
-                      {loading ? "Creando..." : "Crear usuario"}
+                    <Button onClick={handleCreateUser} disabled={loading}>
+                      {loading ? "Creando..." : "Crear médico/administrador"}
+                    </Button>
+                  ) : newUser.role === "paciente" ? (
+                    <Button onClick={handleCreateUser} disabled={loading}>
+                      {loading ? "Creando..." : "Crear paciente"}
+                    </Button>
+                  ) : newUser.role === "cuidador" ? (
+                    <Button onClick={handleCreateUser} disabled={loading}>
+                      {loading ? "Creando..." : "Crear cuidador"}
                     </Button>
                   ) : (
                     <Button disabled>Selecciona un rol</Button>

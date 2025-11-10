@@ -50,14 +50,15 @@ class EmailService:
                 html_part = MIMEText(email_data.html_body, "html", "utf-8")
                 message.attach(html_part)
 
-            # Enviar email
+            # Enviar email usando aiosmtplib con configuración correcta para Gmail
             await aiosmtplib.send(
                 message,
                 hostname=self.smtp_host,
                 port=self.smtp_port,
                 username=self.smtp_user,
                 password=self.smtp_password,
-                use_tls=self.smtp_tls,
+                start_tls=True,
+                use_tls=False  # No usar TLS directo, solo STARTTLS
             )
 
             logger.info(f"Email enviado exitosamente a: {', '.join(email_data.to)}")
@@ -102,7 +103,7 @@ class EmailService:
                         
                         <div class="credentials">
                             <h3>Datos de acceso:</h3>
-                            <p><strong>RUT:</strong> {{ rut }}</p>
+                            <p><strong>Email:</strong> {{ user_email }}</p>
                             <p><strong>Contraseña temporal:</strong> {{ temporary_password }}</p>
                         </div>
                         
@@ -129,7 +130,7 @@ class EmailService:
         Tu cuenta ha sido creada exitosamente.
         
         Datos de acceso:
-        RUT: {welcome_data.rut}
+        Email: {welcome_data.to}
         Contraseña temporal: {welcome_data.temporary_password}
         
         Por tu seguridad, te recomendamos cambiar tu contraseña temporal en tu primer inicio de sesión.
@@ -140,7 +141,7 @@ class EmailService:
         template = Template(html_template)
         html_content = template.render(
             patient_name=welcome_data.patient_name,
-            rut=welcome_data.rut,
+            user_email=welcome_data.to,
             temporary_password=welcome_data.temporary_password
         )
         

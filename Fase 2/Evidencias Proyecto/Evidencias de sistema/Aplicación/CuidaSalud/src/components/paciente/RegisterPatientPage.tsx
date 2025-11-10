@@ -191,6 +191,9 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
     if (!pac.primer_nombre_paciente || !pac.primer_apellido_paciente || !pac.segundo_apellido_paciente) {
       return showError("Completa nombres y apellidos requeridos.");
     }
+    if (!pac.fecha_nacimiento) {
+      return showError("La fecha de nacimiento es obligatoria.");
+    }
     if (!pac.telefono || String(pac.telefono).replace(/\D/g, "").length !== 9) {
       return showError("Teléfono debe tener 9 dígitos.");
     }
@@ -341,11 +344,12 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
 
           {/* Fecha / Sexo */}
           <div className="space-y-2">
-            <Label>Fecha de nacimiento</Label>
+            <Label>Fecha de nacimiento *</Label>
             <Input
               type="date"
               value={pac.fecha_nacimiento}
               onChange={(e) => setPac({ ...pac, fecha_nacimiento: e.target.value })}
+              required
             />
           </div>
           <div className="space-y-2">

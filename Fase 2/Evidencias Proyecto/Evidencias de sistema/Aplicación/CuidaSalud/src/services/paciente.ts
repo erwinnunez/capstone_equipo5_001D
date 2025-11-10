@@ -191,7 +191,6 @@ import {
   createGamificacionPerfilSafe, 
   type GamificacionPerfilCreate 
 } from './gamificacion';
-import { enviarEmailBienvenida } from './email';
 
 // Crear Paciente
 export async function createPaciente(payload: PacienteCreatePayload): Promise<ApiResult<any>> {
@@ -302,25 +301,6 @@ export async function createPaciente(payload: PacienteCreatePayload): Promise<Ap
           paciente: payload.rut_paciente,
           error: gamificacionResult.error,
           info: "El paciente fue creado exitosamente. La gamificación se puede configurar manualmente más tarde."
-        });
-      }
-
-      // 5. Enviar email de bienvenida al paciente
-      try {
-        console.log("📧 Enviando email de bienvenida a paciente:", payload.email);
-        const emailData = {
-          to: payload.email,
-          patient_name: `${payload.primer_nombre_paciente} ${payload.primer_apellido_paciente}`,
-          rut: payload.rut_paciente,
-          temporary_password: "Su contraseña inicial" // O generar una temporal si es necesario
-        };
-        await enviarEmailBienvenida(emailData);
-        console.log("✅ Email de bienvenida enviado exitosamente a:", payload.email);
-      } catch (emailError) {
-        console.warn("⚠️ No se pudo enviar email de bienvenida (no crítico):", {
-          email: payload.email,
-          error: emailError,
-          info: "El paciente fue registrado exitosamente. El email se puede enviar manualmente."
         });
       }
     }
@@ -670,6 +650,24 @@ export async function createPacienteHistorial(rutPaciente: string, cambio: strin
 
 // ===== Función para actualizar paciente =====
 export async function updatePaciente(rut: string, payload: any) {
+  // 0. Obtener datos actuales del paciente para comparar
+  let datosOriginales: any = {};
+  try {
+    const responseActual = await fetch(`${RUTA_PACIENTE}/${rut}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: "include",
+    });
+    
+    if (responseActual.ok) {
+      datosOriginales = await responseActual.json();
+    }
+  } catch (error) {
+    console.warn('No se pudieron obtener datos originales para comparación:', error);
+  }
+
   // 1. Actualizar el paciente (operación principal)
   const response = await fetch(`${RUTA_PACIENTE}/${rut}`, {
     method: 'PATCH',
@@ -684,49 +682,110 @@ export async function updatePaciente(rut: string, payload: any) {
   
   // 2. Crear historial del cambio (no crítico)
   try {
-    const camposModificados = Object.keys(payload);
-    let descripcion = '';
+    // Comparar valores originales con los nuevos para encontrar cambios reales
+    const cambiosReales: { [key: string]: { anterior: any, nuevo: any } } = {};
     
-    // Crear descripción más detallada para pacientes
+    for (const [campo, nuevoValor] of Object.entries(payload)) {
+      const valorAnterior = datosOriginales[campo];
+      
+      // Normalizar valores para comparación (convertir a string y manejar nulls/undefined)
+      const valorAnteriorNormalizado = valorAnterior === null || valorAnterior === undefined ? '' : String(valorAnterior).trim();
+      const valorNuevoNormalizado = nuevoValor === null || nuevoValor === undefined ? '' : String(nuevoValor).trim();
+      
+      // Solo considerar como cambio si los valores normalizados son realmente diferentes
+      if (valorAnteriorNormalizado !== valorNuevoNormalizado) {
+        cambiosReales[campo] = {
+          anterior: valorAnteriorNormalizado || 'Sin valor',
+          nuevo: valorNuevoNormalizado || 'Sin valor'
+        };
+      }
+    }
+    
+    // Si no hay cambios reales, no crear historial
+    if (Object.keys(cambiosReales).length === 0) {
+      console.log('No se detectaron cambios reales en los datos del paciente');
+      return result;
+    }
+    
+    // Categorizar los campos que realmente cambiaron
+    const camposModificados = Object.keys(cambiosReales);
     const tiposDeCampos = {
       nombres: camposModificados.filter(campo => 
-        campo.includes('nombre') || campo.includes('apellido')
+        campo.includes('primer_nombre') || campo.includes('segundo_nombre') || 
+        campo.includes('primer_apellido') || campo.includes('segundo_apellido')
       ),
       contacto: camposModificados.filter(campo => 
-        campo.includes('telefono') || campo.includes('direccion') || campo.includes('email')
+        campo === 'telefono' || campo === 'direccion' || campo === 'email'
       ),
       salud: camposModificados.filter(campo => 
-        campo.includes('sangre') || campo.includes('enfermedad') || campo.includes('seguro')
+        campo.includes('tipo_sangre') || campo.includes('enfermedad') || campo.includes('seguro')
       ),
       emergencia: camposModificados.filter(campo => 
-        campo.includes('contacto')
+        campo.includes('nombre_contacto_emergencia') || campo.includes('telefono_contacto_emergencia')
       ),
       otros: camposModificados.filter(campo => 
         !campo.includes('nombre') && !campo.includes('apellido') && 
-        !campo.includes('telefono') && !campo.includes('direccion') && !campo.includes('email') &&
-        !campo.includes('sangre') && !campo.includes('enfermedad') && !campo.includes('seguro') &&
-        !campo.includes('contacto')
+        campo !== 'telefono' && campo !== 'direccion' && campo !== 'email' &&
+        !campo.includes('tipo_sangre') && !campo.includes('enfermedad') && !campo.includes('seguro') &&
+        !campo.includes('contacto_emergencia')
       )
     };
     
-    const partes = [];
-    if (tiposDeCampos.nombres.length > 0) partes.push('nombres');
-    if (tiposDeCampos.contacto.length > 0) partes.push('datos de contacto');
-    if (tiposDeCampos.salud.length > 0) partes.push('información médica');
-    if (tiposDeCampos.emergencia.length > 0) partes.push('contacto de emergencia');
-    if (tiposDeCampos.otros.length > 0) partes.push('otros datos');
+    // Generar descripción detallada con valores anteriores y nuevos
+    let descripcion = '';
+    const detallesCambios: string[] = [];
     
-    if (partes.length === 1) {
-      descripcion = `Actualización de ${partes[0]}`;
-    } else if (partes.length === 2) {
-      descripcion = `Actualización de ${partes.join(' y ')}`;
-    } else {
-      descripcion = `Actualización de ${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
+    // Procesar cada tipo de campo
+    if (tiposDeCampos.nombres.length > 0) {
+      const cambiosNombres = tiposDeCampos.nombres.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo.replace('_', ' ').replace('primer', 'Primer').replace('segundo', 'Segundo').replace('apellido', 'apellido');
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Nombres: ${cambiosNombres.join(', ')}`);
     }
     
-    // Asegurar que no exceda 200 caracteres
-    if (descripcion.length > 200) {
-      descripcion = descripcion.substring(0, 197) + '...';
+    if (tiposDeCampos.contacto.length > 0) {
+      const cambiosContacto = tiposDeCampos.contacto.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo === 'telefono' ? 'Teléfono' : campo === 'direccion' ? 'Dirección' : 'Email';
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Contacto: ${cambiosContacto.join(', ')}`);
+    }
+    
+    if (tiposDeCampos.salud.length > 0) {
+      const cambiosSalud = tiposDeCampos.salud.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo.includes('tipo_sangre') ? 'Tipo de sangre' : 
+                           campo.includes('enfermedad') ? 'Enfermedad' : 'Seguro médico';
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Salud: ${cambiosSalud.join(', ')}`);
+    }
+    
+    if (tiposDeCampos.emergencia.length > 0) {
+      const cambiosEmergencia = tiposDeCampos.emergencia.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        const nombreCampo = campo.includes('nombre') ? 'Nombre contacto emergencia' : 'Teléfono contacto emergencia';
+        return `${nombreCampo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Emergencia: ${cambiosEmergencia.join(', ')}`);
+    }
+    
+    if (tiposDeCampos.otros.length > 0) {
+      const cambiosOtros = tiposDeCampos.otros.map(campo => {
+        const { anterior, nuevo } = cambiosReales[campo];
+        return `${campo}: "${anterior}" → "${nuevo}"`;
+      });
+      detallesCambios.push(`Otros: ${cambiosOtros.join(', ')}`);
+    }
+    
+    descripcion = `Actualización: ${detallesCambios.join(' | ')}`;
+    
+    // Asegurar que no exceda 500 caracteres (aumentamos el límite para los detalles)
+    if (descripcion.length > 500) {
+      descripcion = descripcion.substring(0, 497) + '...';
     }
     
     await createPacienteHistorial(rut, descripcion, true);
