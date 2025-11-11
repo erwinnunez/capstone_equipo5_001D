@@ -143,7 +143,6 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
             const name = med?.nombre ?? `Medicina #${d.id_medicina}`;
             const dosage = d.dosis ? `${d.dosis}` : med?.toma_maxima ?? "";
             const start = toDate(d.fecha_inicio);
-            const end = toDate(d.fecha_fin ?? null);
 
             const taken = d.tomada === true;
             const finished = isFinishedByDate(d.fecha_fin); // fin inclusivo por día
@@ -209,7 +208,6 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
         prev.map((m) => {
           if (m.id_detalle !== id_detalle) return m;
           const start = toDate(m.fecha_inicio);
-          const end = toDate(m.fecha_fin ?? null);
           const now = new Date();
           const finished = isFinishedByDate(m.fecha_fin);
           return {

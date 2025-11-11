@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+// ...existing code...
 import {
   Dialog,
   DialogContent,
@@ -31,18 +32,12 @@ import {
   listCuidadores, 
   updateCuidador, 
   toggleCuidadorStatus,
-  createCuidador,
-  type CuidadorCreatePayload,
-  toNiceMessage as niceCuidadorMsg,
 } from "../../services/cuidador";
 
 import { 
   listPacientes, 
   updatePaciente, 
   togglePacienteStatus,
-  createPaciente,
-  type PacienteCreatePayload,
-  toNiceMessage as nicePacienteMsg,
 } from "../../services/paciente";
 
 // Modal de alerta (archivo que te pasé antes)
@@ -1099,253 +1094,13 @@ export default function AdminUsers() {
     }
   };
 
-  const handleCreatePaciente = async () => {
-    try {
-      setLoading(true);
-      
-      // Validaciones específicas para paciente
-      const rutPacientePlano = cleanRutPlain(newUser.rut_paciente);
-      if (!rutPacientePlano || !isValidPlainRut(rutPacientePlano)) {
-        setLoading(false);
-        return showError("El RUT del paciente es obligatorio y debe tener un formato válido (ej: 12345678-9).");
-      }
-
-      // Validación de comuna
-      if (!newUser.id_comuna || newUser.id_comuna.trim() === "") {
-        setLoading(false);
-        return showError("La comuna es obligatoria.");
-      }
-
-      // Validación de nombres
-      const primerNombre = newUser.primer_nombre_paciente.trim();
-      if (!primerNombre || primerNombre.length < 2) {
-        setLoading(false);
-        return showError("El primer nombre es obligatorio y debe tener al menos 2 caracteres.");
-      }
-
-      const primerApellido = newUser.primer_apellido_paciente.trim();
-      if (!primerApellido || primerApellido.length < 2) {
-        setLoading(false);
-        return showError("El primer apellido es obligatorio y debe tener al menos 2 caracteres.");
-      }
-
-      // Validación de fecha de nacimiento
-      if (!newUser.fecha_nacimiento) {
-        setLoading(false);
-        return showError("La fecha de nacimiento es obligatoria.");
-      }
-
-      // Validación de sexo
-      if (!newUser.sexo_paciente) {
-        setLoading(false);
-        return showError("El sexo es obligatorio.");
-      }
-
-      // Validación de tipo de sangre
-      if (!newUser.tipo_de_sangre || newUser.tipo_de_sangre.trim() === "") {
-        setLoading(false);
-        return showError("El tipo de sangre es obligatorio.");
-      }
-
-      // Validación de email
-      const email = newUser.email.trim();
-      if (!email || !/\S+@\S+\.\S+/.test(email)) {
-        setLoading(false);
-        return showError("El email es obligatorio y debe tener un formato válido.");
-      }
-
-      // Validación de contraseña
-      const contrasena = newUser.contrasenia.trim();
-      if (!contrasena || contrasena.length < 6) {
-        setLoading(false);
-        return showError("La contraseña es obligatoria y debe tener al menos 6 caracteres.");
-      }
-
-      // Validación de teléfono
-      const telefono = newUser.telefono.trim();
-      if (!telefono || telefono.length !== 9 || !/^\d{9}$/.test(telefono)) {
-        setLoading(false);
-        return showError("El teléfono debe tener exactamente 9 dígitos.");
-      }
-
-      // Validación de dirección
-      const direccion = newUser.direccion.trim();
-      if (!direccion || direccion.length < 5) {
-        setLoading(false);
-        return showError("La dirección es obligatoria y debe tener al menos 5 caracteres.");
-      }
-
-      // Validación de contacto de emergencia
-      const nombreContacto = newUser.nombre_contacto.trim();
-      if (!nombreContacto || nombreContacto.length < 2) {
-        setLoading(false);
-        return showError("El nombre del contacto de emergencia es obligatorio.");
-      }
-
-      const telefonoContacto = newUser.telefono_contacto.trim();
-      if (!telefonoContacto || telefonoContacto.length !== 9 || !/^\d{9}$/.test(telefonoContacto)) {
-        setLoading(false);
-        return showError("El teléfono del contacto debe tener exactamente 9 dígitos.");
-      }
-
-      // Validación de CESFAM y fecha inicio
-      if (!newUser.id_cesfam || newUser.id_cesfam.trim() === "") {
-        setLoading(false);
-        return showError("El CESFAM es obligatorio.");
-      }
-
-      if (!newUser.fecha_inicio_cesfam) {
-        setLoading(false);
-        return showError("La fecha de inicio en el CESFAM es obligatoria.");
-      }
-
-      const payload: PacienteCreatePayload = {
-        rut_paciente: rutPacientePlano,
-        id_comuna: Number(newUser.id_comuna),
-        primer_nombre_paciente: primerNombre,
-        segundo_nombre_paciente: newUser.segundo_nombre_paciente.trim() || "",
-        primer_apellido_paciente: primerApellido,
-        segundo_apellido_paciente: newUser.segundo_apellido_paciente.trim() || "",
-        fecha_nacimiento: newUser.fecha_nacimiento,
-        sexo: newUser.sexo_paciente === "masculino" ? true : false,
-        tipo_de_sangre: newUser.tipo_de_sangre.trim(),
-        enfermedades: newUser.enfermedades.trim() || null,
-        seguro: newUser.seguro.trim() || null,
-        direccion: direccion,
-        telefono: Number(telefono),
-        email: email,
-        contrasena: contrasena,
-        tipo_paciente: newUser.tipo_paciente || "ambulatorio",
-        nombre_contacto: nombreContacto,
-        telefono_contacto: Number(telefonoContacto),
-        estado: true,
-        id_cesfam: Number(newUser.id_cesfam),
-        fecha_inicio_cesfam: newUser.fecha_inicio_cesfam,
-        activo_cesfam: true,
-      };
-
-      const result = await createPaciente(payload);
-      if (!result.ok) {
-        setLoading(false);
-        const errorMessage = result.message || (result.details ? nicePacienteMsg(result.details) : "Error creando el paciente.");
-        return showError(errorMessage, "No se pudo crear");
-      }
-
-      // Éxito
-      setIsCreateUserOpen(false);
-      resetForm();
-      setLoading(false);
-      await loadAllSystemUsers();
-      console.log("✅ Paciente creado exitosamente");
-      
-    } catch (e: any) {
-      setLoading(false);
-      showError(e?.message || "Error inesperado al crear paciente.", "Error inesperado");
-    }
-  };
-
-  const handleCreateCuidador = async () => {
-    try {
-      setLoading(true);
-      
-      // Validaciones específicas para cuidador
-      const rutCuidadorPlano = cleanRutPlain(newUser.rut_cuidador);
-      if (!rutCuidadorPlano || !isValidPlainRut(rutCuidadorPlano)) {
-        setLoading(false);
-        return showError("El RUT del cuidador es obligatorio y debe tener un formato válido (ej: 12345678-9).");
-      }
-
-      // Validación de nombres
-      const primerNombre = newUser.primer_nombre_cuidador.trim();
-      if (!primerNombre || primerNombre.length < 2) {
-        setLoading(false);
-        return showError("El primer nombre es obligatorio y debe tener al menos 2 caracteres.");
-      }
-
-      const primerApellido = newUser.primer_apellido_cuidador.trim();
-      if (!primerApellido || primerApellido.length < 2) {
-        setLoading(false);
-        return showError("El primer apellido es obligatorio y debe tener al menos 2 caracteres.");
-      }
-
-      // Validación de sexo
-      if (!newUser.sexo_cuidador) {
-        setLoading(false);
-        return showError("El sexo es obligatorio.");
-      }
-
-      // Validación de email
-      const email = newUser.email.trim();
-      if (!email || !/\S+@\S+\.\S+/.test(email)) {
-        setLoading(false);
-        return showError("El email es obligatorio y debe tener un formato válido.");
-      }
-
-      // Validación de contraseña
-      const contrasena = newUser.contrasenia.trim();
-      if (!contrasena || contrasena.length < 6) {
-        setLoading(false);
-        return showError("La contraseña es obligatoria y debe tener al menos 6 caracteres.");
-      }
-
-      // Validación de teléfono
-      const telefono = newUser.telefono.trim();
-      if (!telefono || telefono.length !== 9 || !/^\d{9}$/.test(telefono)) {
-        setLoading(false);
-        return showError("El teléfono debe tener exactamente 9 dígitos.");
-      }
-
-      // Validación de dirección
-      const direccion = newUser.direccion.trim();
-      if (!direccion || direccion.length < 5) {
-        setLoading(false);
-        return showError("La dirección es obligatoria y debe tener al menos 5 caracteres.");
-      }
-
-      const payload: CuidadorCreatePayload = {
-        rut_cuidador: rutCuidadorPlano,
-        primer_nombre_cuidador: primerNombre,
-        segundo_nombre_cuidador: newUser.segundo_nombre_cuidador.trim() || "",
-        primer_apellido_cuidador: primerApellido,
-        segundo_apellido_cuidador: newUser.segundo_apellido_cuidador.trim() || "",
-        sexo: newUser.sexo_cuidador === "masculino" ? true : false,
-        direccion: direccion,
-        telefono: Number(telefono),
-        email: email,
-        contrasena: contrasena,
-        estado: true,
-      };
-
-      const result = await createCuidador(payload);
-      if (!result.ok) {
-        setLoading(false);
-        const errorMessage = result.message || (result.details ? niceCuidadorMsg(result.details) : "Error creando el cuidador.");
-        return showError(errorMessage, "No se pudo crear");
-      }
-
-      // Éxito
-      setIsCreateUserOpen(false);
-      resetForm();
-      setLoading(false);
-      await loadAllSystemUsers();
-      console.log("✅ Cuidador creado exitosamente");
-      
-    } catch (e: any) {
-      setLoading(false);
-      showError(e?.message || "Error inesperado al crear cuidador.", "Error inesperado");
-    }
-  };
 
   // Función unificada para manejar la creación según el tipo de usuario
   const handleCreateUser = () => {
     if (newUser.role === "doctor" || newUser.role === "admin") {
       return handleCreateMedico();
-    } else if (newUser.role === "paciente") {
-      return handleCreatePaciente();
-    } else if (newUser.role === "cuidador") {
-      return handleCreateCuidador();
     } else {
-      showError("Selecciona un rol válido antes de crear el usuario.");
+      showError("Solo se permite crear médicos y administradores desde este panel.");
     }
   };
 
@@ -1405,8 +1160,6 @@ export default function AdminUsers() {
                       <SelectContent>
                         <SelectItem value="doctor">Médico</SelectItem>
                         <SelectItem value="admin">Administrador</SelectItem>
-                        <SelectItem value="paciente">Paciente</SelectItem>
-                        <SelectItem value="cuidador">Cuidador</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1670,212 +1423,19 @@ export default function AdminUsers() {
                           maxLength={9}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Dirección</label>
-                        <Input
-                          value={newUser.direccion}
-                          onChange={(e) => setNewUser({ ...newUser, direccion: e.target.value })}
-                          placeholder="Avenida Libertador 123"
-                        />
-                      </div>
-
-                      {/* Datos médicos opcionales */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Enfermedades (opcional)</label>
-                        <Input
-                          value={newUser.enfermedades}
-                          onChange={(e) => setNewUser({ ...newUser, enfermedades: e.target.value })}
-                          placeholder="Diabetes, Hipertensión"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Seguro médico (opcional)</label>
-                        <Input
-                          value={newUser.seguro}
-                          onChange={(e) => setNewUser({ ...newUser, seguro: e.target.value })}
-                          placeholder="FONASA, ISAPRE"
-                        />
-                      </div>
-
-                      {/* Contacto de emergencia */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Nombre contacto emergencia</label>
-                        <Input
-                          value={newUser.nombre_contacto}
-                          onChange={(e) => setNewUser({ ...newUser, nombre_contacto: e.target.value })}
-                          placeholder="Pedro González"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Teléfono contacto (9 dígitos)</label>
-                        <Input
-                          inputMode="numeric"
-                          value={newUser.telefono_contacto}
-                          onChange={(e) => setNewUser({ ...newUser, telefono_contacto: onlyDigits(e.target.value).slice(0, 9) })}
-                          placeholder="987654321"
-                          maxLength={9}
-                        />
-                      </div>
-
-                      {/* CESFAM y fecha de inicio */}
-                      <div className="space-y-2">
-                        <CesfamDropdown
-                          value={newUser.id_cesfam ? Number(newUser.id_cesfam) : undefined}
-                          onChange={(id) => setNewUser((prev) => ({ ...prev, id_cesfam: String(id) }))}
-                          label="CESFAM"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Fecha inicio CESFAM</label>
-                        <Input
-                          type="date"
-                          value={newUser.fecha_inicio_cesfam}
-                          onChange={(e) => setNewUser({ ...newUser, fecha_inicio_cesfam: e.target.value })}
-                        />
-                      </div>
                     </div>
                   )}
-
-                  {/* Formulario para CUIDADORES */}
-                  {newUser.role === "cuidador" && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* RUT Cuidador */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">RUT cuidador</label>
-                        <Input
-                          inputMode="text"
-                          placeholder="12.345.678-9"
-                          value={formatRutPrettyFromPlain(newUser.rut_cuidador)}
-                          onChange={(e) =>
-                            setNewUser({
-                              ...newUser,
-                              rut_cuidador: cleanRutPlain(e.target.value),
-                            })
-                          }
-                          maxLength={12}
-                        />
-                      </div>
-
-                      {/* Nombres del cuidador */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Primer nombre</label>
-                        <Input
-                          value={newUser.primer_nombre_cuidador}
-                          onChange={(e) => setNewUser({ ...newUser, primer_nombre_cuidador: e.target.value })}
-                          placeholder="Ana"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Segundo nombre (opcional)</label>
-                        <Input
-                          value={newUser.segundo_nombre_cuidador}
-                          onChange={(e) => setNewUser({ ...newUser, segundo_nombre_cuidador: e.target.value })}
-                          placeholder="María"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Primer apellido</label>
-                        <Input
-                          value={newUser.primer_apellido_cuidador}
-                          onChange={(e) => setNewUser({ ...newUser, primer_apellido_cuidador: e.target.value })}
-                          placeholder="López"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Segundo apellido</label>
-                        <Input
-                          value={newUser.segundo_apellido_cuidador}
-                          onChange={(e) => setNewUser({ ...newUser, segundo_apellido_cuidador: e.target.value })}
-                          placeholder="Silva"
-                        />
-                      </div>
-
-                      {/* Sexo */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Sexo</label>
-                        <Select value={newUser.sexo_cuidador} onValueChange={(value: string) => setNewUser({ ...newUser, sexo_cuidador: value })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona el sexo" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="masculino">Masculino</SelectItem>
-                            <SelectItem value="femenino">Femenino</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* Email y contraseña */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Correo electrónico</label>
-                        <Input
-                          type="email"
-                          value={newUser.email}
-                          onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                          placeholder="ana@correo.com"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Contraseña</label>
-                        <Input
-                          type="password"
-                          value={newUser.contrasenia}
-                          onChange={(e) => setNewUser({ ...newUser, contrasenia: e.target.value })}
-                          placeholder="Mínimo 6 caracteres"
-                        />
-                      </div>
-
-                      {/* Teléfono y dirección */}
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Teléfono (9 dígitos)</label>
-                        <Input
-                          inputMode="numeric"
-                          value={newUser.telefono}
-                          onChange={(e) => setNewUser({ ...newUser, telefono: onlyDigits(e.target.value).slice(0, 9) })}
-                          placeholder="987654321"
-                          maxLength={9}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Dirección</label>
-                        <Input
-                          value={newUser.direccion}
-                          onChange={(e) => setNewUser({ ...newUser, direccion: e.target.value })}
-                          placeholder="Calle Flores 456"
-                        />
-                      </div>
-                    </div>
-                  )}
+                  <DialogFooter>
+                    {newUser.role === "doctor" || newUser.role === "admin" ? (
+                      <Button onClick={handleCreateUser} disabled={loading}>
+                        {loading ? "Creando..." : newUser.role === "doctor" ? "Crear médico" : "Crear administrador"}
+                      </Button>
+                    ) : (
+                      <Button disabled>Selecciona un rol</Button>
+                    )}
+                  </DialogFooter>
                 </div>
-              </div>
-
-              <div className="px-6 pb-6 pt-3 border-t">
-                <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsCreateUserOpen(false);
-                      resetForm();
-                    }}
-                  >
-                    Cancelar
-                  </Button>
-                  {(newUser.role === "doctor" || newUser.role === "admin") ? (
-                    <Button onClick={handleCreateUser} disabled={loading}>
-                      {loading ? "Creando..." : "Crear médico/administrador"}
-                    </Button>
-                  ) : newUser.role === "paciente" ? (
-                    <Button onClick={handleCreateUser} disabled={loading}>
-                      {loading ? "Creando..." : "Crear paciente"}
-                    </Button>
-                  ) : newUser.role === "cuidador" ? (
-                    <Button onClick={handleCreateUser} disabled={loading}>
-                      {loading ? "Creando..." : "Crear cuidador"}
-                    </Button>
-                  ) : (
-                    <Button disabled>Selecciona un rol</Button>
-                  )}
-                </DialogFooter>
-              </div>
+            </div>
             </DialogContent>
           </Dialog>
         </CardTitle>
@@ -1931,8 +1491,8 @@ export default function AdminUsers() {
               <p className="text-gray-500">No se encontraron usuarios</p>
             </div>
           ) : (
-            filteredUsers.map((user) => (
-              <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+            filteredUsers.map((user, idx) => (
+              <div key={user.id + '-' + idx} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                 <div className="flex items-center space-x-4">
                   <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center">
                     <UsersIcon className="h-5 w-5 text-gray-600" />

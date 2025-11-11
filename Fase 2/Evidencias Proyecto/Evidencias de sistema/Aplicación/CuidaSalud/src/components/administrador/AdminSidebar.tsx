@@ -24,10 +24,10 @@ export default function AdminSidebar({
 
   return (
     <nav className="space-y-2">
-      <Item k="overview"  icon={Shield}  label="System Overview" />
-      <Item k="users"     icon={Users}   label="User Management" />
-      <Item k="audit"     icon={Eye}     label="Audit Logs" />
-      <Item k="analytics" icon={Shield}  label="System Analytics" />
+      <Item k="overview"  icon={Shield}  label="Visualización de sistema" />
+      <Item k="users"     icon={Users}   label="Usuarios" />
+      <Item k="audit"     icon={Eye}     label="Auditoria de logs" />
+      <Item k="analytics" icon={Shield}  label="Analítica de sistema" />
     </nav>
   );
 }

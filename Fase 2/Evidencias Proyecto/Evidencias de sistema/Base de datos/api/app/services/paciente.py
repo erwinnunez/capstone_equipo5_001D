@@ -59,38 +59,43 @@ def create(db: Session, data: PacienteCreate) -> Paciente:
     raw_password = payload.get("contrasena")
     if not raw_password:
         raise ValueError("contrasena es requerida")
-    
-    # Hash password for storage
-    payload["contrasena"] = hash_password(raw_password)
 
+    # Normaliza email
     if payload.get("email"):
         payload["email"] = payload["email"].strip().lower()
 
-    # Create patient in database
+    # Validar si el RUT ya existe
+    existing_rut = db.query(Paciente).filter(Paciente.rut_paciente == payload["rut_paciente"]).first()
+    if existing_rut:
+        raise ValueError("El RUT ingresado ya existe")
+
+    # Validar si el email ya existe
+    if payload.get("email"):
+        existing_email = db.query(Paciente).filter(Paciente.email == payload["email"]).first()
+        if existing_email:
+            raise ValueError("El email ingresado ya existe")
+
+    # Hash password for storage
+    payload["contrasena"] = hash_password(raw_password)
+
+    # Crear paciente en la base de datos
     obj = Paciente(**payload)
     db.add(obj); db.commit(); db.refresh(obj)
-    
-    # Send welcome email if email is provided
+
+    # Enviar email de bienvenida si hay email
     if obj.email:
         try:
-            # Get patient name for email
             primer_nombre = obj.primer_nombre_paciente or ""
             segundo_nombre = obj.segundo_nombre_paciente or ""
             primer_apellido = obj.primer_apellido_paciente or ""
             segundo_apellido = obj.segundo_apellido_paciente or ""
-            
             full_name = f"{primer_nombre} {segundo_nombre} {primer_apellido} {segundo_apellido}".strip()
-            full_name = " ".join(full_name.split())  # Clean multiple spaces
-            
-            # Create welcome email data
+            full_name = " ".join(full_name.split())
             welcome_data = WelcomeEmail(
                 to=obj.email,
                 patient_name=full_name,
-                rut=obj.rut_paciente,
-                temporary_password=raw_password  # Send the original password
+                temporary_password=raw_password
             )
-            
-            # Send email asynchronously
             async def send_welcome():
                 try:
                     result = await email_service.send_welcome_email(welcome_data)
@@ -100,23 +105,17 @@ def create(db: Session, data: PacienteCreate) -> Paciente:
                         logger.error(f"Failed to send welcome email to {obj.email}: {result['message']}")
                 except Exception as e:
                     logger.error(f"Exception sending welcome email to {obj.email}: {str(e)}")
-            
-            # Schedule the email to be sent
             try:
                 asyncio.create_task(send_welcome())
                 logger.info(f"Welcome email scheduled for {obj.email}")
             except RuntimeError:
-                # If no event loop is running, run in a new one
                 try:
                     asyncio.run(send_welcome())
                     logger.info(f"Welcome email sent synchronously to {obj.email}")
                 except Exception as e:
                     logger.error(f"Failed to send welcome email: {str(e)}")
-                    
         except Exception as e:
-            # Log error but don't fail patient creation
             logger.error(f"Error preparing welcome email for {obj.email}: {str(e)}")
-    
     return obj
 
 def update(db: Session, rut_paciente: str, data: PacienteUpdate) -> Optional[Paciente]:

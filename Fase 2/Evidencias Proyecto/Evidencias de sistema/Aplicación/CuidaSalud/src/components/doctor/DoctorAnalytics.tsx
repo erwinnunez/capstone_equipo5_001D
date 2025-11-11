@@ -116,7 +116,6 @@ export default function DoctorAnalytics() {
 
         medicion.detalles.forEach((detalle: any) => {
           if (detalle.valor_num != null) {
-            console.log(`  📋 Detalle parametro ${detalle.id_parametro}: ${detalle.valor_num}`);
             switch (detalle.id_parametro) {
               case 1: // Glucosa
                 dayData.bloodSugar.push(detalle.valor_num);
@@ -124,13 +123,13 @@ export default function DoctorAnalytics() {
               case 2: // Presión Sistólica
                 dayData.bloodPressureSystolic.push(detalle.valor_num);
                 break;
-              case 3: // Presión Diastólica  
+              case 5: // Presión Diastólica
                 dayData.bloodPressureDiastolic.push(detalle.valor_num);
                 break;
-              case 4: // Saturación O2
+              case 3: // Oxígeno
                 dayData.oxygenSaturation.push(detalle.valor_num);
                 break;
-              case 5: // Temperatura
+              case 4: // Temperatura
                 dayData.temperature.push(detalle.valor_num);
                 break;
             }
@@ -141,22 +140,23 @@ export default function DoctorAnalytics() {
       });
 
       // Calcular promedios para cada día y convertir a formato final
+      const toFixed1 = (num: number) => Number(num.toFixed(1));
       const sortedTrendData: TrendData[] = Array.from(trendDataMap.values()).map(dayData => ({
         date: dayData.date,
         bloodSugar: dayData.bloodSugar.length > 0 
-          ? Math.round((dayData.bloodSugar.reduce((a, b) => a + b, 0) / dayData.bloodSugar.length) * 100) / 100 
+          ? toFixed1(dayData.bloodSugar.reduce((a, b) => a + b, 0) / dayData.bloodSugar.length)
           : null,
         bloodPressureSystolic: dayData.bloodPressureSystolic.length > 0 
-          ? Math.round((dayData.bloodPressureSystolic.reduce((a, b) => a + b, 0) / dayData.bloodPressureSystolic.length) * 100) / 100 
+          ? toFixed1(dayData.bloodPressureSystolic.reduce((a, b) => a + b, 0) / dayData.bloodPressureSystolic.length)
           : null,
         bloodPressureDiastolic: dayData.bloodPressureDiastolic.length > 0 
-          ? Math.round((dayData.bloodPressureDiastolic.reduce((a, b) => a + b, 0) / dayData.bloodPressureDiastolic.length) * 100) / 100 
+          ? toFixed1(dayData.bloodPressureDiastolic.reduce((a, b) => a + b, 0) / dayData.bloodPressureDiastolic.length)
           : null,
         oxygenSaturation: dayData.oxygenSaturation.length > 0 
-          ? Math.round((dayData.oxygenSaturation.reduce((a, b) => a + b, 0) / dayData.oxygenSaturation.length) * 100) / 100 
+          ? toFixed1(dayData.oxygenSaturation.reduce((a, b) => a + b, 0) / dayData.oxygenSaturation.length)
           : null,
         temperature: dayData.temperature.length > 0 
-          ? Math.round((dayData.temperature.reduce((a, b) => a + b, 0) / dayData.temperature.length) * 100) / 100 
+          ? toFixed1(dayData.temperature.reduce((a, b) => a + b, 0) / dayData.temperature.length)
           : null
       })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
@@ -401,7 +401,7 @@ export default function DoctorAnalytics() {
                   stroke="#3b82f6" 
                   strokeWidth={2}
                   connectNulls={false}
-                  name="bloodSugar"
+                  name="Glucosa"
                 />
                 <Line 
                   type="monotone" 
@@ -409,7 +409,15 @@ export default function DoctorAnalytics() {
                   stroke="#ef4444" 
                   strokeWidth={2}
                   connectNulls={false}
-                  name="bloodPressureSystolic"
+                  name="Presión Sistólica"
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="bloodPressureDiastolic" 
+                  stroke="#f97316" 
+                  strokeWidth={2}
+                  connectNulls={false}
+                  name="Presión Diastólica"
                 />
                 <Line 
                   type="monotone" 
@@ -417,7 +425,7 @@ export default function DoctorAnalytics() {
                   stroke="#10b981" 
                   strokeWidth={2}
                   connectNulls={false}
-                  name="oxygenSaturation"
+                  name="Oxígeno"
                 />
                 <Line 
                   type="monotone" 
@@ -425,7 +433,7 @@ export default function DoctorAnalytics() {
                   stroke="#8b5cf6" 
                   strokeWidth={2}
                   connectNulls={false}
-                  name="temperature"
+                  name="Temperatura"
                 />
               </LineChart>
             </ResponsiveContainer>

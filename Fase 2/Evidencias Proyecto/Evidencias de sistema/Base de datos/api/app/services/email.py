@@ -95,7 +95,7 @@ class EmailService:
             <body>
                 <div class="container">
                     <div class="header">
-                        <h1>¡Bienvenido al Sistema CESFAM!</h1>
+                        <h1>¡Bienvenido al Sistema de CuidaSalud!</h1>
                     </div>
                     <div class="content">
                         <h2>Hola {{ patient_name }}</h2>
@@ -123,7 +123,7 @@ class EmailService:
         """
         
         text_content = f"""
-        ¡Bienvenido al Sistema CESFAM!
+        ¡Bienvenido al Sistema CuidaSalud!
         
         Hola {welcome_data.patient_name},
         
@@ -147,7 +147,7 @@ class EmailService:
         
         email_data = EmailSchema(
             to=[welcome_data.to],
-            subject="Bienvenido al Sistema CESFAM - Credenciales de Acceso",
+            subject="Bienvenido al Sistema CuidaSalud - Credenciales de Acceso",
             body=text_content,
             html_body=html_content
         )
@@ -355,7 +355,7 @@ class EmailService:
         
         email_data = EmailSchema(
             to=[reset_data.to],
-            subject="Restablecimiento de Contraseña - Sistema CESFAM",
+            subject="Restablecimiento de Contraseña - Sistema CuidaSalud",
             body=f"Código de restablecimiento: {reset_data.reset_token}. Válido hasta: {reset_data.expiry_time}",
             html_body=html_content
         )

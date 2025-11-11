@@ -50,6 +50,47 @@ def create(db: Session, data: MedicionCreate):
     db.add(obj)
     db.commit()
     db.refresh(obj)
+
+    # Si la medición tiene alerta, enviar correo a los cuidadores activos
+    if obj.tiene_alerta:
+        from app.models.paciente_cuidador import PacienteCuidador
+        from app.models.cuidador import Cuidador
+        from app.services.email import email_service
+        from app.schemas.email import AlertNotification
+        import asyncio
+        # Buscar cuidadores activos del paciente
+        cuidadores = (
+            db.query(Cuidador)
+            .join(PacienteCuidador, Cuidador.rut_cuidador == PacienteCuidador.rut_cuidador)
+            .filter(PacienteCuidador.rut_paciente == obj.rut_paciente)
+            .filter(PacienteCuidador.activo.is_(True))
+            .filter(Cuidador.estado.is_(True))
+            .all()
+        )
+        # Preparar datos de alerta
+
+        for cuidador in cuidadores:
+            alert_data = AlertNotification(
+                to=cuidador.email,
+                patient_name=f"{obj.paciente.primer_nombre_paciente} {obj.paciente.primer_apellido_paciente}",
+                alert_type="Alerta de medición",
+                severity=obj.severidad_max,
+                message=obj.resumen_alerta,
+                date_time=obj.fecha_registro.strftime('%Y-%m-%d %H:%M'),
+            )
+            async def send_alert():
+                try:
+                    await email_service.send_alert_notification(alert_data)
+                except Exception as e:
+                    print(f"Error enviando alerta a cuidador {cuidador.email}: {str(e)}")
+            try:
+                asyncio.create_task(send_alert())
+            except RuntimeError:
+                try:
+                    asyncio.run(send_alert())
+                except Exception as e:
+                    print(f"Error enviando alerta a cuidador {cuidador.email}: {str(e)}")
+
     return obj
 
 def update(db: Session, id_medicion: int, data: MedicionUpdate):

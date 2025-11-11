@@ -66,8 +66,8 @@ export function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Top Navigation */}
-      <header className="bg-white border-b border-gray-200 shadow-sm">
+  {/* Top Navigation - fixed */}
+  <header className="bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 w-full z-50">
         <div className="px-6 py-4 flex items-center justify-between">
           <div className="flex items-center">
             <Activity className="h-8 w-8 text-blue-600 mr-3" />
@@ -127,7 +127,9 @@ export function DashboardLayout({
             </div>
           </div>
         </div>
-      </header>
+  </header>
+  {/* Navbar invisible para reservar espacio y evitar que el contenido se solape */}
+  <div style={{ height: '72px', width: '100%' }} aria-hidden="true"></div>
 
       <div className="flex">
         {/* Sidebar */}

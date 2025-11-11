@@ -254,6 +254,17 @@ export default function CuidadorDataEntry() {
     if (!selectedPatientRut) return;
     if (!validate()) return;
 
+    // Validar permiso de registro del cuidador sobre el paciente
+    const authDataString = localStorage.getItem("auth");
+    const authData = authDataString ? JSON.parse(authDataString) : null;
+    const rutCuidador = authData?.user?.id || 'CUIDADOR';
+    // Buscar el paciente en la lista de asociados
+    const pacienteAsociado = pacientes.find(p => p.rut_paciente === selectedPatientRut && p.rut_cuidador === rutCuidador);
+    if (!pacienteAsociado || !pacienteAsociado.permiso_registro) {
+      alert('No tienes permisos para registrar mediciones para este paciente.');
+      return;
+    }
+
     const sys = parseNumber(newMeasurement.bloodPressureSys);
     const dia = parseNumber(newMeasurement.bloodPressureDia);
     const bg = parseNumber(newMeasurement.bloodSugar);
@@ -280,10 +291,7 @@ export default function CuidadorDataEntry() {
     const bpSeverity: Severidad = worst(sevSys, sevDia);
     const nowIso = new Date().toISOString();
 
-    // Obtener RUT del cuidador desde localStorage
-    const authDataString = localStorage.getItem("auth");
-    const authData = authDataString ? JSON.parse(authDataString) : null;
-    const rutCuidador = authData?.user?.id || 'CUIDADOR';
+      // ...variables ya declaradas arriba...
 
     const baseMedicion: MedicionCreatePayload = {
       rut_paciente: selectedPatientRut,

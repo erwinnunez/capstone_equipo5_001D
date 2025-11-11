@@ -1,3 +1,37 @@
+// Listar medicinas (GET /medicina)
+export async function listMedicinas(params?: { page?: number; page_size?: number; id_unidad?: number; q?: string }): Promise<Page<MedicinaOut>> {
+  const qs = new URLSearchParams();
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.page_size) qs.set('page_size', String(params.page_size));
+  if (params?.id_unidad) qs.set('id_unidad', String(params.id_unidad));
+  if (params?.q) qs.set('q', params.q);
+  const resp = await fetch(`${RUTA_MEDICINA}?${qs.toString()}`, {
+    method: 'GET',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'include',
+  });
+  return handleResponse<Page<MedicinaOut>>(resp);
+}
+
+// Crear detalle de medicina (POST /medicina-detalle)
+export async function createMedicinaDetalle(payload: {
+  id_medicina: number;
+  rut_paciente: string;
+  dosis: string;
+  instrucciones_toma: string;
+  fecha_inicio: string;
+  fecha_fin: string;
+  tomada?: boolean;
+  fecha_tomada?: string;
+}): Promise<MedicinaDetalleOut> {
+  const resp = await fetch(RUTA_MEDICINA_DETALLE, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(payload),
+  });
+  return handleResponse<MedicinaDetalleOut>(resp);
+}
 // src/services/medicacion.ts
 const API_HOST = "http://127.0.0.1:8000";
 

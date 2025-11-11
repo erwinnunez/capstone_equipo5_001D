@@ -163,50 +163,64 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
   };
 
   const procesarMedicionesParaGrafico = async (mediciones: MedicionOut[]) => {
-    const datosAgrupados: Record<string, any> = {};
-
+    // Agrupar mediciones por día
+    const agrupadasPorDia: Record<string, any[]> = {};
     for (const medicion of mediciones) {
       const fecha = new Date(medicion.fecha_registro).toLocaleDateString();
-      
-      if (!datosAgrupados[fecha]) {
-        datosAgrupados[fecha] = {
-          date: fecha,
-          bloodSugar: null,
-          bloodPressureSys: null,
-          bloodPressureDia: null,
-          oxygen: null,
-          temperature: null
-        };
-      }
-
-      // Obtener detalles de la medición
-      const detallesRes = await listMedicionDetalles({ id_medicion: medicion.id_medicion });
-      if (detallesRes.ok) {
-        detallesRes.data.items.forEach((detalle: MedicionDetalleOut) => {
-          switch (detalle.id_parametro) {
-            case 1: // Glucosa
-              datosAgrupados[fecha].bloodSugar = detalle.valor_num;
-              break;
-            case 2: // Presión Sistólica
-              datosAgrupados[fecha].bloodPressureSys = detalle.valor_num;
-              break;
-            case 3: // Presión Diastólica
-              datosAgrupados[fecha].bloodPressureDia = detalle.valor_num;
-              break;
-            case 4: // Saturación O2
-              datosAgrupados[fecha].oxygen = detalle.valor_num;
-              break;
-            case 5: // Temperatura
-              datosAgrupados[fecha].temperature = detalle.valor_num;
-              break;
-          }
-        });
-      }
+      if (!agrupadasPorDia[fecha]) agrupadasPorDia[fecha] = [];
+      agrupadasPorDia[fecha].push(medicion);
     }
 
-    return Object.values(datosAgrupados).sort((a: any, b: any) => 
-      new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
+    // Para cada día, calcular el promedio de cada parámetro y mostrar 1 decimal
+    const tendenciaPorDia: any[] = [];
+    for (const fecha in agrupadasPorDia) {
+      const medicionesDia = agrupadasPorDia[fecha];
+      // Arrays para cada parámetro
+      const glucosa: number[] = [];
+      const presionSis: number[] = [];
+      const presionDia: number[] = [];
+      const oxigeno: number[] = [];
+      const temperatura: number[] = [];
+
+      for (const medicion of medicionesDia) {
+        const detallesRes = await listMedicionDetalles({ id_medicion: medicion.id_medicion });
+        if (detallesRes.ok) {
+          detallesRes.data.items.forEach((detalle: MedicionDetalleOut) => {
+            switch (detalle.id_parametro) {
+              case 1:
+                if (typeof detalle.valor_num === 'number') glucosa.push(detalle.valor_num);
+                break;
+              case 2:
+                if (typeof detalle.valor_num === 'number') presionSis.push(detalle.valor_num);
+                break;
+              case 5:
+                if (typeof detalle.valor_num === 'number') presionDia.push(detalle.valor_num);
+                break;
+              case 3:
+                if (typeof detalle.valor_num === 'number') oxigeno.push(detalle.valor_num);
+                break;
+              case 4:
+                if (typeof detalle.valor_num === 'number') temperatura.push(detalle.valor_num);
+                break;
+            }
+          });
+        }
+      }
+
+      // Calcular promedios y mostrar 1 decimal
+      const promedio = (arr: number[]) => arr.length ? Number((arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1)) : null;
+      tendenciaPorDia.push({
+        date: fecha,
+        bloodSugar: promedio(glucosa),
+        bloodPressureSys: promedio(presionSis),
+        bloodPressureDia: promedio(presionDia),
+        oxygen: promedio(oxigeno),
+        temperature: promedio(temperatura)
+      });
+    }
+
+    // Ordenar por fecha y mostrar todos los días en los que hay mediciones
+    return tendenciaPorDia.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
 
   const descargarMediciones = () => {

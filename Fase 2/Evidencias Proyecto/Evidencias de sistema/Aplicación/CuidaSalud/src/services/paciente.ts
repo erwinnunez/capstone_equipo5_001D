@@ -21,87 +21,6 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-// Función para verificar si existe un paciente por RUT
-const checkPacienteByRut = async (rut: string): Promise<boolean> => {
-  try {
-    // Suprimimos logs de 404 temporalmente ya que es comportamiento esperado
-    const originalConsoleError = console.error;
-    console.error = () => {}; // Silenciar errores de consola durante esta verificación
-    
-    const response = await fetch(`${RUTA_PACIENTE}/${rut}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    // Restaurar console.error
-    console.error = originalConsoleError;
-    
-    // Si responde 200, el paciente existe
-    if (response.ok) {
-      return true;
-    }
-    
-    // Si responde 404, el paciente no existe (comportamiento esperado)
-    if (response.status === 404) {
-      return false;
-    }
-    
-    // Otros errores
-    throw new Error(`Error al verificar RUT: ${response.status}`);
-  } catch (error) {
-    // Restaurar console.error por si acaso
-    console.error = console.error || (() => {});
-    
-    // Si hay error de conexión, lo re-lanzamos
-    if (error instanceof TypeError) {
-      throw new Error('Error de conexión al verificar RUT');
-    }
-    throw error;
-  }
-};
-
-// Función para verificar si existe un paciente por email
-const checkPacienteByEmail = async (email: string): Promise<boolean> => {
-  try {
-    // Suprimimos logs de 404 temporalmente ya que es comportamiento esperado
-    const originalConsoleError = console.error;
-    console.error = () => {}; // Silenciar errores de consola durante esta verificación
-    
-    const response = await fetch(`${RUTA_PACIENTE}/email/${encodeURIComponent(email)}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    // Restaurar console.error
-    console.error = originalConsoleError;
-    
-    // Si responde 200, el paciente existe
-    if (response.ok) {
-      return true;
-    }
-    
-    // Si responde 404, el paciente no existe (comportamiento esperado)
-    if (response.status === 404) {
-      return false;
-    }
-    
-    // Otros errores
-    throw new Error(`Error al verificar email: ${response.status}`);
-  } catch (error) {
-    // Restaurar console.error por si acaso
-    console.error = console.error || (() => {});
-    
-    // Si hay error de conexión, lo re-lanzamos
-    if (error instanceof TypeError) {
-      throw new Error('Error de conexión al verificar email');
-    }
-    throw error;
-  }
-};
 
 /* =========================================================
    ===============  REGISTRO DE PACIENTE  ==================
@@ -194,136 +113,36 @@ import {
 
 // Crear Paciente
 export async function createPaciente(payload: PacienteCreatePayload): Promise<ApiResult<any>> {
-  console.log("Creando paciente:", payload);
-  
   try {
-    // 1. Verificar si ya existe un paciente con ese RUT
-    console.log("🔍 Verificando RUT:", payload.rut_paciente);
-    const rutExists = await checkPacienteByRut(payload.rut_paciente);
-    if (rutExists) {
-      return {
-        ok: false,
-        status: 409,
-        message: "Ya existe un paciente registrado con este RUT",
-        details: null
-      };
-    }
-    
-    // 2. Verificar si ya existe un paciente con ese email
-    console.log("📧 Verificando email:", payload.email);
-    const emailExists = await checkPacienteByEmail(payload.email);
-    if (emailExists) {
-      return {
-        ok: false,
-        status: 409,
-        message: "El correo electrónico ya está registrado en el sistema",
-        details: null
-      };
-    }
-    
-    console.log("✅ RUT y email disponibles, procediendo a crear paciente");
-    
-    // 3. Crear el paciente (ahora sabemos que no hay duplicados)
+    // Solo crear el paciente, la API maneja duplicados
     const res = await fetch(RUTA_PACIENTE, {
       method: "POST",
       headers: { "content-type": "application/json" },
       credentials: "include",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(payload)
     });
-    
-    // Manejar errores del servidor
-    if (!res.ok) {
-      let errorMessage = "Error al crear el paciente";
-      let errorDetails = null;
-      
-      try {
-        const errorData = await res.json();
-        console.error("Error del servidor:", errorData);
-        
-        // Manejar diferentes formatos de error
-        if (errorData.detail) {
-          if (Array.isArray(errorData.detail)) {
-            // Error de validación con detalles
-            errorMessage = errorData.detail.map((d: any) => {
-              const loc = Array.isArray(d.loc) ? d.loc.join(".") : String(d.loc ?? "");
-              return loc ? `${loc}: ${d.msg}` : d.msg;
-            }).join(" | ");
-            errorDetails = errorData.detail;
-          } else if (typeof errorData.detail === 'string') {
-            errorMessage = errorData.detail;
-          } else {
-            errorMessage = JSON.stringify(errorData.detail);
-          }
-        } else if (errorData.message) {
-          errorMessage = errorData.message;
-        }
-      } catch (parseError) {
-        console.error("Error parsing error response:", parseError);
-        errorMessage = `Error ${res.status}: ${res.statusText}`;
-      }
-      
-      return {
-        ok: false,
-        status: res.status,
-        message: errorMessage,
-        details: errorDetails
-      };
-    }
-    
-    const result = await res.json();
-    const successResult = { ok: true, data: result, status: res.status, message: "Paciente creado exitosamente" };
+    const data = await handleResponse<any>(res);
 
-    // 4. Si el paciente se creó exitosamente, intentar crear su perfil de gamificación
-    if (successResult.ok) {
-      // Crear fecha en formato "YYYY-MM-DD HH:MM:SS.ssssss"
-      const now = new Date();
-      const fechaFormateada = now.getFullYear() + '-' + 
-        String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-        String(now.getDate()).padStart(2, '0') + ' ' + 
-        String(now.getHours()).padStart(2, '0') + ':' + 
-        String(now.getMinutes()).padStart(2, '0') + ':' + 
-        String(now.getSeconds()).padStart(2, '0') + '.' + 
-        String(now.getMilliseconds() * 1000).padStart(6, '0');
-      
+    // Crear perfil de gamificación si el paciente fue creado correctamente
+    try {
       const gamificacionPayload: GamificacionPerfilCreate = {
         rut_paciente: payload.rut_paciente,
         puntos: 0,
         racha_dias: 0,
-        ultima_actividad: fechaFormateada
+        ultima_actividad: new Date().toISOString(),
       };
-      
-      const gamificacionResult = await createGamificacionPerfilSafe(gamificacionPayload);
-      
-      if (gamificacionResult.success) {
-        console.log("✅ Perfil de gamificación creado para paciente:", payload.rut_paciente);
-      } else {
-        console.warn("⚠️ No se pudo crear el perfil de gamificación (no crítico):", {
-          paciente: payload.rut_paciente,
-          error: gamificacionResult.error,
-          info: "El paciente fue creado exitosamente. La gamificación se puede configurar manualmente más tarde."
-        });
-      }
+      await createGamificacionPerfilSafe(gamificacionPayload);
+    } catch (e) {
+      // No es crítico si falla la gamificación
+      console.warn("No se pudo crear el perfil de gamificación:", e);
     }
-    
-    return successResult;
+
+    return { ok: true, data };
   } catch (error: any) {
-    console.error("❌ Error al crear paciente:", error);
-    
-    // Manejar errores de conexión/CORS
-    let errorMessage = "Error de conexión con el servidor";
-    
-    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-      errorMessage = "No se puede conectar con el servidor. Verifique su conexión a internet.";
-    } else if (error.message?.includes('CORS')) {
-      errorMessage = "Error de configuración del servidor (CORS)";
-    } else {
-      errorMessage = error.message || "Error desconocido al crear paciente";
-    }
-    
     return {
       ok: false,
-      status: 0,
-      message: errorMessage,
+      status: error?.status ?? 500,
+      message: error?.message ?? "Error inesperado al crear paciente",
       details: error
     };
   }

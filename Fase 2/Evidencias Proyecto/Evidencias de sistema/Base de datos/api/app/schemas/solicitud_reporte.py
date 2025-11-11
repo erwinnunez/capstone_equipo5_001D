@@ -21,7 +21,6 @@ def _validate_rut_plain(v: str) -> str:
 
 class SolicitudReporteCreate(BaseModel):
     rut_medico: str = Field(..., example="12345678K")
-    rut_paciente: str = Field(..., example="12345678K")
     rango_desde: datetime
     rango_hasta: datetime
     tipo: str
@@ -29,16 +28,12 @@ class SolicitudReporteCreate(BaseModel):
     estado: str
     creado_en: datetime
 
-    @field_validator("rut_medico", "rut_paciente")
+    @field_validator("rut_medico")
     @classmethod
     def _val_rut(cls, v: str) -> str:
         return _validate_rut_plain(v)
 
-    @model_validator(mode="after")
-    def _ruts_diferentes(self):
-        if self.rut_paciente == self.rut_medico:
-            raise ValueError("El RUT del paciente y el del medico no pueden ser iguales.")
-        return self
+    # Eliminado chequeo de ruts diferentes
 
     @model_validator(mode="before")
     @classmethod
@@ -51,7 +46,6 @@ class SolicitudReporteCreate(BaseModel):
 
 class SolicitudReporteUpdate(BaseModel):
     rut_medico: str | None = None
-    rut_paciente: str | None = None
     rango_desde: datetime | None = None
     rango_hasta: datetime | None = None
     tipo: str | None = None
@@ -59,17 +53,13 @@ class SolicitudReporteUpdate(BaseModel):
     estado: str | None = None
     creado_en: datetime | None = None
 
-    @field_validator("rut_medico", "rut_paciente")
+    @field_validator("rut_medico")
     @classmethod
     def _val_rut_upd(cls, v: str | None) -> str | None:
         if v is None: return v
         return _validate_rut_plain(v)
 
-    @model_validator(mode="after")
-    def _ruts_diferentes_upd(self):
-        if self.rut_paciente and self.rut_medico and self.rut_paciente == self.rut_medico:
-            raise ValueError("El RUT del paciente y el del medico no pueden ser iguales.")
-        return self
+    # Eliminado chequeo de ruts diferentes
 
     @model_validator(mode="before")
     @classmethod
@@ -83,7 +73,6 @@ class SolicitudReporteUpdate(BaseModel):
 class SolicitudReporteOut(BaseModel):
     id_reporte: int
     rut_medico: str
-    rut_paciente: str
     rango_desde: datetime
     rango_hasta: datetime
     tipo: str

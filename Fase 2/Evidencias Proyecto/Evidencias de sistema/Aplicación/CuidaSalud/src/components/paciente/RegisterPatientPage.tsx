@@ -1,4 +1,6 @@
 // src/components/paciente/RegisterPatientPage.tsx
+import MultiEnfermedadesSelect from "./MultiEnfermedadesSelect";
+// MultiEnfermedadesSelect: selector múltiple personalizado con checkboxes y opción de quitar
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -388,20 +390,23 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Enfermedades (opcional)</Label>
-            <Input
-              value={pac.enfermedades ?? ""}
-              onChange={(e) => setPac({ ...pac, enfermedades: e.target.value })}
+            <Label>Enfermedades (puede seleccionar varias)</Label>
+            <MultiEnfermedadesSelect
+              value={pac.enfermedades ? pac.enfermedades.split(",") : []}
+              onChange={(arr: string[]) => setPac({ ...pac, enfermedades: arr.join(",") })}
             />
           </div>
 
           {/* Seguro / Dirección */}
           <div className="space-y-2">
-            <Label>Seguro (opcional)</Label>
-            <Input
-              value={pac.seguro ?? ""}
-              onChange={(e) => setPac({ ...pac, seguro: e.target.value })}
-            />
+            <Label>Seguro</Label>
+            <Select value={pac.seguro ?? ""} onValueChange={(v: string) => setPac({ ...pac, seguro: v })}>
+              <SelectTrigger><SelectValue placeholder="Selecciona seguro" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Fonasa">Fonasa</SelectItem>
+                <SelectItem value="Isapre">Isapre</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label>Dirección</Label>

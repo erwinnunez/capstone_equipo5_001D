@@ -284,7 +284,7 @@ Próxima revisión: ${checklistData.nextAppointment}`;
                 <Label htmlFor="appointmentType">Tipo de Consulta</Label>
                 <Select
                   value={checklistData.appointmentType}
-                  onValueChange={(value) => setChecklistData(prev => ({ ...prev, appointmentType: value }))}
+                  onValueChange={(value: string) => setChecklistData(prev => ({ ...prev, appointmentType: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar tipo" />
@@ -368,7 +368,7 @@ Próxima revisión: ${checklistData.nextAppointment}`;
                   <Label>Categoría</Label>
                   <Select
                     value={newTask.category}
-                    onValueChange={(value) => setNewTask(prev => ({ ...prev, category: value }))}
+                    onValueChange={(value: string) => setNewTask(prev => ({ ...prev, category: value }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleccionar categoría" />
@@ -384,7 +384,7 @@ Próxima revisión: ${checklistData.nextAppointment}`;
                   <Label>Prioridad</Label>
                   <Select
                     value={newTask.priority}
-                    onValueChange={(value) => setNewTask(prev => ({ ...prev, priority: value as 'alta' | 'media' | 'baja' }))}
+                    onValueChange={(value: string) => setNewTask(prev => ({ ...prev, priority: value as 'alta' | 'media' | 'baja' }))}
                   >
                     <SelectTrigger>
                       <SelectValue />

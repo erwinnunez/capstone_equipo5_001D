@@ -35,19 +35,18 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
       user={user}
       onLogout={onLogout}
       sidebarContent={<PatientSidebar current={section} onSelect={setSection} />}
-      notifications={2}
     >
       <div className="space-y-6">
         {section === "home" && (
           <PatientHome user={user} totalPoints={totalPoints} currentStreak={currentStreak} />
         )}
 
-        {section === "measurements" && <PatientMeasurements rutPaciente={user.rutPaciente} />}
+        {section === "measurements" && (
+          <PatientMeasurements rutPaciente={user.rutPaciente?.toString()} />
+        )}
 
         {section === "progress" && (
-          <PatientProgress
-            rutPaciente={user.rutPaciente}
-          />
+          <PatientProgress rutPaciente={user.rutPaciente} />
         )}
 
         {section === "medication" && (

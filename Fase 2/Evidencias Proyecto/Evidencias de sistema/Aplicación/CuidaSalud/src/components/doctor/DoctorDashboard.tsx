@@ -1,7 +1,7 @@
 // src/components/DoctorDashboard.tsx
 import { useState } from 'react';
 import { Button } from '../ui/button';
-import { Users, AlertTriangle, TrendingUp, FileText, NotepadTextDashed, CheckSquare } from 'lucide-react';
+import { Users, AlertTriangle, TrendingUp, FileText, NotepadTextDashed, CheckSquare, SlidersHorizontal } from 'lucide-react';
 import { DashboardLayout } from '../DashboardLayout';
 import DoctorPatients from './DoctorPatients';
 import DoctorAnalytics from './DoctorAnalytics';
@@ -9,6 +9,8 @@ import DoctorReports from './DoctorReports';
 import MedicalDashboard from './MedicalDashboard'
 import SOAPNoteForm from './SOAPNoteForm'
 import FollowUpChecklist from './FollowUpChecklist'
+import AgregarRangoPaciente from '../paciente/AgregarRangoPaciente'
+import AgregarMedicamentoPaciente from './AgregarMedicamentoPaciente'
 
 interface User {
   id: string;
@@ -38,6 +40,14 @@ export function DoctorDashboard({ user, onLogout }: DoctorDashboardProps) {
       <Button variant={section === 'soap' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('soap')}>
         <FileText className="h-4 w-4 mr-2" />
         Soap
+      </Button>
+      <Button variant={section === 'agregarRango' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('agregarRango')}>
+        <SlidersHorizontal className="h-4 w-4 mr-2" />
+        Agregar rango
+      </Button>
+      <Button variant={section === 'medicamento' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('medicamento')}>
+        <SlidersHorizontal className="h-4 w-4 mr-2" />
+        Agregar medicamento
       </Button>
       <Button variant={section === 'analytics' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('analytics')}>
         <TrendingUp className="h-4 w-4 mr-2" />
@@ -74,12 +84,18 @@ export function DoctorDashboard({ user, onLogout }: DoctorDashboardProps) {
     case 'soap':
       content = <SOAPNoteForm />;
       break;
+    case 'agregarRango':
+      content = <AgregarRangoPaciente />;
+      break;
+    case 'medicamento':
+      content = <AgregarMedicamentoPaciente />;
+      break;
     default:
       content = <DoctorPatients />;
   }
 
   return (
-    <DashboardLayout user={user} onLogout={onLogout} sidebarContent={sidebarContent} notifications={8}>
+    <DashboardLayout user={user} onLogout={onLogout} sidebarContent={sidebarContent}>
       {content}
     </DashboardLayout>
   );

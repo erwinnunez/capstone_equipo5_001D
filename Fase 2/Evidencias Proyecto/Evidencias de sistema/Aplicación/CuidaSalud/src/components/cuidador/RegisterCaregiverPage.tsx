@@ -18,6 +18,7 @@ export interface RegisterCaregiverPageProps {
 }
 
 export default function RegisterCaregiverPage({ onCancel, onSuccess }: RegisterCaregiverPageProps) {
+  const [seguro, setSeguro] = useState<string>("");
   const [rut, setRut] = useState("");
   const [rutTouched, setRutTouched] = useState(false);
   const rutValido = useMemo(() => validarRutChile(rut), [rut]);
@@ -82,7 +83,8 @@ export default function RegisterCaregiverPage({ onCancel, onSuccess }: RegisterC
       telefono: Number(telefono.replace(/\D/g, "")),
       email: email.trim().toLowerCase(),
       contrasena,
-      estado: true,
+  estado: true,
+  seguro,
     };
 
     try {
@@ -165,6 +167,17 @@ export default function RegisterCaregiverPage({ onCancel, onSuccess }: RegisterC
             <Input value={segundoApellido} onChange={(e) => setSegundoApellido(e.target.value)} />
           </div>
 
+          {/* Seguro */}
+          <div className="space-y-2 md:col-span-2">
+            <Label>Seguro</Label>
+            <Select value={seguro} onValueChange={(v: string) => setSeguro(v)}>
+              <SelectTrigger><SelectValue placeholder="Selecciona seguro" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Fonasa">Fonasa</SelectItem>
+                <SelectItem value="Isapre">Isapre</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {/* Dirección */}
           <div className="space-y-2 md:col-span-2">
             <Label>Dirección</Label>

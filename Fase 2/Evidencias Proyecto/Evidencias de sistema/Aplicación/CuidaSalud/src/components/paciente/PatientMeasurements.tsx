@@ -53,6 +53,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
     date: string;
     bloodSugar?: number;
     bloodPressure?: number;
+    bloodPressureDia?: number;
     oxygen?: number;
     temperature?: number;
     [key: string]: any;
@@ -116,7 +117,23 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
         
         setGamificacion(perfil);
         setWeeklyProgress(progreso);
-        setRecentMeasurements(chartData);
+        // Si chartData es un array de mediciones, cada una con un array de detalles
+        setRecentMeasurements(chartData.map((med: any) => {
+          // Buscar cada parámetro por id_parametro
+          const getValor = (id: number) => {
+            const det = (med.detalles || []).find((d: any) => d.id_parametro === id);
+            return det ? det.valor_num : null;
+          };
+          return {
+            date: med.date || med.fecha || med.timestamp,
+            bloodSugar: getValor(1), // Glucosa
+            bloodPressure: getValor(2), // Presión sistólica
+            bloodPressureDia: getValor(5), // Presión diastólica
+            oxygen: getValor(3), // Oxígeno
+            temperature: getValor(4), // Temperatura
+            ...med,
+          };
+        }));
       } catch (e: any) {
         setGamificacionError(e?.message ?? 'No se pudieron cargar los datos de gamificación');
       } finally {
@@ -126,6 +143,22 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       }
     })();
   }, [rutPaciente]);
+
+  // Mapa de unidades basado en los IDs de unidad de la API
+  const unidadesPorId = useMemo(() => ({
+    1: { codigo: "mg/dL", descripcion: "miligramos por decilitro" },
+    2: { codigo: "mmHg", descripcion: "milímetros de mercurio" },
+    3: { codigo: "%", descripcion: "porcentaje de saturación" },
+    4: { codigo: "°C", descripcion: "grados Celsius" },
+    5: { codigo: "mg", descripcion: "miligramos" },
+  }), []);
+
+  // Función helper para obtener la unidad por ID
+  const getUnidadByParametro = (parametro: ParametroClinicoOut | undefined) => {
+    if (!parametro || !parametro.id_unidad) return "—";
+    const unidad = unidadesPorId[parametro.id_unidad as keyof typeof unidadesPorId];
+    return unidad ? unidad.codigo : "—";
+  };
 
   // Mapa por código para encontrar IDs y unidades fácilmente
   const P = useMemo(() => {
@@ -313,7 +346,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       id_parametro: P.GLUCOSA!.id_parametro,
       id_unidad: P.GLUCOSA!.id_unidad,
       valor_num: bg,
-      valor_texto: `${bg} mg/dL`,
+      valor_texto: `${bg} ${getUnidadByParametro(P.GLUCOSA)}`,
       fuera_rango: sevBG !== 'normal',
       severidad: sevBG,
       umbral_min: rBG.normMin,
@@ -326,7 +359,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       id_parametro: P.PRESION_SIS!.id_parametro,
       id_unidad: P.PRESION_SIS!.id_unidad,
       valor_num: sys,
-      valor_texto: `${sys} mmHg`,
+      valor_texto: `${sys} ${getUnidadByParametro(P.PRESION_SIS)}`,
       fuera_rango: sevSys !== 'normal',
       severidad: sevSys,
       umbral_min: rSYS.normMin,
@@ -339,7 +372,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       id_parametro: P.PRESION_DIA!.id_parametro,
       id_unidad: P.PRESION_DIA!.id_unidad,
       valor_num: dia,
-      valor_texto: `${dia} mmHg`,
+      valor_texto: `${dia} ${getUnidadByParametro(P.PRESION_DIA)}`,
       fuera_rango: sevDia !== 'normal',
       severidad: sevDia,
       umbral_min: rDIA.normMin,
@@ -352,7 +385,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       id_parametro: P.OXIGENO!.id_parametro,
       id_unidad: P.OXIGENO!.id_unidad,
       valor_num: ox,
-      valor_texto: `${ox}%`,
+      valor_texto: `${ox} ${getUnidadByParametro(P.OXIGENO)}`,
       fuera_rango: sevOX !== 'normal',
       severidad: sevOX,
       umbral_min: rOX.normMin,
@@ -365,7 +398,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       id_parametro: P.TEMP!.id_parametro,
       id_unidad: P.TEMP!.id_unidad,
       valor_num: t,
-      valor_texto: `${t} °C`,
+      valor_texto: `${t} ${getUnidadByParametro(P.TEMP)}`,
       fuera_rango: sevT !== 'normal',
       severidad: sevT,
       umbral_min: rT.normMin,
@@ -436,6 +469,15 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
   const helper = (name: keyof typeof errors) =>
     errors[name] ? <p className="text-xs text-red-600 mt-1">{errors[name]}</p> : null;
 
+  // Mapeo campo → unidad
+  const unidadesPorCampo: Record<string, string> = {
+    bloodSugar: getUnidadByParametro(P.GLUCOSA),
+    bloodPressure: getUnidadByParametro(P.PRESION_SIS),
+    bloodPressureDia: getUnidadByParametro(P.PRESION_DIA),
+    oxygen: getUnidadByParametro(P.OXIGENO),
+    temperature: getUnidadByParametro(P.TEMP),
+  };
+
   return (
     <div className="space-y-6">
       {/* Modal de validación de mediciones */}
@@ -488,7 +530,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
               {/* Presión SISTÓLICA */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  {(P.PRESION_SIS?.descipcion ?? 'Presión sistólica')} ({P.PRESION_SIS ? 'mmHg' : '—'})
+                  {(P.PRESION_SIS?.descipcion ?? 'Presión sistólica')} ({getUnidadByParametro(P.PRESION_SIS)})
                 </label>
                 <Input
                   required
@@ -504,7 +546,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
               {/* Presión DIASTÓLICA */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  {(P.PRESION_DIA?.descipcion ?? 'Presión diastólica')} ({P.PRESION_DIA ? 'mmHg' : '—'})
+                  {(P.PRESION_DIA?.descipcion ?? 'Presión diastólica')} ({getUnidadByParametro(P.PRESION_DIA)})
                 </label>
                 <Input
                   required
@@ -520,7 +562,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
               {/* Oxígeno */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  {(P.OXIGENO?.descipcion ?? 'Oxígeno')} ({P.OXIGENO ? '%' : '—'})
+                  {(P.OXIGENO?.descipcion ?? 'Oxígeno')} ({getUnidadByParametro(P.OXIGENO)})
                 </label>
                 <Input
                   required
@@ -536,7 +578,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
               {/* Temperatura */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  {(P.TEMP?.descipcion ?? 'Temperatura')} ({P.TEMP ? '°C' : '—'})
+                  {(P.TEMP?.descipcion ?? 'Temperatura')} ({getUnidadByParametro(P.TEMP)})
                 </label>
                 <Input
                   required
@@ -667,22 +709,37 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
                   }}
                   interval="preserveStartEnd"
                 />
-                <YAxis />
-                <Tooltip 
+                <YAxis
+                    label={{
+                      value: [
+                        recentMeasurements.some(d => d.bloodSugar != null) ? unidadesPorCampo['bloodSugar'] : null,
+                        recentMeasurements.some(d => d.oxygen != null) ? unidadesPorCampo['oxygen'] : null,
+                        recentMeasurements.some(d => d.bloodPressure != null) ? unidadesPorCampo['bloodPressure'] : null,
+                        recentMeasurements.some(d => d.bloodPressureDia != null) ? unidadesPorCampo['bloodPressureDia'] : null,
+                        recentMeasurements.some(d => d.temperature != null) ? unidadesPorCampo['temperature'] : null,
+                      ].filter(Boolean).join(' / '),
+                      angle: -90,
+                      position: 'insideLeft',
+                    }}
+                />
+                <Tooltip
                   labelFormatter={(value) => {
                     const date = new Date(value);
-                    return date.toLocaleDateString('es-CL', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
+                    return date.toLocaleDateString('es-CL', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
                       day: 'numeric',
                       hour: '2-digit',
-                      minute: '2-digit'
+                      minute: '2-digit',
                     });
                   }}
-                  formatter={(value, name) => [value, name]}
+                  formatter={(value, name) => {
+                    const unidad = unidadesPorCampo[name] || '';
+                    return [`${value} ${unidad}`, name];
+                  }}
                 />
-                {/* Solo mostrar líneas para datos que existen */}
+                {/* Mostrar líneas para los 5 campos */}
                 {recentMeasurements.some(d => d.bloodSugar != null) && (
                   <Line 
                     type="monotone" 
@@ -709,7 +766,17 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
                     dataKey="bloodPressure" 
                     stroke="#f59e0b" 
                     strokeWidth={2} 
-                    name="Presión Arterial" 
+                    name="Presión Sistólica" 
+                    connectNulls={false}
+                  />
+                )}
+                {recentMeasurements.some(d => d.bloodPressureDia != null) && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="bloodPressureDia" 
+                    stroke="#a855f7" 
+                    strokeWidth={2} 
+                    name="Presión Diastólica" 
                     connectNulls={false}
                   />
                 )}

@@ -274,22 +274,23 @@ export async function getRecentMeasurementsForChart(
       // Mapear parámetros clínicos a campos de la gráfica
       medicion.detalles.forEach((detalle: any) => {
         if (detalle.valor_num != null) {
-          // Mapeo básico por id_parametro (esto podría mejorarse con códigos)
           switch (detalle.id_parametro) {
-            case 1: // Asumiendo que 1 es glucosa
+            case 1: // Glucosa
               medicionData.bloodSugar = detalle.valor_num;
               break;
-            case 2: // Asumiendo que 2 es presión sistólica
+            case 2: // Presión sistólica
               medicionData.bloodPressure = detalle.valor_num;
               break;
-            case 4: // Asumiendo que 4 es oxígeno
+            case 5: // Presión diastólica
+              medicionData.bloodPressureDia = detalle.valor_num;
+              break;
+            case 3: // Oxígeno
               medicionData.oxygen = detalle.valor_num;
               break;
-            case 5: // Asumiendo que 5 es temperatura
+            case 4: // Temperatura
               medicionData.temperature = detalle.valor_num;
               break;
             default:
-              // Para otros parámetros, usar un nombre genérico
               medicionData[`param_${detalle.id_parametro}`] = detalle.valor_num;
           }
         }

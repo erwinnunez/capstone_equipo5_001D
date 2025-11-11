@@ -308,6 +308,16 @@ export default function PatientProgress({ rutPaciente }: Props) {
                   connectNulls={false}
                 />
               )}
+              {recentMeasurements.some(d => d.bloodPressureDia != null) && (
+                <Line 
+                  type="monotone" 
+                  dataKey="bloodPressureDia" 
+                  stroke="#a855f7" 
+                  strokeWidth={2} 
+                  name="Presión Diastólica" 
+                  connectNulls={false}
+                />
+              )}
               {recentMeasurements.some(d => d.oxygen != null) && (
                 <Line 
                   type="monotone" 

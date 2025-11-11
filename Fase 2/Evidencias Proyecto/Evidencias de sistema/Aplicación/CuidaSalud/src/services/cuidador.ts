@@ -100,6 +100,7 @@ export type CuidadorCreatePayload = {
   email: string;
   contrasena: string;
   estado: boolean;
+  seguro: string;
 };
 
 type ApiResult<T> =

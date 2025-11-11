@@ -33,8 +33,12 @@ class GamificacionPerfilCreate(BaseModel):
     @field_validator("ultima_actividad")
     @classmethod
     def _val_fecha(cls, v: datetime) -> datetime:
-        from datetime import datetime as _dt
-        if v > _dt.now():
+        from datetime import datetime as _dt, timezone
+        now = _dt.now(timezone.utc)
+        # Si v es naive, lo convertimos a aware en UTC
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        if v > now:
             raise ValueError("La fecha de la última actividad no puede estar en el futuro")
         return v
 
@@ -46,9 +50,13 @@ class GamificacionPerfilUpdate(BaseModel):
     @field_validator("ultima_actividad")
     @classmethod
     def _val_fecha_upd(cls, v: datetime | None):
-        from datetime import datetime as _dt
-        if v and v > _dt.now():
-            raise ValueError("La fecha de la última actividad no puede estar en el futuro")
+        from datetime import datetime as _dt, timezone
+        now = _dt.now(timezone.utc)
+        if v:
+            if v.tzinfo is None:
+                v = v.replace(tzinfo=timezone.utc)
+            if v > now:
+                raise ValueError("La fecha de la última actividad no puede estar en el futuro")
         return v
 
 class GamificacionPerfilOut(BaseModel):

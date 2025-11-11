@@ -5,15 +5,12 @@ from app.schemas.solicitud_reporte import SolicitudReporteCreate, SolicitudRepor
 
 def list_(db: Session, skip: int, limit: int,
           rut_medico: str | None = None,
-          rut_paciente: str | None = None,
           estado: str | None = None,
           desde: datetime | None = None,
           hasta: datetime | None = None):
     q = db.query(SolicitudReporte)
     if rut_medico is not None:
         q = q.filter(SolicitudReporte.rut_medico == rut_medico)
-    if rut_paciente is not None:
-        q = q.filter(SolicitudReporte.rut_paciente == rut_paciente)
     if estado:
         q = q.filter(SolicitudReporte.estado == estado)
     if desde:

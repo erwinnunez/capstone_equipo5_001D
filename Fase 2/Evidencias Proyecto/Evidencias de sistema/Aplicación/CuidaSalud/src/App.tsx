@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { AuthProvider } from "./state/auth";
 import { LoginPage } from "./components/LoginPage";
 import AdminDashboard from "./components/administrador/AdminDashboard";
 import CaregiverDashboard from "./components/cuidador/CaregiverDashboard";
@@ -23,7 +24,7 @@ interface AuthState {
   token?: string | null;
 }
 
-export default function App() {
+function AppInner() {
   const [auth, setAuth] = useState<AuthState | null>(null);
 
   // (Opcional) Restaurar sesión
@@ -82,4 +83,12 @@ export default function App() {
     default:
       return <LoginPage onLogin={handleLogin} />;
   }
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppInner />
+    </AuthProvider>
+  );
 }
