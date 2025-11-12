@@ -1,3 +1,15 @@
+/**
+ * Lista todos los perfiles de gamificación
+ */
+export async function listarGamificacionPerfiles(page = 1, page_size = 50): Promise<Page<GamificacionPerfilOut>> {
+  const response = await fetch(`${RUTA_GAMIFICACION}?page=${page}&page_size=${page_size}`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  return response.json();
+}
 // src/services/gamificacion.ts
 
 const API_HOST = import.meta.env.VITE_API_HOST ?? "http://127.0.0.1:8000";

@@ -164,22 +164,33 @@ export default function PatientHome({
     <div className="space-y-6">
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white p-6 rounded-lg">
-        <h2 className="text-2xl font-semibold mb-2">Bienvenido de nuevo, {user.name}!</h2>
-        <p className="text-blue-100">Continúe con el excelente trabajo de monitoreo de su salud.</p>
-        <div className="mt-4 flex items-center space-x-6">
-          <div className="flex items-center">
-            <Star className="h-5 w-5 mr-2" />
-            <span>{totalPoints} Puntos</span>
-          </div>
-          <div className="flex items-center">
-            <Target className="h-5 w-5 mr-2" />
-            <span>{currentStreak} Racha de días</span>
-          </div>
-        </div>
+        {totalPoints === 0 ? (
+          <>
+            <h2 className="text-2xl font-semibold mb-2">Bienvenido al sistema de Cuida Salud, {user.name}!</h2>
+            <p className="text-blue-100">Recuerda registrar tu primera medición en el apartado de <b>+agregar medición</b>.</p>
+          </>
+        ) : (
+          <>
+            <h2 className="text-2xl font-semibold mb-2">Bienvenido de nuevo, {user.name}!</h2>
+            <p className="text-blue-100">Continúe con el excelente trabajo de monitoreo de su salud.</p>
+            <div className="mt-4 flex items-center space-x-6">
+              <div className="flex items-center">
+                <Star className="h-5 w-5 mr-2" />
+                <span>{totalPoints} Puntos</span>
+              </div>
+              <div className="flex items-center">
+                <Target className="h-5 w-5 mr-2" />
+                <span>{currentStreak} Racha de días</span>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div>
+        <div className="mb-2 text-base font-semibold text-gray-700">Última medición</div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Glucemia</CardTitle>
@@ -223,6 +234,7 @@ export default function PatientHome({
             <p className="text-xs text-muted-foreground">{renderSub()}</p>
           </CardContent>
         </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 // src/components/paciente/PatientDashboard.tsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getGamificacionPerfil } from "../../services/gamificacion";
 import { DashboardLayout } from "../DashboardLayout";
 import { PatientSidebar } from "./PatientSidebar";
 import type { SectionKey } from "./PatientSidebar";
@@ -27,8 +28,24 @@ interface PatientDashboardProps {
 
 export default function PatientDashboard({ user, onLogout }: PatientDashboardProps) {
   const [section, setSection] = useState<SectionKey>("home");
-  const totalPoints = 1250;
-  const currentStreak = 14;
+  const [totalPoints, setTotalPoints] = useState<number>(0);
+  const [currentStreak, setCurrentStreak] = useState<number>(0);
+
+  useEffect(() => {
+    const rut = user.rutPaciente ? String(user.rutPaciente) : undefined;
+    if (!rut) return;
+  // setLoadingGamificacion(true); // eliminado, ya no se usa
+    getGamificacionPerfil(rut)
+      .then((perfil) => {
+        setTotalPoints(perfil.puntos ?? 0);
+        setCurrentStreak(perfil.racha_dias ?? 0);
+      })
+      .catch(() => {
+        setTotalPoints(0);
+        setCurrentStreak(0);
+      })
+  .finally(() => {}); // eliminado, ya no se usa
+  }, [user.rutPaciente]);
 
   return (
     <DashboardLayout
@@ -38,7 +55,11 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
     >
       <div className="space-y-6">
         {section === "home" && (
-          <PatientHome user={user} totalPoints={totalPoints} currentStreak={currentStreak} />
+          <PatientHome
+            user={user}
+            totalPoints={totalPoints}
+            currentStreak={currentStreak}
+          />
         )}
 
         {section === "measurements" && (

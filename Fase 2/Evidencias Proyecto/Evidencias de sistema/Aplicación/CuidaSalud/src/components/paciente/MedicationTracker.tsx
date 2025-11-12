@@ -1,16 +1,24 @@
 // src/components/paciente/MedicationTracker.tsx
 import { useEffect, useMemo, useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogCancel,
+} from "../ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Alert, AlertDescription } from "../ui/alert";
+// import { Alert, AlertDescription } from "../ui/alert";
 import { Progress } from "../ui/progress";
-import { Pill, Clock, CheckCircle, AlertTriangle, Calendar, Info } from "lucide-react";
+import { Pill, Clock, CheckCircle, Calendar, Info } from "lucide-react";
 
 import {
   listMedicinaDetalles,
   getMedicina,
-  patchMedicinaDetalleTomada,
+  markMedicinaTomadaAhora,
   type MedicinaOut,
   type MedicinaDetalleOut,
 } from "../../services/medicacion";
@@ -92,6 +100,70 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [medications, setMedications] = useState<MedicationUI[]>([]);
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<MedicationUI[]>([]);
+  const [historyErr, setHistoryErr] = useState<string | null>(null);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+  const HISTORY_PAGE_SIZE = 12;
+  // Cargar historial completo
+  const fetchHistory = async (page = 1) => {
+    if (!rutPaciente) return;
+    setHistoryLoading(true);
+    setHistoryErr(null);
+    try {
+      const det = await listMedicinaDetalles({
+        rut_paciente: String(rutPaciente),
+        page,
+        page_size: HISTORY_PAGE_SIZE,
+      });
+      const detalles = det.items ?? [];
+      setHistoryTotalPages(Math.max(1, Math.ceil((det.total ?? detalles.length) / HISTORY_PAGE_SIZE)));
+      // Obtener info de cada medicina
+      const uniqIds = Array.from(new Set(detalles.map((d) => d.id_medicina)));
+      const medsList = await Promise.all(uniqIds.map((id) => getMedicina(id)));
+      const idxById = new Map<number, MedicinaOut>(medsList.map((m) => [m.id_medicina, m]));
+      const now = new Date();
+      const ui: MedicationUI[] = detalles.map((d) => {
+        const med = idxById.get(d.id_medicina);
+        const name = med?.nombre ?? `Medicina #${d.id_medicina}`;
+        const dosage = d.dosis ? `${d.dosis}` : med?.toma_maxima ?? "";
+        const start = toDate(d.fecha_inicio);
+        const taken = d.tomada === true;
+        const finished = isFinishedByDate(d.fecha_fin);
+        const overdue = !taken && !!start && start < now && !finished;
+        const pending = !taken && !!start && start > now;
+        return {
+          id_detalle: d.id_detalle,
+          id_medicina: d.id_medicina,
+          name,
+          dosage,
+          time: fmtTime(d.fecha_inicio),
+          taken,
+          overdue,
+          pending,
+          finished,
+          finishesToday: finishesToday(d.fecha_fin),
+          frequency: d.instrucciones_toma ?? med?.toma_maxima ?? "—",
+          instructions: med?.instrucciones ?? "—",
+          fecha_inicio: d.fecha_inicio,
+          fecha_fin: d.fecha_fin ?? null,
+          tomada_en: (d as any).tomada_en ?? null,
+        };
+      }).sort((a, b) => {
+        const da = toDate(a.fecha_inicio)?.getTime() ?? 0;
+        const db = toDate(b.fecha_inicio)?.getTime() ?? 0;
+        return db - da;
+      });
+      setHistory(ui);
+      setHistoryPage(page);
+    } catch (e: any) {
+      setHistoryErr(e?.message ?? "No se pudo cargar el historial");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
 
   // --- Cargar prescripciones y quedarse con la MÁS RECIENTE por id_medicina ---
   useEffect(() => {
@@ -194,16 +266,11 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
   const todaysTaken = activeNowItems.filter((m) => m.taken).length;
   const todaysTotal = activeNowItems.length;
   const adherenceRate = Math.round((todaysTaken / (todaysTotal || 1)) * 100);
-  const missedMeds = activeNowItems.filter((m) => m.overdue);
 
   // --- Acciones ---
-  const mark = async (id_detalle: number, tomada: boolean) => {
+  const mark = async (id_detalle: number) => {
     try {
-      const updated = await patchMedicinaDetalleTomada(
-        id_detalle,
-        tomada,
-        new Date().toISOString() // enviamos cuándo se tomó
-      );
+      const updated = await markMedicinaTomadaAhora(id_detalle);
       setMedications((prev) =>
         prev.map((m) => {
           if (m.id_detalle !== id_detalle) return m;
@@ -213,7 +280,7 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
           return {
             ...m,
             taken: updated.tomada,
-            tomada_en: (updated as any).tomada_en ?? m.tomada_en,
+            tomada_en: updated.fecha_tomada ?? m.tomada_en,
             finished,
             overdue: !updated.tomada && !!start && start < now && !finished,
             pending: !updated.tomada && !!start && start > now,
@@ -225,8 +292,8 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
     }
   };
 
-  const handleMarkTaken = (id_detalle: number) => mark(id_detalle, true);
-  const handleMarkMissed = (id_detalle: number) => mark(id_detalle, false);
+  const handleMarkTaken = (id_detalle: number) => mark(id_detalle);
+  const handleMarkMissed = (id_detalle: number) => mark(id_detalle);
 
   // --- Render helpers ---
   const stateBadge = (m: MedicationUI) => {
@@ -238,7 +305,6 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
         </Badge>
       );
     if (m.finished) return <Badge variant="outline">Finalizada</Badge>;
-    if (m.overdue) return <Badge variant="destructive">Atrasada</Badge>;
     if (m.pending) return <Badge className="bg-blue-100 text-blue-700">Pendiente</Badge>;
     return <Badge variant="outline">Sin estado</Badge>;
   };
@@ -250,13 +316,83 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
       return `Tomada a las ${when}${finTxt}`;
     }
     if (m.finished) return `Finalizada el ${fmtDate(m.fecha_fin)} • Programada: ${m.time || "—"}`;
-    if (m.overdue) return `Hora pasada (${m.time})${finTxt}`;
     if (m.pending) return `Programada para las ${m.time}${finTxt}`;
     return `Programación: ${m.time || "—"}${finTxt}`;
   };
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+    <Button variant="outline" onClick={() => { setShowHistory(true); fetchHistory(1); }}>
+          Ver historial de medicación
+        </Button>
+      </div>
+      {/* Modal de historial */}
+      <AlertDialog open={showHistory} onOpenChange={setShowHistory}>
+        <AlertDialogContent className="max-w-2xl w-full">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Historial de Medicación</AlertDialogTitle>
+            <AlertDialogDescription>
+              Registros de todas las tomas y no tomas del paciente. Cada card muestra la fecha y hora programada para tomar la medicina.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {historyLoading && <p className="text-sm text-muted-foreground">Cargando historial…</p>}
+          {historyErr && <p className="text-sm text-red-600">{historyErr}</p>}
+          {!historyLoading && history.length === 0 && (
+            <p className="text-sm text-muted-foreground">No hay registros de historial.</p>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 max-h-[400px] overflow-y-auto mt-4">
+            {history.map((m) => (
+              <div
+                key={m.id_detalle}
+                className="border rounded-xl p-4 flex flex-col bg-gray-50 shadow-md min-h-[140px] justify-between"
+                style={{ marginBottom: '0.5rem' }}
+              >
+                <div className="flex items-center gap-3 mb-2">
+                  <Pill className="h-5 w-5 text-blue-500" />
+                  <span className="font-semibold text-base">{m.name}</span>
+                </div>
+                <div className="text-sm text-muted-foreground mb-1">{m.dosage}</div>
+                <div className="text-sm text-muted-foreground mb-1">Fecha: {fmtDate(m.fecha_inicio)}</div>
+                <div className="text-sm text-muted-foreground mb-1">Hora: {fmtTime(m.fecha_inicio)}</div>
+                <div className="text-sm text-muted-foreground mb-2">{m.instructions}</div>
+                <div className="mt-auto">
+                  {m.taken ? (
+                    <Badge variant="secondary" className="bg-green-100 text-green-700">Tomada</Badge>
+                  ) : (
+                    <Badge variant="outline" className="bg-red-100 text-red-700">No tomada</Badge>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Paginación */}
+          <div className="flex justify-between items-center mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={historyPage <= 1 || historyLoading}
+              onClick={() => fetchHistory(historyPage - 1)}
+            >
+              Anterior
+            </Button>
+            <span className="text-xs text-muted-foreground">Página {historyPage} de {historyTotalPages}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={historyPage >= historyTotalPages || historyLoading}
+              onClick={() => fetchHistory(historyPage + 1)}
+            >
+              Siguiente
+            </Button>
+          </div>
+          <div className="flex justify-end mt-2">
+            <AlertDialogCancel asChild>
+              <Button variant="outline" onClick={() => setShowHistory(false)}>Cerrar</Button>
+            </AlertDialogCancel>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -282,8 +418,7 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
               <div className="text-sm text-blue-700">Adherencia (activas ahora)</div>
             </div>
             <div className="text-center p-4 bg-amber-50 rounded-lg">
-              <div className="text-2xl font-bold text-amber-600">{missedMeds.length}</div>
-              <div className="text-sm text-amber-700">Atrasadas (activas ahora)</div>
+              {/* Eliminado: Atrasadas (activas ahora) */}
             </div>
           </div>
 
@@ -299,15 +434,6 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
         </CardContent>
       </Card>
 
-      {activeNowItems.some((m) => m.overdue) && (
-        <Alert className="border-amber-200 bg-amber-50">
-          <AlertTriangle className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800">
-            <strong>Medicaciones atrasadas:</strong> Tienes {missedMeds.length} pendiente(s) cuya
-            hora ya pasó.
-          </AlertDescription>
-        </Alert>
-      )}
 
       <div className="space-y-4">
         {medications.map((m) => (
@@ -432,12 +558,7 @@ export default function MedicationTracker({ onBack, rutPaciente }: MedicationTra
         </CardContent>
       </Card>
 
-      <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
-          Volver al inicio
-        </Button>
-        <Button className="flex-1">Compartir con médico</Button>
-      </div>
+      {/* Botones eliminados por requerimiento */}
     </div>
   );
 }

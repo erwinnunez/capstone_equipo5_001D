@@ -633,7 +633,7 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
 
       {/* MODAL DE PROGRESO DEL PACIENTE */}
       <Dialog open={progresoModalOpen} onOpenChange={setProgresoModalOpen}>
-        <DialogContent className="max-h-[80vh] w-[90vw] max-w-5xl overflow-y-auto p-6 bg-white rounded-lg shadow-lg">
+  <DialogContent className="max-h-[90vh] w-[100vw] overflow-y-auto p-10 bg-white rounded-2xl shadow-2xl" style={{ maxWidth: 'none' }}>
           <DialogHeader>
             <DialogTitle className="text-xl font-bold mb-4 flex items-center gap-2">
               <Activity className="w-5 h-5 text-blue-600" />
@@ -648,7 +648,7 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
                 <CardTitle className="text-base">Filtros y Descarga</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div>
                     <label className="text-sm font-medium text-gray-600 block mb-1">Fecha desde</label>
                     <Input
@@ -667,13 +667,13 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
                       className="w-full"
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="flex pt-6">
                     <Button onClick={aplicarFiltroFechas} disabled={loadingProgreso} className="w-full">
                       <Calendar className="w-4 h-4 mr-2" />
                       Aplicar Filtro
                     </Button>
                   </div>
-                  <div className="space-y-2">
+                  <div className="flex pt-6">
                     <Button variant="outline" onClick={descargarMediciones} disabled={medicionesProgreso.length === 0} className="w-full">
                       <Download className="w-4 h-4 mr-2" />
                       Descargar CSV
@@ -698,7 +698,7 @@ export const DialogHandle: React.FC<pacienteDialog> = ({ paciente, comunas, cesf
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div style={{ width: '100%', height: 300 }}>
+                  <div style={{ width: '100%', height: 220 }}>
                     <ResponsiveContainer>
                       <LineChart data={medicionesProgreso}>
                         <CartesianGrid strokeDasharray="3 3" />

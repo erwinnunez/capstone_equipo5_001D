@@ -45,7 +45,7 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
     segundo_nombre_paciente: "",
     primer_apellido_paciente: "",
     segundo_apellido_paciente: "",
-    fecha_nacimiento: "1990-01-01",
+    fecha_nacimiento: "",
     sexo: true,
     tipo_de_sangre: "O+",
     enfermedades: "",
@@ -58,7 +58,7 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
     nombre_contacto: "",
     telefono_contacto: 0,
     id_cesfam: 0,
-    fecha_inicio_cesfam: "2024-01-01",
+    fecha_inicio_cesfam: "",
     fecha_fin_cesfam: null,
     activo_cesfam: true,
   });
