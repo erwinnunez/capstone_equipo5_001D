@@ -17,7 +17,7 @@ def list_sr(page: int = 1, page_size: int = 20,
             hasta: datetime | None = Query(None),
             db: Session = Depends(get_db)):
     items, total = svc.list_(db, skip=(page-1)*page_size, limit=page_size,
-                             rut_medico=rut_medico, rut_paciente=rut_paciente,
+                             rut_medico=rut_medico,
                              estado=estado, desde=desde, hasta=hasta)
     return Page(items=items, total=total, page=page, page_size=page_size)
 
@@ -29,7 +29,17 @@ def get_sr(id_reporte: int, db: Session = Depends(get_db)):
 
 @router.post("", response_model=SolicitudReporteOut, status_code=status.HTTP_201_CREATED)
 def create_sr(payload: SolicitudReporteCreate, db: Session = Depends(get_db)):
-    return svc.create(db, payload)
+    obj = svc.create(db, payload)
+    # Crear registro en descarga_reporte automáticamente
+    from app.services import descarga_reporte as descarga_svc
+    from app.schemas.descarga_reporte import DescargaReporteCreate
+    descarga_payload = DescargaReporteCreate(
+        rut_medico=obj.rut_medico,
+        id_reporte=obj.id_reporte,
+        descargado_en=datetime.now()
+    )
+    descarga_svc.create(db, descarga_payload)
+    return obj
 
 @router.patch("/{id_reporte}", response_model=SolicitudReporteOut)
 def update_sr(id_reporte: int, payload: SolicitudReporteUpdate, db: Session = Depends(get_db)):

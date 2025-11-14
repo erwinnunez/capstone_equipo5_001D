@@ -96,9 +96,9 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           <p className="text-lg text-gray-600">Sistema de monitoreo de pacientes</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-8">
+        <div className="flex justify-center">
           {/* ----------- Card Login ----------- */}
-          <Card className="shadow-lg">
+          <Card className="shadow-lg w-full max-w-lg">
             <CardHeader>
               <CardTitle>Iniciar sesión</CardTitle>
               <CardDescription>Acceda a su panel de control de seguimiento</CardDescription>
@@ -156,43 +156,6 @@ export function LoginPage({ onLogin }: LoginPageProps) {
               </Button>
             </CardContent>
           </Card>
-
-          {/* ----------- Card Usuarios Demo ----------- */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>Usuarios demo</CardTitle>
-              <CardDescription>Explorar los diferentes usuarios</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {roles.map((role) => (
-                <Button
-                  key={role.value}
-                  variant="outline"
-                  className="w-full justify-start h-auto p-4"
-                  onClick={() =>
-                    onLogin({
-                      user: {
-                        id: `${role.value}-demo`,
-                        name: `Demo ${role.label}`,
-                        role: role.value as Role,
-                        email: `demo@${role.value}.com`,
-                        rut_paciente: role.value === "patient" ? String(12345678) : undefined,
-                      },
-                    })
-                  }
-                >
-                  <role.icon className="h-5 w-5 mr-3" />
-                  <div className="text-left">
-                    <div className="font-medium">{role.label}</div>
-                    <div className="text-sm text-gray-500">{role.description}</div>
-                    {role.value === "patient" && (
-                      <div className="text-xs text-gray-500 mt-1">(Demo usa RUT 12345678)</div>
-                    )}
-                  </div>
-                </Button>
-              ))}
-            </CardContent>
-          </Card>
         </div>
       </div>
 
@@ -232,7 +195,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
       <Dialog open={patientModalOpen} onOpenChange={setPatientModalOpen}>
         <DialogContent
           style={{ width: "96vw", maxWidth: "1000px", height: "85vh" }}
-          className="overflow-hidden rounded-2xl p-0 flex flex-col"
+          className="overflnoow-hidden rounded-2xl p-0 flex flex-col"
         >
           <div className="px-6 pt-6 pb-3 border-b">
             <DialogHeader>

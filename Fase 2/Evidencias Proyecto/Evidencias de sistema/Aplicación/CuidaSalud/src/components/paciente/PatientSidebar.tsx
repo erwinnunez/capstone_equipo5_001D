@@ -1,8 +1,8 @@
 // src/components/paciente/PatientSidebar.tsx
 import { Button } from "../ui/button";
-import { Award, Plus, TrendingUp, Star, Pill } from "lucide-react";
+import { Award, Plus, TrendingUp, Star, Pill, User } from "lucide-react";
 
-export type SectionKey = "home" | "measurements" | "progress" | "achievements" | "medication";
+export type SectionKey = "home" | "measurements" | "progress" | "achievements" | "medication" | "edit";
 
 export function PatientSidebar({
   current,
@@ -29,6 +29,7 @@ export function PatientSidebar({
       <Item k="progress" icon={TrendingUp} label="Mi Progreso" />
       <Item k="medication" icon={Pill} label="Medicaciones" />
       <Item k="achievements" icon={Award} label="Logros" />
+      <Item k="edit" icon={User} label="Editar perfil" />
     </nav>
   );
 }

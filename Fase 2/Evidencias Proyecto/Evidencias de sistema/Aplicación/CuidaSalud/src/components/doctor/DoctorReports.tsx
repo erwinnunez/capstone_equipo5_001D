@@ -1,5 +1,5 @@
 // src/components/DoctorReports.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -7,19 +7,120 @@ import { listPacientes } from '../../services/paciente';
 import { listarMedicionesConAlerta, listMedicionDetalles, listarMediciones } from '../../services/medicion';
 import * as XLSX from 'xlsx';
 import { Download } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { createSolicitudReporte } from '../../services/solicitudReporte';
+import { listSolicitudReportes } from '../../services/solicitudReporte';
+// Función robusta para obtener el rut del médico (copiada de MedicalDashboard)
+function extractRutFromObject(obj: any): number | null {
+  if (!obj) return null;
+  const cands = [
+    obj?.medico?.rut_medico,
+    obj?.rut_medico,
+    obj?.rutMedico,
+    obj?.rut,
+    obj?.user?.rut_medico,
+    obj?.user?.rutMedico,
+    obj?.user?.rut,
+    obj?.user?.id,
+    obj?.id,
+  ];
+  for (const c of cands) {
+    if (c != null && !Number.isNaN(Number(c))) return Number(c);
+  }
+  return null;
+}
 
-const recentReports = [
-  { name: 'Reporte Resumen Pacientes - Enero 2024', date: '2024-01-20', format: 'PDF' },
-  { name: 'Análisis de alertas - Semana 3', date: '2024-01-18', format: 'Excel' },
-  { name: 'Tendencias - Q1 2024', date: '2024-01-15', format: 'PDF' },
-];
+function getLoggedMedicoRut(): { rut: string | null; source: string } {
+  const sessionStr = localStorage.getItem("session");
+  if (sessionStr) {
+    try {
+      const s = JSON.parse(sessionStr);
+      const rut = extractRutFromObject(s);
+      if (rut != null) return { rut: String(rut), source: "session" };
+    } catch {}
+  }
+  for (const k of ["auth", "user", "current_user", "front_user"]) {
+    const raw = localStorage.getItem(k);
+    if (!raw) continue;
+    try {
+      const obj = JSON.parse(raw);
+      const rut = extractRutFromObject(obj);
+      if (rut != null) return { rut: String(rut), source: k };
+    } catch {}
+  }
+  const jwt = localStorage.getItem("token") || localStorage.getItem("jwt");
+  if (jwt && jwt.split(".").length === 3) {
+    try {
+      const payloadJson = atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"));
+      const p = JSON.parse(payloadJson);
+      const rut =
+        p?.rut_medico ??
+        p?.rutMedico ??
+        p?.sub_rut ??
+        p?.subRut ??
+        p?.rut ??
+        p?.id ??
+        null;
+      if (rut != null) return { rut: String(rut), source: "jwt" };
+    } catch {}
+  }
+  const direct = localStorage.getItem("medico_rut");
+  if (direct) return { rut: String(direct), source: "medico_rut" };
+  return { rut: null, source: "none" };
+}
+
 
 export default function DoctorReports() {
-  const [reportType, setReportType] = useState('patient');
-  const [dateRange, setDateRange] = useState('30days');
-  const [format, setFormat] = useState('excel');
+      const [currentPage, setCurrentPage] = useState(1);
+      const reportsPerPage = 10;
+      const [totalReports, setTotalReports] = useState(0);
+    // Obtener rut del médico de forma robusta
+    const { rut: rutMedico } = getLoggedMedicoRut();
+    const [reportType, setReportType] = useState('patient');
+    const [dateRange, setDateRange] = useState('30days');
+    const [format, setFormat] = useState('excel');
+    const [recentReports, setRecentReports] = useState<any[]>([]);
 
-  const handleGenerateReport = async () => {
+    // Cargar reportes recientes al montar
+    useEffect(() => {
+      if (!rutMedico) return;
+      listSolicitudReportes({ rut_medico: rutMedico, page: currentPage, page_size: reportsPerPage })
+        .then((res) => {
+          setRecentReports(res.items);
+          setTotalReports(res.total ?? 0);
+        })
+        .catch(() => {
+          setRecentReports([]);
+          setTotalReports(0);
+        });
+    }, [rutMedico, currentPage]);
+
+    const handleGenerateReport = async () => {
+        // Calcular fechas según el rango seleccionado
+        const now = new Date();
+        let daysAgo = 30;
+        if (dateRange === '7days') daysAgo = 7;
+        if (dateRange === '90days') daysAgo = 90;
+        const rango_hasta = now.toISOString();
+        const desdeDate = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+        const rango_desde = desdeDate.toISOString();
+        const creado_en = now.toISOString();
+
+        // Crear solicitud de reporte antes de generar el archivo
+        try {
+          await createSolicitudReporte({
+            rut_medico: rutMedico ?? '',
+            rango_desde,
+            rango_hasta,
+            tipo: reportType,
+            formato: format,
+            estado: 'pendiente',
+            creado_en,
+          });
+        } catch (err: any) {
+          alert('Error al registrar la solicitud de reporte: ' + err.message);
+          return;
+        }
     if (reportType === 'patient' && format === 'excel') {
       // Obtener todos los pacientes
       const pacientesResult = await listPacientes({ page: 1, page_size: 1000 });
@@ -197,19 +298,79 @@ export default function DoctorReports() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {recentReports.map((report, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
-                <div>
-                  <h4 className="font-medium">{report.name}</h4>
-                  <p className="text-sm text-gray-600">{report.date} • {report.format}</p>
+            {recentReports.length === 0 ? (
+              <div className="text-center text-muted-foreground">No hay reportes recientes.</div>
+            ) : (
+              recentReports.map((report) => (
+                <div key={report.id_reporte} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div>
+                    <h4 className="font-medium">Reporte {report.tipo}</h4>
+                    <p className="text-sm text-gray-600">
+                      {new Date(report.creado_en).toLocaleDateString()} • {report.formato}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Estado: {report.estado}</p>
+                  </div>
                 </div>
-                <Button variant="outline" size="sm">
-                  <Download className="h-4 w-4 mr-2" />
-                  Descargar
+              ))
+            )}
+          </div>
+          {/* Paginador */}
+          {totalReports > reportsPerPage && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <div className="text-sm text-gray-600">
+                Página {currentPage} - Mostrando {recentReports.length} de {totalReports} reportes
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <div className="flex items-center space-x-1">
+                  {currentPage > 2 && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(1)}>1</Button>
+                      {currentPage > 3 && <span className="text-gray-400">...</span>}
+                    </>
+                  )}
+                  {currentPage > 1 && (
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(currentPage - 1)}>
+                      {currentPage - 1}
+                    </Button>
+                  )}
+                  <Button variant="default" size="sm" disabled>
+                    {currentPage}
+                  </Button>
+                  {Math.ceil(totalReports / reportsPerPage) > currentPage && (
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(currentPage + 1)}>
+                      {currentPage + 1}
+                    </Button>
+                  )}
+                  {Math.ceil(totalReports / reportsPerPage) > currentPage + 1 && (
+                    <>
+                      {Math.ceil(totalReports / reportsPerPage) > currentPage + 2 && <span className="text-gray-400">...</span>}
+                      <Button variant="outline" size="sm" onClick={() => setCurrentPage(Math.ceil(totalReports / reportsPerPage))}>
+                        {Math.ceil(totalReports / reportsPerPage)}
+                      </Button>
+                    </>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage >= Math.ceil(totalReports / reportsPerPage)}
+                >
+                  Siguiente
+                  <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </>

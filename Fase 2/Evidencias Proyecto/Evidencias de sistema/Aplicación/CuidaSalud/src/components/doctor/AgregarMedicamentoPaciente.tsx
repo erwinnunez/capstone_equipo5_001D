@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from '../ui/button';
 import { ConfirmModal } from '../common/ConfirmModal';
 import ErrorAlertModal from '../common/ErrorAlertModal';
-import SuccessModal from '../common/SuccessModal';
+// import SuccessModal from '../common/SuccessModal';
 
 const initialForm = {
   id_medicina: 0,
@@ -28,7 +28,7 @@ export default function AgregarMedicamentoPaciente() {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -46,7 +46,13 @@ export default function AgregarMedicamentoPaciente() {
     if (type === 'checkbox') {
       setForm(f => ({ ...f, [name]: (e.target as HTMLInputElement).checked }));
     } else {
-      setForm(f => ({ ...f, [name]: value }));
+      // Solo permitir números y k/K en rut_paciente
+      if (name === 'rut_paciente') {
+        const filtered = value.replace(/[^0-9kK]/g, '');
+        setForm(f => ({ ...f, [name]: filtered }));
+      } else {
+        setForm(f => ({ ...f, [name]: value }));
+      }
     }
   };
 
@@ -59,7 +65,6 @@ export default function AgregarMedicamentoPaciente() {
     setConfirmOpen(false);
     setLoading(true);
     setError('');
-    setSuccess('');
     try {
       // Construir el payload con todos los campos requeridos
       const {
@@ -84,7 +89,7 @@ export default function AgregarMedicamentoPaciente() {
       };
       console.log('Payload enviado a medicina detalle:', payload);
       await createMedicinaDetalle(payload);
-      setSuccess('Medicamento agregado correctamente');
+      setSuccessModalOpen(true);
       setForm(initialForm);
     } catch (err: any) {
       if (err?.message?.includes('Failed to fetch')) {
@@ -167,9 +172,15 @@ export default function AgregarMedicamentoPaciente() {
             {error && (
               <ErrorAlertModal open={!!error} message={error} onClose={() => setError('')} />
             )}
-            {success && (
-              <SuccessModal open={!!success} title="Éxito" message={success} onClose={() => setSuccess('')} />
-            )}
+            <ConfirmModal
+              open={successModalOpen}
+              title="Medicamento agregado"
+              message="El medicamento se ha guardado correctamente."
+              confirmText="Aceptar"
+              cancelText=""
+              onConfirm={() => setSuccessModalOpen(false)}
+              onCancel={() => setSuccessModalOpen(false)}
+            />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Agregando...' : 'Agregar Medicamento'}
             </Button>

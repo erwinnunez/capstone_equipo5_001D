@@ -108,7 +108,8 @@ class PacienteUpdate(BaseModel):
     direccion: str | None = None
     telefono: int | None = None
     email: str | None = None
-    contrasena: str | None = None
+    current_password: str | None = None  # Contraseña actual
+    new_password: str | None = None      # Nueva contraseña
     tipo_paciente: str | None = None
     nombre_contacto: str | None = None
     telefono_contacto: int | None = None
@@ -146,14 +147,19 @@ class PacienteUpdate(BaseModel):
             raise ValueError("La dirección solo puede contener letras, números y ., #-")
         return v.strip().title()
 
-    @field_validator("contrasena")
+    @field_validator("new_password")
     @classmethod
-    def _val_pass_upd(cls, v: str | None):
-        if v is None: return v
-        if len(v) < 8: raise ValueError("La contraseña debe tener al menos 8 caracteres")
-        if not any(c.isupper() for c in v): raise ValueError("Debe tener al menos una letra mayúscula")
-        if not any(c.islower() for c in v): raise ValueError("Debe tener al menos una letra minúscula")
-        if not any(c.isdigit() for c in v): raise ValueError("Debe tener al menos un número")
+    def _val_new_pass_upd(cls, v: str | None):
+        if v is None:
+            return v
+        if len(v) < 8:
+            raise ValueError("La contraseña debe tener al menos 8 caracteres")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Debe tener al menos una letra mayúscula")
+        if not any(c.islower() for c in v):
+            raise ValueError("Debe tener al menos una letra minúscula")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Debe tener al menos un número")
         return v
 
 class PacienteOut(BaseModel):

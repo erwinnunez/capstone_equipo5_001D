@@ -53,10 +53,10 @@ export function DoctorDashboard({ user, onLogout }: DoctorDashboardProps) {
         <TrendingUp className="h-4 w-4 mr-2" />
         Analítica
       </Button>
-      <Button variant={section === 'Seguimiento' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('Seguimiento')}>
+      {/* <Button variant={section === 'Seguimiento' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('Seguimiento')}>
         <CheckSquare className="h-4 w-4 mr-2" />
         Seguimiento
-      </Button>
+      </Button> */}
       <Button variant={section === 'reports' ? 'default' : 'ghost'} className="w-full justify-start" onClick={() => setSection('reports')}>
         <NotepadTextDashed className="h-4 w-4 mr-2" />
         Reportes

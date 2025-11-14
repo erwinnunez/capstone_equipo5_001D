@@ -26,7 +26,7 @@ export default function AgregarRangoPaciente() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
@@ -57,7 +57,6 @@ export default function AgregarRangoPaciente() {
     setConfirmOpen(false);
     setLoading(true);
     setError('');
-    setSuccess('');
     try {
       const payload = {
         ...form,
@@ -72,7 +71,7 @@ export default function AgregarRangoPaciente() {
         definido_por: form.definido_por === 'true',
       };
       await createRangoPaciente(payload);
-      setSuccess('Rango agregado correctamente');
+      setSuccessModalOpen(true);
       setForm({
         rut_paciente: '',
         id_parametro: '',
@@ -168,7 +167,15 @@ export default function AgregarRangoPaciente() {
               </div>
             </div>
             {error && <div className="text-red-600 text-sm">{error}</div>}
-            {success && <div className="text-green-600 text-sm">{success}</div>}
+            <ConfirmModal
+              open={successModalOpen}
+              title="Rango agregado"
+              message="El rango se ha guardado correctamente."
+              confirmText="Aceptar"
+              cancelText=""
+              onConfirm={() => setSuccessModalOpen(false)}
+              onCancel={() => setSuccessModalOpen(false)}
+            />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Agregando...' : 'Agregar Rango'}
             </Button>

@@ -10,9 +10,78 @@ import { FileText } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function SOAPNoteForm() {
+  // Obtener rut del médico logeado (robusto, igual que MedicalDashboard)
+  function extractRutFromObject(obj: any): number | null {
+    if (!obj) return null;
+    const cands = [
+      obj?.medico?.rut_medico,
+      obj?.rut_medico,
+      obj?.rutMedico,
+      obj?.rut,
+      obj?.user?.rut_medico,
+      obj?.user?.rutMedico,
+      obj?.user?.rut,
+      obj?.user?.id,
+      obj?.id,
+    ];
+    for (const c of cands) {
+      if (c != null && !Number.isNaN(Number(c))) return Number(c);
+    }
+    return null;
+  }
+
+  function getLoggedMedicoRut(): string {
+    // 1) Revisar sesión
+    const sessionStr = localStorage.getItem("session");
+    if (sessionStr) {
+      try {
+        const s = JSON.parse(sessionStr);
+        const rut = extractRutFromObject(s);
+        if (rut != null) return String(rut);
+      } catch {}
+    }
+
+    // 2) Revisar otras claves típicas de usuario
+    for (const k of ["auth", "user", "current_user", "front_user"]) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      try {
+        const obj = JSON.parse(raw);
+        const rut = extractRutFromObject(obj);
+        if (rut != null) return String(rut);
+      } catch {}
+    }
+
+    // 3) Revisar JWT
+    const jwt = localStorage.getItem("token") || localStorage.getItem("jwt");
+    if (jwt && jwt.split(".").length === 3) {
+      try {
+        const payloadJson = atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"));
+        const p = JSON.parse(payloadJson);
+        const rut =
+          p?.rut_medico ??
+          p?.rutMedico ??
+          p?.sub_rut ??
+          p?.subRut ??
+          p?.rut ??
+          p?.id ??
+          null;
+        if (rut != null) return String(rut);
+      } catch {}
+    }
+
+    // 4) Último recurso: clave suelta 'medico_rut'
+    const direct = localStorage.getItem("medico_rut");
+    if (direct) return String(direct);
+
+    return "";
+  }
+
+  const rutMedicoLogeado = getLoggedMedicoRut();
+
   const [formData, setFormData] = useState({
     rut_paciente: '',
-    rut_medico: '',
+    rut_medico: rutMedicoLogeado,
     tipo_autor: '',
     nota: '',
     tipo_nota: '',
@@ -21,15 +90,22 @@ export default function SOAPNoteForm() {
 
   // ...existing code...
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [errorModalOpen, setErrorModalOpen] = useState(false);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleSaveSOAPNote = async () => {
-    // Validación básica
-    if (!formData.rut_paciente || !formData.rut_medico || !formData.nota || !formData.tipo_autor || !formData.tipo_nota) {
-      toast.error('Completa todos los campos obligatorios');
+    console.log('Click en Guardar Nota SOAP');
+    // Validar campos obligatorios antes de mostrar el modal de confirmación
+    if (!formData.rut_paciente || !formData.nota || !formData.tipo_autor || !formData.tipo_nota) {
+      setErrorModalOpen(true);
+      return;
+    }
+    if (!rutMedicoLogeado) {
+      setErrorModalOpen(true);
       return;
     }
     setConfirmOpen(true);
@@ -37,16 +113,31 @@ export default function SOAPNoteForm() {
 
   const handleConfirmSave = async () => {
     setConfirmOpen(false);
+    // Validación básica al confirmar
+    if (!formData.rut_paciente || !formData.nota || !formData.tipo_autor || !formData.tipo_nota) {
+      toast.error('Completa todos los campos obligatorios');
+      return;
+    }
+    console.log(rutMedicoLogeado)
+    if (!rutMedicoLogeado) {
+      toast.error('No se pudo obtener el rut del médico logeado');
+      return;
+    }
+    
     const payload = {
       ...formData,
+      rut_medico: rutMedicoLogeado,
       creada_en: new Date().toISOString(),
     };
+    console.log('--- CONFIRMAR ENVÍO DE NOTA SOAP ---');
+    console.log('Payload:', payload);
+    console.log(rutMedicoLogeado)
     try {
       await createNotaClinica(payload);
-      toast.success('Nota clínica guardada correctamente');
+      setSuccessModalOpen(true);
       setFormData({
         rut_paciente: '',
-        rut_medico: '',
+        rut_medico: rutMedicoLogeado,
         tipo_autor: '',
         nota: '',
         tipo_nota: '',
@@ -68,8 +159,7 @@ export default function SOAPNoteForm() {
         <CardContent className="space-y-4">
           <Label>RUT Paciente</Label>
           <Input value={formData.rut_paciente} onChange={e => handleInputChange('rut_paciente', e.target.value)} placeholder="Ej: 12345678K" />
-          <Label>RUT Médico</Label>
-          <Input value={formData.rut_medico} onChange={e => handleInputChange('rut_medico', e.target.value)} placeholder="Ej: 12345678K" />
+          {/* Se eliminó el label y campo de rut médico */}
           <Label>Tipo Autor</Label>
           <Input value={formData.tipo_autor} onChange={e => handleInputChange('tipo_autor', e.target.value)} placeholder="Ej: doctor" />
           <Label>Tipo Nota</Label>
@@ -90,6 +180,28 @@ export default function SOAPNoteForm() {
         cancelText="Cancelar"
         onConfirm={handleConfirmSave}
         onCancel={() => setConfirmOpen(false)}
+      />
+      <ConfirmModal
+        open={errorModalOpen}
+        title="Error al guardar nota clínica"
+        message={
+          !rutMedicoLogeado
+            ? "No se pudo obtener el rut del médico logeado. Por favor, inicia sesión nuevamente."
+            : "Completa todos los campos obligatorios antes de continuar."
+        }
+        confirmText="Cerrar"
+        cancelText=""
+        onConfirm={() => setErrorModalOpen(false)}
+        onCancel={() => setErrorModalOpen(false)}
+      />
+      <ConfirmModal
+        open={successModalOpen}
+        title="Nota clínica guardada"
+        message="La nota clínica se ha guardado correctamente."
+        confirmText="Aceptar"
+        cancelText=""
+        onConfirm={() => setSuccessModalOpen(false)}
+        onCancel={() => setSuccessModalOpen(false)}
       />
     </div>
   );

@@ -128,11 +128,16 @@ def update(db: Session, rut_paciente: str, data: PacienteUpdate) -> Optional[Pac
     if "email" in upd and isinstance(upd["email"], str):
         upd["email"] = upd["email"].strip().lower()
 
-    if "contrasena" in upd:
-        if upd["contrasena"]:
-            upd["contrasena"] = hash_password(upd["contrasena"])
-        else:
-            upd.pop("contrasena", None)
+    # Manejo de cambio de contraseña
+    current_password = upd.pop("current_password", None)
+    new_password = upd.pop("new_password", None)
+    if new_password:
+        from app.core.security import verify_password, hash_password
+        if not current_password:
+            raise ValueError("Debe proporcionar la contraseña actual para cambiar la contraseña.")
+        if not verify_password(current_password, obj.contrasena):
+            raise ValueError("La contraseña actual es incorrecta.")
+        upd["contrasena"] = hash_password(new_password)
 
     for k, v in upd.items():
         setattr(obj, k, v)

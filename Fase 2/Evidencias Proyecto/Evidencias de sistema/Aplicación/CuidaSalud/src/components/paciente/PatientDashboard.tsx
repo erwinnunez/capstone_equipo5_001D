@@ -9,6 +9,7 @@ import PatientMeasurements from "./PatientMeasurements";
 import PatientProgress from "./PatientProgress";
 import PatientAchievements from "./PatientAchievements";
 import MedicationTracker from "./MedicationTracker";
+import PatientEditPage from "./PatientEditPage";
 
 type Role = "admin" | "doctor" | "caregiver" | "patient";
 
@@ -75,6 +76,10 @@ export default function PatientDashboard({ user, onLogout }: PatientDashboardPro
         )}
 
         {section === "achievements" && <PatientAchievements />}
+
+        {section === "edit" && (
+          <PatientEditPage rutPaciente={user.rutPaciente?.toString() ?? ""} />
+        )}
       </div>
     </DashboardLayout>
   );

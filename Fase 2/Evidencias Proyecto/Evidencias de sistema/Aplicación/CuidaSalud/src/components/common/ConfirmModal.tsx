@@ -29,7 +29,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   onConfirm,
   onCancel,
 }) => (
-  <AlertDialog open={open} onOpenChange={onCancel}>
+  <AlertDialog open={open} onOpenChange={(open: boolean) => !open && onCancel()}>
     <AlertDialogContent>
       <AlertDialogHeader>
         <AlertDialogTitle>{title}</AlertDialogTitle>
