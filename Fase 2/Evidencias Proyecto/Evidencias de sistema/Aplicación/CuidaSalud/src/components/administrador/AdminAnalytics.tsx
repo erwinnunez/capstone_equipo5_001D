@@ -47,43 +47,43 @@ const alertasPorTipo = [
 ];
 
 // Chart.js configs
-const tasaComunaData = {
-  labels: tasaPorComuna.map(t => t.comuna),
-  datasets: [
-    {
-      label: 'Tasa de enfermedades por comuna (por mil habitantes)',
-      data: tasaPorComuna.map(t => t.tasa),
-      backgroundColor: 'rgba(59, 130, 246, 0.7)',
-    },
-  ],
-};
+// const tasaComunaData = {
+//   labels: tasaPorComuna.map(t => t.comuna),
+//   datasets: [
+//     {
+//       label: 'Tasa de enfermedades por comuna (por mil habitantes)',
+//       data: tasaPorComuna.map(t => t.tasa),
+//       backgroundColor: 'rgba(59, 130, 246, 0.7)',
+//     },
+//   ],
+// };
 
-const tiempoCesfamData = {
-  labels: tiempoPromedioPorCesfam.map(t => t.cesfam),
-  datasets: [
-    {
-      label: 'Tiempo promedio de resolución (días)',
-      data: tiempoPromedioPorCesfam.map(t => t.promedio),
-      backgroundColor: 'rgba(16, 185, 129, 0.7)',
-    },
-  ],
-};
+// const tiempoCesfamData = {
+//   labels: tiempoPromedioPorCesfam.map(t => t.cesfam),
+//   datasets: [
+//     {
+//       label: 'Tiempo promedio de resolución (días)',
+//       data: tiempoPromedioPorCesfam.map(t => t.promedio),
+//       backgroundColor: 'rgba(16, 185, 129, 0.7)',
+//     },
+//   ],
+// };
 
-const alertasTipoData = {
-  labels: alertasPorTipo.map(a => a.tipo),
-  datasets: [
-    {
-      label: 'Cantidad de alertas',
-      data: alertasPorTipo.map(a => a.cantidad),
-      backgroundColor: [
-        'rgba(59, 130, 246, 0.7)',
-        'rgba(16, 185, 129, 0.7)',
-        'rgba(239, 68, 68, 0.7)',
-        'rgba(251, 191, 36, 0.7)',
-      ],
-    },
-  ],
-};
+// const alertasTipoData = {
+//   labels: alertasPorTipo.map(a => a.tipo),
+//   datasets: [
+//     {
+//       label: 'Cantidad de alertas',
+//       data: alertasPorTipo.map(a => a.cantidad),
+//       backgroundColor: [
+//         'rgba(59, 130, 246, 0.7)',
+//         'rgba(16, 185, 129, 0.7)',
+//         'rgba(239, 68, 68, 0.7)',
+//         'rgba(251, 191, 36, 0.7)',
+//       ],
+//     },
+//   ],
+// };
 
 export default function AdminAnalytics() {
   // Referencias a los canvas

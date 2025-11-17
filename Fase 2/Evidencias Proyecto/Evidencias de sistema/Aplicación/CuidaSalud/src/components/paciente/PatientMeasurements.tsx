@@ -13,12 +13,16 @@ import { getRangosIndexByParametro, type RangoPacienteOut } from '../../services
 import { getGamificacionPerfil, getWeeklyMeasurementProgress, getRecentMeasurementsForChart, procesarGamificacionMedicion, type GamificacionPerfilOut } from '../../services/gamificacion';
 import { validarTodasLasMediciones, generarResumenErrores, type ErrorValidacion } from '../../services/validacionMediciones';
 import MedicionValidationModal from '../common/MedicionValidationModal';
+import SuccessModal from '../common/SuccessModal';
 
 interface Props {
   rutPaciente?: string;
 }
 
 export default function PatientMeasurements({ rutPaciente }: Props) {
+  // Estado para modal de éxito
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [newMeasurement, setNewMeasurement] = useState({
     bloodSugar: '',
     bloodPressureSys: '',
@@ -408,31 +412,24 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
 
     try {
       setSubmitting(true);
-      
       // 1. Crear la medición
       await createMedicionWithDetails({ medicion: baseMedicion, detalles });
-      
       // 2. Procesar gamificación para el paciente
       if (rutPaciente) {
         try {
           const resultadoGamificacion = await procesarGamificacionMedicion(rutPaciente);
           if (resultadoGamificacion.success && resultadoGamificacion.puntosGanados && resultadoGamificacion.puntosGanados > 0) {
-            console.log(`🎮 Gamificación: +${resultadoGamificacion.puntosGanados} puntos, racha ${resultadoGamificacion.nuevaRacha} días`);
-            alert(`¡Medición registrada exitosamente!\n🎮 ¡Ganaste ${resultadoGamificacion.puntosGanados} puntos! Tu racha actual: ${resultadoGamificacion.nuevaRacha} días.`);
+            setSuccessMessage(`¡Medición registrada exitosamente!\n🎮 ¡Ganaste ${resultadoGamificacion.puntosGanados} puntos! Tu racha actual: ${resultadoGamificacion.nuevaRacha} días.`);
           } else {
-            alert('Medición registrada correctamente.');
+            setSuccessMessage('Medición registrada correctamente.');
           }
-          
-          // Refrescar datos de gamificación en la UI
-          // Las funciones se ejecutarán automáticamente por los useEffect existentes
         } catch (gamificationError) {
-          console.warn('Error en gamificación, pero medición guardada:', gamificationError);
-          alert('Medición registrada correctamente.');
+          setSuccessMessage('Medición registrada correctamente.');
         }
       } else {
-        alert('Medición registrada correctamente.');
+        setSuccessMessage('Medición registrada correctamente.');
       }
-      
+      setSuccessModalOpen(true);
       // 3. Limpiar formulario
       setNewMeasurement({
         bloodSugar: '',
@@ -443,13 +440,18 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
         notes: '',
       });
       setErrors({});
-      
     } catch (e: any) {
-      alert(e?.message ?? 'No se pudo registrar la medición.');
+      setErrors({ _params: e?.message || 'No se pudo registrar la medición.' });
     } finally {
       setSubmitting(false);
       setPendingSave(false);
     }
+        <SuccessModal
+          open={successModalOpen}
+          title="Medición guardada"
+          message={successMessage}
+          onClose={() => setSuccessModalOpen(false)}
+        />
   };
 
   // Funciones para manejar el modal de validación
@@ -795,6 +797,12 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
           )}
         </CardContent>
       </Card>
+      <SuccessModal
+        open={successModalOpen}
+        title="Medición guardada"
+        message={successMessage}
+        onClose={() => setSuccessModalOpen(false)}
+      />
     </div>
   );
 }

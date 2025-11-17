@@ -91,7 +91,6 @@ export default function PatientEditPage({ rutPaciente }: { rutPaciente: string }
         payload.new_password = form.contrasena_nueva;
         payload.current_password = form.contrasena_actual;
       }
-      console.log('Payload enviado a la API:', payload);
       // Si solo se está cambiando la contraseña, permitir el envío
       if (Object.keys(payload).length === 0 && !form.contrasena_nueva) {
         setError('No se han realizado cambios.');

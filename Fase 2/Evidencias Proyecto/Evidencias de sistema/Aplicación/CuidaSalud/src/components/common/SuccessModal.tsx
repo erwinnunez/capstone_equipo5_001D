@@ -25,7 +25,7 @@ export function SuccessModal({
                     left: '50% !important',
                     transform: 'translate(-50%, -50%) !important',
                     zIndex: '9999 !important',
-                    maxWidth: '90vw',
+                    maxWidth: '40vw',
                     maxHeight: '90vh',
                     margin: '0 !important'
                 }}

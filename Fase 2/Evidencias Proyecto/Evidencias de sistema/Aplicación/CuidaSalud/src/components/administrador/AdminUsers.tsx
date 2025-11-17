@@ -470,15 +470,12 @@ export default function AdminUsers() {
         queryParams.estado = estadoFilter;
       }
 
-      console.log('Cargando usuarios con parámetros:', queryParams);
 
       // 1. Cargar médicos y administradores
       try {
         const medicosResponse = await listMedicos(queryParams);
         const medicos = medicosResponse.items || [];
-        
-        console.log(`Médicos encontrados: ${medicos.length}`);
-        console.log('Estados de médicos:', medicos.map(m => ({ rut: m.rut_medico, estado: m.estado })));
+   
         
         medicos.forEach((medico: any) => {
           allUsersArray.push({
@@ -545,12 +542,8 @@ export default function AdminUsers() {
       setTotalUsers(allUsersArray.length);
       
       // Log detallado de usuarios por estado
-      const activeUsers = allUsersArray.filter(u => u.status === 'active');
-      const inactiveUsers = allUsersArray.filter(u => u.status === 'inactive');
       
-      console.log(`✅ Cargados ${allUsersArray.length} usuarios totales del sistema`);
-      console.log(`🟢 Activos: ${activeUsers.length}, 🔴 Inactivos: ${inactiveUsers.length}`);
-      console.log('Usuarios inactivos:', inactiveUsers.map(u => ({ rut: u.rut, name: u.name, role: u.role, status: u.status })));
+
       
     } catch (error) {
       console.error("❌ Error general cargando usuarios:", error);
@@ -602,7 +595,6 @@ export default function AdminUsers() {
     }
     // Si filterStatus === "all", estadoParam queda undefined
     
-    console.log(`Filtro de estado cambió a: ${filterStatus}, recargando con estado: ${estadoParam}`);
     loadAllSystemUsers(estadoParam);
   }, [filterStatus]);
 
@@ -785,7 +777,6 @@ export default function AdminUsers() {
         medicoPayload.especialidad = editFormData.especialidad || '';
         medicoPayload.is_admin = editFormData.isAdmin;
         
-        console.log('Payload para médico:', medicoPayload);
         await updateMedico(editingUser.rut, medicoPayload);
       } 
       else if (editingUser.role === 'caregiver') {
@@ -805,7 +796,6 @@ export default function AdminUsers() {
         if (editFormData.direccion?.trim()) {
           cuidadorPayload.direccion = editFormData.direccion.trim();
         }
-        console.log('Payload para cuidador:', cuidadorPayload);
         await updateCuidador(editingUser.rut, cuidadorPayload);
       }
       else if (editingUser.role === 'patient') {
@@ -828,12 +818,10 @@ export default function AdminUsers() {
         // Datos del contacto de emergencia
         pacientePayload.nombre_contacto = editFormData.contactoNombre || '';
         pacientePayload.telefono_contacto = editFormData.contactoTelefono || '';
-        console.log('Payload para paciente:', pacientePayload);
         await updatePaciente(editingUser.rut, pacientePayload);
       }
 
       // Recargar la lista de usuarios después de la actualización
-      console.log('Recargando lista de usuarios desde la API...');
       
       // Pequeño delay para asegurar que el backend haya terminado
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -845,13 +833,11 @@ export default function AdminUsers() {
       // Recargar todos los usuarios desde la API respetando el filtro actual
       await loadAllSystemUsers(getCurrentEstadoFilter());
       
-      console.log('Lista de usuarios recargada exitosamente desde la API');
       
       // Cerrar el modal
       handleCloseEditModal();
 
       // Mostrar mensaje de éxito
-      console.log('Usuario actualizado exitosamente');
 
     } catch (error) {
       console.error('Error al actualizar usuario:', error);
@@ -869,16 +855,13 @@ export default function AdminUsers() {
       // Invertir el estado actual
       const newStatus = currentStatus === 'active';
       
-      console.log(`Cambiando estado de médico ${rut} a: ${!newStatus ? 'activo' : 'inactivo'}`);
       
       await toggleMedicoStatus(rut, !newStatus);
       
       // Recargar la lista después del cambio respetando el filtro actual
-      console.log('Recargando lista después del cambio de estado...');
       await new Promise(resolve => setTimeout(resolve, 500));
       await loadAllSystemUsers(getCurrentEstadoFilter());
       
-      console.log('Estado del médico actualizado exitosamente');
       
     } catch (error) {
       console.error('Error al cambiar estado del médico:', error);
@@ -895,16 +878,13 @@ export default function AdminUsers() {
       
       const newStatus = currentStatus === 'active';
       
-      console.log(`Cambiando estado de cuidador ${rut} a: ${!newStatus ? 'activo' : 'inactivo'}`);
       
       await toggleCuidadorStatus(rut, !newStatus);
       
       // Recargar la lista después del cambio respetando el filtro actual
-      console.log('Recargando lista después del cambio de estado...');
       await new Promise(resolve => setTimeout(resolve, 500));
       await loadAllSystemUsers(getCurrentEstadoFilter());
       
-      console.log('Estado del cuidador actualizado exitosamente');
       
     } catch (error) {
       console.error('Error al cambiar estado del cuidador:', error);
@@ -921,16 +901,13 @@ export default function AdminUsers() {
       
       const newStatus = currentStatus === 'active';
       
-      console.log(`Cambiando estado de paciente ${rut} a: ${!newStatus ? 'activo' : 'inactivo'}`);
       
       await togglePacienteStatus(rut, !newStatus);
       
       // Recargar la lista después del cambio respetando el filtro actual
-      console.log('Recargando lista después del cambio de estado...');
       await new Promise(resolve => setTimeout(resolve, 500));
       await loadAllSystemUsers(getCurrentEstadoFilter());
       
-      console.log('Estado del paciente actualizado exitosamente');
       
     } catch (error) {
       console.error('Error al cambiar estado del paciente:', error);
@@ -1086,7 +1063,6 @@ export default function AdminUsers() {
       await loadAllSystemUsers();
       
       // Opcionalmente mostrar mensaje de éxito (puedes agregar un toast aquí)
-      console.log("✅ Médico/administrador creado exitosamente");
       
     } catch (e: any) {
       setLoading(false);
@@ -1275,11 +1251,33 @@ export default function AdminUsers() {
                       {/* Especialidad */}
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Especialidad</label>
-                        <Input
+                        <Select
                           value={newUser.especialidad}
-                          onChange={(e) => setNewUser({ ...newUser, especialidad: e.target.value })}
-                          placeholder="Medicina Interna"
-                        />
+                          onValueChange={(v: string) => setNewUser({ ...newUser, especialidad: v })}
+                          required
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecciona especialidad" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Medicina Interna">Medicina Interna</SelectItem>
+                            <SelectItem value="Pediatría">Pediatría</SelectItem>
+                            <SelectItem value="Cirugía General">Cirugía General</SelectItem>
+                            <SelectItem value="Ginecología y Obstetricia">Ginecología y Obstetricia</SelectItem>
+                            <SelectItem value="Traumatología">Traumatología</SelectItem>
+                            <SelectItem value="Cardiología">Cardiología</SelectItem>
+                            <SelectItem value="Dermatología">Dermatología</SelectItem>
+                            <SelectItem value="Psiquiatría">Psiquiatría</SelectItem>
+                            <SelectItem value="Oftalmología">Oftalmología</SelectItem>
+                            <SelectItem value="Otorrinolaringología">Otorrinolaringología</SelectItem>
+                            <SelectItem value="Urología">Urología</SelectItem>
+                            <SelectItem value="Endocrinología">Endocrinología</SelectItem>
+                            <SelectItem value="Neumología">Neumología</SelectItem>
+                            <SelectItem value="Neurología">Neurología</SelectItem>
+                            <SelectItem value="Reumatología">Reumatología</SelectItem>
+                            <SelectItem value="Otro">Otro</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   )}

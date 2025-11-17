@@ -124,11 +124,9 @@ export function toNiceMessage(err: any): string {
 }
 
 export async function createCuidador(payload: CuidadorCreatePayload): Promise<ApiResult<any>> {
-  console.log("Creando cuidador:", payload);
   
   try {
     // 1. Verificar si ya existe un cuidador con ese RUT
-    console.log("🔍 Verificando RUT de cuidador:", payload.rut_cuidador);
     const rutExists = await checkCuidadorByRut(payload.rut_cuidador);
     if (rutExists) {
       return {
@@ -140,7 +138,6 @@ export async function createCuidador(payload: CuidadorCreatePayload): Promise<Ap
     }
     
     // 2. Verificar si ya existe un cuidador con ese email
-    console.log("📧 Verificando email de cuidador:", payload.email);
     const emailExists = await checkCuidadorByEmail(payload.email);
     if (emailExists) {
       return {
@@ -151,7 +148,6 @@ export async function createCuidador(payload: CuidadorCreatePayload): Promise<Ap
       };
     }
     
-    console.log("✅ RUT y email de cuidador disponibles, procediendo a crear");
     
     // 3. Crear el cuidador (ahora sabemos que no hay duplicados)
     const res = await fetch(RUTA_CUIDADOR, {
@@ -313,7 +309,6 @@ export async function updateCuidador(rut: string, payload: any) {
       datosOriginales = await responseActual.json();
     }
   } catch (error) {
-    console.warn('No se pudieron obtener datos originales para comparación:', error);
   }
 
   try {
@@ -350,7 +345,6 @@ export async function updateCuidador(rut: string, payload: any) {
     
     // Si no hay cambios reales, no crear historial
     if (Object.keys(cambiosReales).length === 0) {
-      console.log('No se detectaron cambios reales en los datos del cuidador');
       return result;
     }
     
@@ -430,7 +424,6 @@ export async function updateCuidador(rut: string, payload: any) {
       const errorMsg = `Error al actualizar datos del cuidador`;
       await createCuidadorHistorial(rut, errorMsg, false);
     } catch (historialError) {
-      console.error('Error al guardar historial de error:', historialError);
     }
     throw error;
   }
@@ -454,7 +447,6 @@ export async function toggleCuidadorStatus(rut: string, estado: boolean) {
     const accion = estado ? 'activado' : 'desactivado';
     await createCuidadorHistorial(rut, `Usuario ${accion}`, true);
   } catch (historialError) {
-    console.warn('No se pudo guardar el historial del cambio de estado:', historialError);
     // No lanzar error, la operación principal ya fue exitosa
   }
   

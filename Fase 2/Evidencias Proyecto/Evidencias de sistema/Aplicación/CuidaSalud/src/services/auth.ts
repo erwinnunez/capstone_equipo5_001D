@@ -1,5 +1,4 @@
 // src/services/auth.ts
-import { updateUltimaActividad } from './gamificacion';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
 export type Role = "admin" | "doctor" | "caregiver" | "patient";
@@ -71,21 +70,7 @@ export async function login(email: string, password: string, role: Role): Promis
     }
     
     const loginResponse = (json ?? {}) as LoginResponse;
-    
-    // Si es un paciente y tiene rut_paciente, actualizar última actividad
-    if (role === "patient" && loginResponse.user?.rut_paciente) {
-      try {
-        const updateResult = await updateUltimaActividad(loginResponse.user.rut_paciente);
-        if (updateResult.success) {
-          console.log(`🎮 [login] Última actividad actualizada exitosamente para paciente ${loginResponse.user.rut_paciente}`);
-        } else {
-          console.warn(`⚠️ [login] Error al actualizar última actividad para paciente ${loginResponse.user.rut_paciente}:`, updateResult.error);
-        }
-      } catch (error) {
-        console.warn(`❌ [login] Excepción al actualizar última actividad para paciente ${loginResponse.user.rut_paciente}:`, error);
-        // No bloqueamos el login si falla la actualización de gamificación
-      }
-    }
+  
     
     return loginResponse;
   } catch (e: any) {

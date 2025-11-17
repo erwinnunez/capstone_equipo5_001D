@@ -229,7 +229,6 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
               msg = detailMsg;
             }
           } catch (e) {
-            console.error('Error procesando detalles:', e);
             // Usar mensaje base si falla el procesamiento
           }
         }
@@ -238,7 +237,6 @@ export default function RegisterPatientPage({ onCancel, onSuccess }: RegisterPat
       onSuccess();
     } catch (e: any) {
       const errorMsg = e?.message || "Error inesperado registrando paciente.";
-      console.error('Error creando paciente:', e);
       showError(typeof errorMsg === 'string' ? errorMsg : "Error inesperado registrando paciente.");
     } finally {
       setLoading(false);

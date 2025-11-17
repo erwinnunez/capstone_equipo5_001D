@@ -96,7 +96,7 @@ const isActiveNowByDay = (startIso?: string | null, endIso?: string | null) => {
   return ini <= t && (fin == null || t <= fin);
 };
 
-export default function MedicationTracker({ onBack, rutPaciente }: MedicationTrackerProps) {
+export default function MedicationTracker({ rutPaciente }: MedicationTrackerProps) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [medications, setMedications] = useState<MedicationUI[]>([]);

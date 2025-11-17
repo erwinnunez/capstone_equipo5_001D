@@ -56,7 +56,6 @@ export default function PatientAchievements({ rutPaciente }: Props) {
     const rut = getRutPaciente();
     
     if (!rut) {
-      console.warn('[PatientAchievements] No se pudo obtener RUT del paciente (ni como prop ni desde localStorage)');
       setError('No se pudo identificar al paciente');
       setLoading(false);
       return;
@@ -66,7 +65,6 @@ export default function PatientAchievements({ rutPaciente }: Props) {
       setLoading(true);
       setError(null);
 
-      console.log(`🏅 [PatientAchievements] Cargando insignias para paciente ${rut}`);
 
       // Cargar tanto las insignias disponibles como las ganadas por el paciente
       const [insigniasResult, insigniasGanadasResult] = await Promise.all([
@@ -80,10 +78,6 @@ export default function PatientAchievements({ rutPaciente }: Props) {
         return;
       }
 
-      if (!insigniasGanadasResult.success) {
-        console.warn('[PatientAchievements] Error al cargar insignias ganadas, mostrando solo disponibles:', insigniasGanadasResult.error);
-        // No es error crítico, continuar sin insignias ganadas
-      }
 
       const todasLasInsignias = insigniasResult.data || [];
       const insigniasGanadas = insigniasGanadasResult.success ? insigniasGanadasResult.data || [] : [];
@@ -105,9 +99,7 @@ export default function PatientAchievements({ rutPaciente }: Props) {
       }));
 
       setInsignias(insigniasDisplay);
-      console.log(`✅ [PatientAchievements] Cargadas ${insigniasDisplay.length} insignias para ${rut} (${insigniasGanadas.length} ganadas)`);
     } catch (error) {
-      console.error('Error cargando insignias:', error);
       setError('Error de conexión al cargar insignias');
     } finally {
       setLoading(false);

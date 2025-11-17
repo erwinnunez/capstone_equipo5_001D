@@ -43,7 +43,6 @@ export default function DoctorAnalytics() {
         throw new Error(alertMeasurements.message || 'Error obteniendo mediciones');
       }
 
-      console.log(`🔍 Total mediciones con alerta obtenidas: ${alertMeasurements.data.items.length}`);
 
       // 2. Filtrar por últimos 30 días
       const thirtyDaysAgo = new Date();
@@ -53,7 +52,6 @@ export default function DoctorAnalytics() {
         new Date(measurement.fecha_registro) >= thirtyDaysAgo
       );
 
-      console.log(`📅 Mediciones con alerta de últimos 30 días: ${recentMeasurements.length}`);
 
       // 3. Obtener detalles de cada medición para el gráfico de tendencias
       const measurementsWithDetails = await Promise.all(
@@ -99,8 +97,6 @@ export default function DoctorAnalytics() {
       measurementsWithDetails.forEach(medicion => {
         const dateKey = getLocalDateKey(medicion.fecha_registro);
         
-        console.log(`📊 Procesando medición ID ${medicion.id_medicion} del ${dateKey} (original: ${medicion.fecha_registro}):`, medicion);
-        
         if (!trendDataMap.has(dateKey)) {
           trendDataMap.set(dateKey, {
             date: dateKey,
@@ -136,7 +132,6 @@ export default function DoctorAnalytics() {
           }
         });
         
-        console.log(`  📈 Datos del día ${dateKey} después de procesar:`, dayData);
       });
 
       // Calcular promedios para cada día y convertir a formato final
@@ -161,7 +156,6 @@ export default function DoctorAnalytics() {
       })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       setTrendData(sortedTrendData);
-      console.log(`📊 Datos de tendencias procesados: ${sortedTrendData.length} días con datos`, sortedTrendData);
 
       // 5. Procesar datos para gráfico de alertas (clasificar por severidad usando rangos médicos)
       let criticalCount = 0;
@@ -219,8 +213,6 @@ export default function DoctorAnalytics() {
         { type: 'Advertencias', count: warningCount, color: '#f59e0b' },
         { type: 'Normales', count: normalCount, color: '#10b981' },
       ]);
-
-      console.log(`🚨 Alertas procesadas - Críticas: ${criticalCount}, Advertencias: ${warningCount}, Normales: ${normalCount}`);
 
     } catch (error: any) {
       setError(error.message || 'Error cargando datos de analíticas');

@@ -15,8 +15,12 @@ import { usePacienteCuidador } from '../../hooks/usePacienteCuidador';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../ui/dialog';
 import { validarTodasLasMediciones, generarResumenErrores, type ErrorValidacion } from '../../services/validacionMediciones';
 import MedicionValidationModal from '../common/MedicionValidationModal';
+import SuccessModal from '../common/SuccessModal';
 
 export default function CuidadorDataEntry() {
+  // Estado para modal de éxito
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   // Hook para obtener pacientes asignados
   const { pacientes, loading: loadingPacientes, error: errorPacientes } = usePacienteCuidador();
 
@@ -261,7 +265,8 @@ export default function CuidadorDataEntry() {
     // Buscar el paciente en la lista de asociados
     const pacienteAsociado = pacientes.find(p => p.rut_paciente === selectedPatientRut && p.rut_cuidador === rutCuidador);
     if (!pacienteAsociado || !pacienteAsociado.permiso_registro) {
-      alert('No tienes permisos para registrar mediciones para este paciente.');
+      setSuccessMessage('No tienes permisos para registrar mediciones para este paciente.');
+      setSuccessModalOpen(true);
       return;
     }
 
@@ -397,15 +402,15 @@ export default function CuidadorDataEntry() {
       try {
         const resultadoGamificacion = await procesarGamificacionMedicion(selectedPatientRut);
         if (resultadoGamificacion.success && resultadoGamificacion.puntosGanados && resultadoGamificacion.puntosGanados > 0) {
-          console.log(`🎮 Gamificación: +${resultadoGamificacion.puntosGanados} puntos, racha ${resultadoGamificacion.nuevaRacha} días`);
-          alert(`Medición registrada correctamente.\n🎮 ¡El paciente ganó ${resultadoGamificacion.puntosGanados} puntos! Racha: ${resultadoGamificacion.nuevaRacha} días.`);
+          setSuccessMessage(`Medición registrada correctamente.\n🎮 ¡El paciente ganó ${resultadoGamificacion.puntosGanados} puntos! Racha: ${resultadoGamificacion.nuevaRacha} días.`);
         } else {
-          alert('Medición registrada correctamente para el paciente.');
+          setSuccessMessage('Medición registrada correctamente para el paciente.');
         }
       } catch (gamificationError) {
         console.warn('Error en gamificación, pero medición guardada:', gamificationError);
-        alert('Medición registrada correctamente para el paciente.');
+        setSuccessMessage('Medición registrada correctamente para el paciente.');
       }
+      setSuccessModalOpen(true);
       
       // 3. Limpiar formulario
       setNewMeasurement({
@@ -419,7 +424,8 @@ export default function CuidadorDataEntry() {
       setErrors({});
       
     } catch (e: any) {
-      alert(e?.message ?? 'No se pudo registrar la medición.');
+      setSuccessMessage(e?.message ?? 'No se pudo registrar la medición.');
+      setSuccessModalOpen(true);
     } finally {
       setSubmitting(false);
       setPendingSave(false);
@@ -866,6 +872,12 @@ export default function CuidadorDataEntry() {
           )}
         </CardContent>
       </Card>
+    <SuccessModal
+      open={successModalOpen}
+      title="Registro de medición"
+      message={successMessage}
+      onClose={() => setSuccessModalOpen(false)}
+    />
     </div>
   );
 }

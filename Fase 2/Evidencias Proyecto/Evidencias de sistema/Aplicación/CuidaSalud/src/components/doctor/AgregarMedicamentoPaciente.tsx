@@ -87,7 +87,6 @@ export default function AgregarMedicamentoPaciente() {
         tomada: Boolean(tomada),
         fecha_tomada: Boolean(tomada) ? fecha_tomada : undefined,
       };
-      console.log('Payload enviado a medicina detalle:', payload);
       await createMedicinaDetalle(payload);
       setSuccessModalOpen(true);
       setForm(initialForm);

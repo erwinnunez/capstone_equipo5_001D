@@ -98,7 +98,6 @@ export default function SOAPNoteForm() {
   };
 
   const handleSaveSOAPNote = async () => {
-    console.log('Click en Guardar Nota SOAP');
     // Validar campos obligatorios antes de mostrar el modal de confirmación
     if (!formData.rut_paciente || !formData.nota || !formData.tipo_autor || !formData.tipo_nota) {
       setErrorModalOpen(true);
@@ -118,7 +117,6 @@ export default function SOAPNoteForm() {
       toast.error('Completa todos los campos obligatorios');
       return;
     }
-    console.log(rutMedicoLogeado)
     if (!rutMedicoLogeado) {
       toast.error('No se pudo obtener el rut del médico logeado');
       return;
@@ -129,9 +127,7 @@ export default function SOAPNoteForm() {
       rut_medico: rutMedicoLogeado,
       creada_en: new Date().toISOString(),
     };
-    console.log('--- CONFIRMAR ENVÍO DE NOTA SOAP ---');
-    console.log('Payload:', payload);
-    console.log(rutMedicoLogeado)
+
     try {
       await createNotaClinica(payload);
       setSuccessModalOpen(true);
