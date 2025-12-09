@@ -320,7 +320,7 @@ export default function PatientMeasurements({ rutPaciente }: Props) {
       rut_paciente: rutPaciente,
       fecha_registro: nowIso,
       origen: 'WEB',
-      registrado_por: 'SELF',
+      registrado_por: 'Paciente',
       observacion: newMeasurement.notes || '',
       evaluada_en: nowIso,
       tiene_alerta: [bpSeverity, sevBG, sevOX, sevT].some((s) => s !== 'normal'),
